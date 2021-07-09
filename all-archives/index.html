@@ -17,7 +17,7 @@
             <link rel="alternate" type="application/atom+xml" title="RSS" href="/atom.xml">
         
     
-    <script type="application/ld+json">{"@context":"http://schema.org","@type":"Website","@id":"http://example.com","author":{"@type":"Person","name":"chelseafandev","sameAs":[]},"name":"첼시팬 개발자 작업 공간","description":"","url":"http://example.com"}</script>
+    <script type="application/ld+json">{"@context":"http://schema.org","@type":"Website","@id":"http://example.com","author":{"@type":"Person","name":"chelseafandev","sameAs":[],"image":"chelsea_logo.png"},"name":"첼시팬 개발자 작업 공간","description":"","url":"http://example.com"}</script>
     <meta property="og:type" content="blog">
 <meta property="og:title" content="all-archives">
 <meta property="og:url" content="http://example.com/all-archives/index.html">
@@ -31,6 +31,8 @@
     
         
     
+    
+        <meta property="og:image" content="http://example.com/assets/images/chelsea_logo.png"/>
     
     
     
@@ -62,6 +64,10 @@
 
 
     
+        
+            
+        
+    
 
 <header id="header" data-behavior="2">
     <i id="btn-open-sidebar" class="fa fa-lg fa-bars"></i>
@@ -83,6 +89,8 @@
             >
         
         
+            <img class="header-picture" src="/assets/images/chelsea_logo.png" alt="저자 이미지"/>
+        
         </a>
     
 </header>
@@ -90,8 +98,26 @@
             <!-- Define author's picture -->
 
 
+
+        
+    
+
 <nav id="sidebar" data-behavior="2">
     <div class="sidebar-container">
+        
+            <div class="sidebar-profile">
+                <a
+                    href="/#about"
+                    aria-label="저자에 대해 더 알아보기"
+                >
+                    <img class="sidebar-profile-picture" src="/assets/images/chelsea_logo.png" alt="저자 이미지"/>
+                </a>
+                <h4 class="sidebar-profile-name">chelseafandev</h4>
+                
+                    <h5 class="sidebar-profile-bio"><p><a target="_blank" rel="noopener" href="https://github.com/junhaeng90">https://github.com/junhaeng90</a></p>
+</h5>
+                
+            </div>
         
         
             <ul class="sidebar-buttons">
@@ -107,6 +133,20 @@
                         >
                         <i class="sidebar-button-icon fa fa-home" aria-hidden="true"></i>
                         <span class="sidebar-button-desc">Home</span>
+                    </a>
+            </li>
+            
+                <li class="sidebar-button">
+                    
+                        <a
+                            class="sidebar-button-link "
+                            href="/all-translations"
+                            
+                            rel="noopener"
+                            title="global.translation"
+                        >
+                        <i class="sidebar-button-icon far fa-futbol" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">global.translation</span>
                     </a>
             </li>
             
@@ -149,20 +189,6 @@
                         >
                         <i class="sidebar-button-icon fa fa-archive" aria-hidden="true"></i>
                         <span class="sidebar-button-desc">아카이브</span>
-                    </a>
-            </li>
-            
-                <li class="sidebar-button">
-                    
-                        <a
-                            class="sidebar-button-link "
-                            href="#about"
-                            
-                            rel="noopener"
-                            title="About"
-                        >
-                        <i class="sidebar-button-icon fa fa-question" aria-hidden="true"></i>
-                        <span class="sidebar-button-desc">About</span>
                     </a>
             </li>
             
@@ -243,11 +269,17 @@
         
 
 
+    
+        
+    
+
 <div id="about">
     <div id="about-card">
         <div id="about-btn-close">
             <i class="fa fa-times"></i>
         </div>
+        
+            <img id="about-card-picture" src="/assets/images/chelsea_logo.png" alt="저자 이미지"/>
         
             <h4 id="about-card-name">chelseafandev</h4>
         
@@ -258,10 +290,16 @@
             <div id="about-card-job">
                 <i class="fa fa-briefcase"></i>
                 <br/>
-                <p>Seoul</p>
+                <p>개발자</p>
 
             </div>
         
+        
+            <div id="about-card-location">
+                <i class="fa fa-map-marker-alt"></i>
+                <br/>
+                서울, 대한민국
+            </div>
         
     </div>
 </div>
