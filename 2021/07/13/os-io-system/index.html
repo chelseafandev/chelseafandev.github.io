@@ -3,8 +3,8 @@
 <html lang="ko">
     
 <head>
-    <meta name="naver-site-verification" content="58a1dfc83c0291e45a5b7a83936375c168b94385">
-    <meta name="google-site-verification" content="Ojz5tvI9WuN6pn2n6i1E_mOkMyRiSSOp4KXuYSyaUjs">
+    <meta name="naver-site-verification" content="58a1dfc83c0291e45a5b7a83936375c168b94385" />
+    <meta name="google-site-verification" content="Ojz5tvI9WuN6pn2n6i1E_mOkMyRiSSOp4KXuYSyaUjs" />
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="generator" content="첼시팬 개발자 작업 공간">
@@ -16,7 +16,7 @@
     
     
         
-            <link rel="alternate" type="application/rss+xml" title="RSS" href="/rss2.xml">
+            <link rel="alternate" type="application/atom+xml" title="RSS" href="/atom.xml">
         
     
     <script type="application/ld+json">{"@context":"http://schema.org","@type":"BlogPosting","author":{"@type":"Person","name":"chelseafandev","sameAs":[],"image":"chelsea_logo.png"},"articleBody":"운영 체제의 바이블 Operating System Concepts(흔히 공룡책🦕이라고들 하죠)을 바탕으로 I/O 시스템에 대해 정리해보았습니다.\n\n\n\n\n\nI/O가 대체 뭐지?컴퓨터는 크게 2가지 역할을 수행한다고 볼 수 있는데 하나는 연산(computing) 이고, 하나는 I/O 즉, 입출력을 처리하는 것입니다. 대부분의 경우 컴퓨터의 주요한 역할은 입출력은 처리하는 I/O라고 생각하면 됩니다. (우리가 웹 페이지에 접속한다거나 파일을 편집하거나 또는 어떠한 정보를 읽거나 입력하고자 할 때 엄청난 연산이 일어나지는 않죠?)컴퓨터에서 운영 체제는 이러한 입출력에 대한 수행과 물리적인 입출력 장치(하드웨어)를 관리하고 컨트롤해주고 있습니다. 그렇다면 (키보드의 입력과 같은) 하드웨어가 주는 입출력 신호를 어떻게 내 PC에 있는 프로그램이 전달받아 처리할 수 있는 걸까요?\n\nI/O 요청은 어떻게 처리되는 걸까?공룡책🦕의 내용을 바탕으로 I/O 요청이 처리되는 과정을 하나씩 알아보도록 하겠습니다.\n\n\n\n유저 프로세스는 이전에 열어두었던 파일의 파일 디스크립터(fd)를 통해 blocking 함수인 read() 시스템 콜을 호출합니다.\n커널 내부의 시스템 콜 코드는 정확성을 위해 파라미터들을 체크합니다. input인 경우에 그 데이터가 이미 버퍼 캐시에 존재하여 접근이 가능한 상태라면 그 데이터는 유저 프로세스에게 곧바로 반환되고 I/O 요청은 완료됩니다.\n만약 버퍼 캐시에 데이터가 없는 상태라면 물리적인 I/O가 반드시 수행되어야 합니다. system call을 호출한 유저 프로세스는 run queue에서 제거되고 wait queue에 위치하게 됩니다. 그리고 I/O 요청이 작업 스케줄에 포함됩니다. 궁극적으로 I/O 서브 시스템은 해당 요청을 디바이스 드라이버로 전달합니다. 운영 체제의 종류에 따라 요청이 전달되는 방식은 subroutine call이 될 수도 있고, in-kernel message가 될 수도 있습니다.\n디바이스 드라이버는 커널 버퍼 공간을 할당하여 데이터를 받을 준비를 하고 I/O 스케줄을 처리합니다. 궁극적으로 드라이버는 디바이스 컨트롤 레지스터를 통해 컨트롤러에게 커맨드를 전달하게 됩니다.\n디바이스 컨트롤러는 데이터 전송을 수행하기 위해 디바이스 하드웨어를 동작시킵니다. 여기까지가 유저 프로세스의 요청이 실제 하드웨어까지 도달하는 과정입니다😁\n위 경우 (디바이스로 I/O 요청 전송이 완료된 경우 인터럽트를 발생시키는)DMA 컨트롤러가 전송 과정을 관리한다고 가정해봅시다.\n인터럽트벡터 테이블을 통해 해당 인터럽트 신호가 올바른 인터럽트 핸들러에게 전달되고, 이 핸들러는 필요한 모든 정보를 저장하고 디바이스 드라이버로 신호를 전달합니다.\n디바이스 드라이버가 신호를 전달받고 완료된 I/O 요청 및 요청 상태를 결정하고 커널 I/O 서브 시스템에 요청 정보가 완료됐다는 신호를 전달해줍니다.\n 커널은 전달받은 데이터를 전송하고 유저 프로세스의 주소 공간에 코드를 반환합니다. 그리고나서 유저 프로세스는 wait queue 에서 ready queue로 이동하게 됩니다.\n유저 프로세스를 ready queue로 이동시키는 작업은 해당 프로세스의 blocking 상태를 풀겠다는 의미입니다. 스케줄러는 유저 프로세스를 다시 CPU에 할당하고 시스템 콜이 완료되는 시점에 유저 프로세스는 실행 상태로 재개됩니다.\n\n\n로컬 PC의 키보드 입력을 원격지 PC로 전달하는 과정공룡책🦕에서 가져온 예시를 통해 키보드로 부터 들어온 입력 신호가 어떻게 내 PC의 프로그램으로 전달되는지, 더 나아가 전달받은 키보드 입력을 어떻게 멀리 떨어진 원격지 PC에 전달할 수 있는지 살펴보겠습니다.\n\n\n네트워크 트래픽 또한 높은 컨텍스트 스위치 비율을 가질 수 있습니다. 하나의 머신에서 또 다른 머신으로의 원격 로그인 상황을 한번 예로 들어 보겠습니다. 로컬 머신 에서 입력 되는 각각의 문자들은 원격지의 머신에게로 전달돼야 합니다. 로컬 머신에서의 상황을 보면 문자가 입력되고; 키보드 인터럽트가 발생하고; 입력된 문자는 인터럽트 핸들러와 디바이스 드라이버, 커널을 통과하여 사용자 프로세스에 도달합니다. 사용자 프로세스는 원격지 머신에 문자를 전송하기 위해 네트워크 I/O 시스템 콜을 호출하게 됩니다.\n\nNetwork traffic can also cause a high context-switch rate. Consider, for instance, a remote login from one machine to another. Each character typed on the local machine must be transported to the remote machine. On the local machine, the character is typed; a keyboard interrupt is generated; and the character is passed through the interrupt handler to the device driver, to the kernel, and then to the user process. The user process issues a network I/O system call to send the character to the remote machine.\n\n그리고 나서 전송되는 문자는 네트워크 패킷을 생성하는 네트워크 레이어를 통해 로컬 커널에서 네트워크 디바이스 드라이버로 흘러 들어갑니다. 네트워크 디바이스 드라이버는 전송할 문자가 포함된 네트워크 패킷을 네트워크 컨트롤러에 전달하며 이 과정에서 문자가 전송되고 인터럽트가 발생하게 됩니다. 인터럽트는 커널을 통해 유저 프로세스로 다시 돌아가게 되는데 이는 네트워크 I/O 시스템 콜이 완료됐음을 유저 프로세스에 알리기 위함입니다.\n\nThe character then flows into the local kernel, through the network layers that construct a network packet, and into the network device driver. The network device driver transfers the packet to the network controller, which sends the character and generates an interrupt. The interrupt is passed back up through the kernel to cause the network I/O system call to complete.\n\n이제 원격지 시스템(위 그림의 receiving system)의 네트워크 하드웨어는 (위 그림의 sending system에서 전송한) 패킷을 받게 되고 패킷 수신에 대한 인터럽트가 발생합니다. 전송된 문자는 네트워크 프로토콜을 통해 언패키징되고 적절한 네트워크 데몬으로 전달됩니다. 네트워크 데몬은 이 전송과 관련된 원격지 로그인 세션을 확인하여 해당 서브 데몬으로 패킷을 전달합니다. 이러한 과정에서 컨텍스트 스위치와 스테이트 스위치가 수반됩니다 (Figure 12.16).\n\nNow, the remote system’s network hardware receives the packet, and an interrupt is generated. The character is unpacked from the network protocols and is given to the appropriate network daemon. The network daemon identifies which remote login session is involved and passes the packet to the appropriate subdaemon for that session. Throughout this flow, there are context switches and state switches (Figure 12.16).\n\n\nI/O에 대해 정리해보면I/O란 하드웨어 장치를 통한 입출력 정보를 컴퓨터에서 구동 중인 어플리케이션에서 컨트롤하고자 할 때 사용하는 일종의 인터페이스라고 생각하시면 됩니다. I/O 시스템 콜은 물리적인 장치와 유저 프로세스(어플리케이션) 사이의 많은 소프트웨어 계층을 오가는 일이기 때문에 CPU 사용 측면에서 비용이 많이 드는 작업이기도 합니다. 이 둘 간에 존재하는 계층들은 커널의 보호 경계를 오가며 발생하는 컨텍스트 스위칭이나 I/O 장치를 서비스하기 위한 시그널링이나 인터럽트 핸들링, 커널 버퍼와 유저 프로세스(어플리케이션) 간의 데이터 복사 과정에서의 CPU나 메모리 시스템의 부하로부터 발생하는 일종의 오버헤드입니다.\n\nI/O system calls are costly in terms of CPU consumption because of the many layers of software between a physical device and an application. These layers imply overhead from several sources: context switching to cross the kernel’s protection boundary, signal and interrupt handling to service the I/O devices, and the load on the CPU and memory system to copy data between kernel buffers and application space.\n\n\nI/O를 좀 더 효율적으로 처리하기 위해서는?I/O 처리 과정의 효율성을 높이기 위한 몇가지 이론적인 가이드라인이 있습니다.\n\n컨텍스트 스위치의 횟수를 줄인다.\n디바이스 장치와 어플리케이션 간의 데이터 교환 과정에서 반드시 수행돼야 하는 메모리 상의 데이터 복사 횟수를 줄인다.\n대용량 전송, 스마트 컨트롤, 폴링을 사용함으로써 인터럽트의 빈도를 줄인다.\nCPU에서 발생하는 단순 데이터 복사 작업을 줄이기 위해 DMA-knowledgable 컨트롤러를 사용하거나 채널을 사용함으로써 동시성을 높인다.\n디바이스 컨트롤러에서의 operation을 CPU와 Bus에서의 operation과 동시에 처리하기 위해 I/O의 근본적 처리는 하드웨어로 이관한다. 5번 항목은 오역 가능성이 있습니다😲\nMove processing primitives into hardware, to allow their operation in device controllers to be concurrent with CPU and bus operation.\n\n\nCPU, 메모리 서브시스템, Bus, I/O 수행간(이들 중 어느 한쪽에 일이 몰린다는건 다른 쪽은 노는 시간이 발생한다는 의미)의 밸런스를 맞춘다.\n\n\n마치며지금까지 공룡책🦕을 바탕으로 I/O 시스템에 대해 간략히 정리해보는 시간을 가졌습니다. I/O 처리 단계별로 좀 더 세부적인 동작 방식을 알고 싶다면 아래 레퍼런스를 참고하시기 바랍니다.\n\n\n해당 게시글에서 발생한 오탈자나 잘못된 내용에 대한 정정 댓글 격하게 환영합니다😎\n\nReference\n\nAbraham Silberschatz, Greg Gagne, Peter B. Galvin. (2018). Operating System Concepts, 10th Edition. Wiley\n\n","dateCreated":"2021-07-13T14:33:00+09:00","dateModified":"2021-07-20T15:34:46+09:00","datePublished":"2021-07-13T14:33:00+09:00","description":"운영 체제의 바이블 Operating System Concepts(흔히 공룡책🦕이라고들 하죠)을 바탕으로 I/O 시스템에 대해 정리해보았습니다.","headline":"I/O system에 대한 고찰","image":[],"mainEntityOfPage":{"@type":"WebPage","@id":"https://junhaeng90.github.io/2021/07/13/os-io-system/"},"publisher":{"@type":"Organization","name":"chelseafandev","sameAs":[],"image":"chelsea_logo.png","logo":{"@type":"ImageObject","url":"chelsea_logo.png"}},"url":"https://junhaeng90.github.io/2021/07/13/os-io-system/","keywords":"I/O, I/O system"}</script>
@@ -41,7 +41,7 @@
         
     
     
-        <meta property="og:image" content="https://junhaeng90.github.io/assets/images/chelsea_logo.png">
+        <meta property="og:image" content="https://junhaeng90.github.io/assets/images/chelsea_logo.png"/>
     
     
     
@@ -67,7 +67,7 @@
     
         
     
-    <link rel="canonical" href="https://junhaeng90.github.io/2021/07/13/os-io-system/">
+    <link rel="canonical" href="https://junhaeng90.github.io/2021/07/13/os-io-system/"/>
 </head>
 
     <body>
@@ -84,16 +84,24 @@
 <header id="header" data-behavior="5">
     <i id="btn-open-sidebar" class="fa fa-lg fa-bars"></i>
     <div class="header-title">
-        <a class="header-title-link" href="/" aria-label>
+        <a
+            class="header-title-link"
+            href="/"
+            aria-label=""
+        >
             첼시팬 개발자 작업 공간
         </a>
     </div>
     
         
-            <a class="header-right-picture " href="#about" aria-label="링크 열기: /#about">
+            <a
+                class="header-right-picture "
+                href="#about"
+                aria-label="링크 열기: /#about"
+            >
         
         
-            <img class="header-picture" src="/assets/images/chelsea_logo.png" alt="저자 이미지">
+            <img class="header-picture" src="/assets/images/chelsea_logo.png" alt="저자 이미지"/>
         
         </a>
     
@@ -110,12 +118,15 @@
     <div class="sidebar-container">
         
             <div class="sidebar-profile">
-                <a href="/#about" aria-label="저자에 대해 더 알아보기">
-                    <img class="sidebar-profile-picture" src="/assets/images/chelsea_logo.png" alt="저자 이미지">
+                <a
+                    href="/#about"
+                    aria-label="저자에 대해 더 알아보기"
+                >
+                    <img class="sidebar-profile-picture" src="/assets/images/chelsea_logo.png" alt="저자 이미지"/>
                 </a>
                 <h4 class="sidebar-profile-name">chelseafandev</h4>
                 
-                    <h5 class="sidebar-profile-bio"><p><a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/junhaeng90">https://github.com/junhaeng90</a></p>
+                    <h5 class="sidebar-profile-bio"><p><a target="_blank" rel="noopener" href="https://github.com/junhaeng90">https://github.com/junhaeng90</a></p>
 </h5>
                 
             </div>
@@ -125,7 +136,13 @@
             
                 <li class="sidebar-button">
                     
-                        <a class="sidebar-button-link " href="/" rel="noopener" title="전체글">
+                        <a
+                            class="sidebar-button-link "
+                            href="/"
+                            
+                            rel="noopener"
+                            title="전체글"
+                        >
                         <i class="sidebar-button-icon fas fa-list-ul" aria-hidden="true"></i>
                         <span class="sidebar-button-desc">전체글</span>
                     </a>
@@ -133,7 +150,13 @@
             
                 <li class="sidebar-button">
                     
-                        <a class="sidebar-button-link " href="/all-categories" rel="noopener" title="카테고리">
+                        <a
+                            class="sidebar-button-link "
+                            href="/all-categories"
+                            
+                            rel="noopener"
+                            title="카테고리"
+                        >
                         <i class="sidebar-button-icon fa fa-bookmark" aria-hidden="true"></i>
                         <span class="sidebar-button-desc">카테고리</span>
                     </a>
@@ -141,7 +164,13 @@
             
                 <li class="sidebar-button">
                     
-                        <a class="sidebar-button-link " href="/all-tags" rel="noopener" title="태그">
+                        <a
+                            class="sidebar-button-link "
+                            href="/all-tags"
+                            
+                            rel="noopener"
+                            title="태그"
+                        >
                         <i class="sidebar-button-icon fa fa-tags" aria-hidden="true"></i>
                         <span class="sidebar-button-desc">태그</span>
                     </a>
@@ -149,7 +178,13 @@
             
                 <li class="sidebar-button">
                     
-                        <a class="sidebar-button-link " href="/all-archives" rel="noopener" title="아카이브">
+                        <a
+                            class="sidebar-button-link "
+                            href="/all-archives"
+                            
+                            rel="noopener"
+                            title="아카이브"
+                        >
                         <i class="sidebar-button-icon fa fa-archive" aria-hidden="true"></i>
                         <span class="sidebar-button-desc">아카이브</span>
                     </a>
@@ -161,7 +196,8 @@
 </nav>
 
             
-            <div id="main" data-behavior="5" class="
+            <div id="main" data-behavior="5"
+                 class="
                         hasCoverMetaIn
                         ">
                 
@@ -196,7 +232,7 @@
     
     <div class="post-content markdown">
         <div class="main-content-wrap">
-            <p>운영 체제의 바이블 <a target="_blank" rel="external nofollow noopener noreferrer" href="https://www.wiley.com/en-us/Operating+System+Concepts%2C+10th+Edition-p-9781119320913">Operating System Concepts</a>(흔히 공룡책🦕이라고들 하죠)을 바탕으로 I/O 시스템에 대해 정리해보았습니다.</p>
+            <p>운영 체제의 바이블 <a target="_blank" rel="noopener" href="https://www.wiley.com/en-us/Operating+System+Concepts%2C+10th+Edition-p-9781119320913">Operating System Concepts</a>(흔히 공룡책🦕이라고들 하죠)을 바탕으로 I/O 시스템에 대해 정리해보았습니다.</p>
 <span id="more"></span>
 
 <h1 id="table-of-contents">목차</h1><ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#I-O%EA%B0%80-%EB%8C%80%EC%B2%B4-%EB%AD%90%EC%A7%80"><span class="toc-text">I&#x2F;O가 대체 뭐지?</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#I-O-%EC%9A%94%EC%B2%AD%EC%9D%80-%EC%96%B4%EB%96%BB%EA%B2%8C-%EC%B2%98%EB%A6%AC%EB%90%98%EB%8A%94-%EA%B1%B8%EA%B9%8C"><span class="toc-text">I&#x2F;O 요청은 어떻게 처리되는 걸까?</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%EB%A1%9C%EC%BB%AC-PC%EC%9D%98-%ED%82%A4%EB%B3%B4%EB%93%9C-%EC%9E%85%EB%A0%A5%EC%9D%84-%EC%9B%90%EA%B2%A9%EC%A7%80-PC%EB%A1%9C-%EC%A0%84%EB%8B%AC%ED%95%98%EB%8A%94-%EA%B3%BC%EC%A0%95"><span class="toc-text">로컬 PC의 키보드 입력을 원격지 PC로 전달하는 과정</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#I-O%EC%97%90-%EB%8C%80%ED%95%B4-%EC%A0%95%EB%A6%AC%ED%95%B4%EB%B3%B4%EB%A9%B4"><span class="toc-text">I&#x2F;O에 대해 정리해보면</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#I-O%EB%A5%BC-%EC%A2%80-%EB%8D%94-%ED%9A%A8%EC%9C%A8%EC%A0%81%EC%9C%BC%EB%A1%9C-%EC%B2%98%EB%A6%AC%ED%95%98%EA%B8%B0-%EC%9C%84%ED%95%B4%EC%84%9C%EB%8A%94"><span class="toc-text">I&#x2F;O를 좀 더 효율적으로 처리하기 위해서는?</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%EB%A7%88%EC%B9%98%EB%A9%B0"><span class="toc-text">마치며</span></a></li></ol>
@@ -205,7 +241,7 @@
 <h2 id="I-O가-대체-뭐지"><a href="#I-O가-대체-뭐지" class="headerlink" title="I/O가 대체 뭐지?"></a>I/O가 대체 뭐지?</h2><p>컴퓨터는 크게 2가지 역할을 수행한다고 볼 수 있는데 하나는 <strong>연산(computing)</strong> 이고, 하나는 <strong>I/O</strong> 즉, <strong>입출력을 처리</strong>하는 것입니다. 대부분의 경우 컴퓨터의 주요한 역할은 입출력은 처리하는 I/O라고 생각하면 됩니다. (우리가 웹 페이지에 접속한다거나 파일을 편집하거나 또는 어떠한 정보를 읽거나 입력하고자 할 때 엄청난 연산이 일어나지는 않죠?)<br>컴퓨터에서 운영 체제는 이러한 입출력에 대한 수행과 물리적인 입출력 장치(하드웨어)를 관리하고 컨트롤해주고 있습니다. 그렇다면 (키보드의 입력과 같은) 하드웨어가 주는 입출력 신호를 어떻게 내 PC에 있는 프로그램이 전달받아 처리할 수 있는 걸까요?</p>
 <hr>
 <h2 id="I-O-요청은-어떻게-처리되는-걸까"><a href="#I-O-요청은-어떻게-처리되는-걸까" class="headerlink" title="I/O 요청은 어떻게 처리되는 걸까?"></a>I/O 요청은 어떻게 처리되는 걸까?</h2><p>공룡책🦕의 내용을 바탕으로 I/O 요청이 처리되는 과정을 하나씩 알아보도록 하겠습니다.<br><br></p>
-<div class="figure " style="width:;"><img class="fig-img" src="/assets/images/os-io-system-figure1.png" alt></div>
+<div class="figure " style="width:;"><img class="fig-img" src="/assets/images/os-io-system-figure1.png" alt=""></div>
 
 <ol>
 <li>유저 프로세스는 이전에 열어두었던 파일의 파일 디스크립터(fd)를 통해 blocking 함수인 read() 시스템 콜을 호출합니다.</li>
@@ -221,7 +257,7 @@
 </ol>
 <hr>
 <h2 id="로컬-PC의-키보드-입력을-원격지-PC로-전달하는-과정"><a href="#로컬-PC의-키보드-입력을-원격지-PC로-전달하는-과정" class="headerlink" title="로컬 PC의 키보드 입력을 원격지 PC로 전달하는 과정"></a>로컬 PC의 키보드 입력을 원격지 PC로 전달하는 과정</h2><p>공룡책🦕에서 가져온 예시를 통해 키보드로 부터 들어온 입력 신호가 어떻게 내 PC의 프로그램으로 전달되는지, 더 나아가 전달받은 키보드 입력을 어떻게 멀리 떨어진 원격지 PC에 전달할 수 있는지 살펴보겠습니다.<br><br></p>
-<div class="figure " style="width:;"><img class="fig-img" src="/assets/images/os-io-system-figure2.png" alt></div>
+<div class="figure " style="width:;"><img class="fig-img" src="/assets/images/os-io-system-figure2.png" alt=""></div>
 
 <p>네트워크 트래픽 또한 높은 컨텍스트 스위치 비율을 가질 수 있습니다. 하나의 머신에서 또 다른 머신으로의 원격 로그인 상황을 한번 예로 들어 보겠습니다. 로컬 머신 에서 입력 되는 각각의 문자들은 원격지의 머신에게로 전달돼야 합니다. 로컬 머신에서의 상황을 보면 문자가 입력되고; <span class="highlight-text green">키보드 인터럽트</span>가 발생하고; 입력된 문자는 <span class="highlight-text green">인터럽트 핸들러</span>와 <span class="highlight-text green">디바이스 드라이버</span>, <span class="highlight-text green">커널</span>을 통과하여 사용자 프로세스에 도달합니다. 사용자 프로세스는 원격지 머신에 문자를 전송하기 위해 <span class="highlight-text yellow">네트워크 I/O 시스템 콜</span>을 호출하게 됩니다.</p>
 <blockquote>
@@ -272,7 +308,7 @@
     <div id="post-footer" class="post-footer main-content-wrap">
         
             <div class="post-footer-tags">
-                <span class="text-color-light text-small">태그</span><br>
+                <span class="text-color-light text-small">태그</span><br/>
                 
     <a class="tag tag--primary tag--small t-none-link" href="/tags/I-O/" rel="tag">I/O</a> <a class="tag tag--primary tag--small t-none-link" href="/tags/I-O-system/" rel="tag">I/O system</a>
 
@@ -284,7 +320,10 @@
         <ul class="post-actions post-action-nav">
             <li class="post-action">
                 
-                    <a class="post-action-btn btn btn--disabled" aria-hidden="true">
+                    <a
+                        class="post-action-btn btn btn--disabled"
+                        aria-hidden="true"
+                    >
                         
                         <i class="fa fa-angle-left" aria-hidden="true"></i>
                         <span class="hide-xs hide-sm text-small icon-ml">이전</span>
@@ -293,7 +332,12 @@
             <li class="post-action">
                 
                     
-                <a class="post-action-btn btn btn--default tooltip--top" href="/2021/07/10/tr-ruud-gullit/" data-tooltip="(BBC 스포츠) 첼시 루드 굴리트 25년이 지난 지금 그의 프리미어그리 진출을 애정어린 시선으로 되돌아 보다" aria-label="다음: (BBC 스포츠) 첼시 루드 굴리트 25년이 지난 지금 그의 프리미어그리 진출을 애정어린 시선으로 되돌아 보다">
+                <a
+                    class="post-action-btn btn btn--default tooltip--top"
+                    href="/2021/07/10/tr-ruud-gullit/"
+                    data-tooltip="(BBC 스포츠) 첼시 루드 굴리트 25년이 지난 지금 그의 프리미어그리 진출을 애정어린 시선으로 되돌아 보다"
+                    aria-label="다음: (BBC 스포츠) 첼시 루드 굴리트 25년이 지난 지금 그의 프리미어그리 진출을 애정어린 시선으로 되돌아 보다"
+                >
                     
                         <span class="hide-xs hide-sm text-small icon-mr">다음</span>
                         <i class="fa fa-angle-right" aria-hidden="true"></i>
@@ -303,7 +347,11 @@
     </nav>
     <ul class="post-actions post-action-share">
         <li class="post-action hide-lg hide-md hide-sm">
-            <a class="post-action-btn btn btn--default btn-open-shareoptions" href="#btn-open-shareoptions" aria-label="이 포스트 공유하기">
+            <a
+                class="post-action-btn btn btn--default btn-open-shareoptions"
+                href="#btn-open-shareoptions"
+                aria-label="이 포스트 공유하기"
+            >
                 <i class="fa fa-share-alt" aria-hidden="true"></i>
             </a>
         </li>
@@ -311,7 +359,12 @@
             
             
             <li class="post-action hide-xs">
-                <a class="post-action-btn btn btn--default" target="_blank" href="https://www.facebook.com/sharer/sharer.php?u=https://junhaeng90.github.io/2021/07/13/os-io-system/" title="Facebook에 공유하기" aria-label="Facebook에 공유하기" rel="external nofollow noopener noreferrer">
+                <a
+                    class="post-action-btn btn btn--default"
+                    target="new" href="https://www.facebook.com/sharer/sharer.php?u=https://junhaeng90.github.io/2021/07/13/os-io-system/"
+                    title="Facebook에 공유하기"
+                    aria-label="Facebook에 공유하기"
+                >
                     <i class="fab fa-facebook" aria-hidden="true"></i>
                 </a>
             </li>
@@ -319,7 +372,12 @@
             
             
             <li class="post-action hide-xs">
-                <a class="post-action-btn btn btn--default" target="_blank" href="https://twitter.com/intent/tweet?text=https://junhaeng90.github.io/2021/07/13/os-io-system/" title="Twitter에 공유하기" aria-label="Twitter에 공유하기" rel="external nofollow noopener noreferrer">
+                <a
+                    class="post-action-btn btn btn--default"
+                    target="new" href="https://twitter.com/intent/tweet?text=https://junhaeng90.github.io/2021/07/13/os-io-system/"
+                    title="Twitter에 공유하기"
+                    aria-label="Twitter에 공유하기"
+                >
                     <i class="fab fa-twitter" aria-hidden="true"></i>
                 </a>
             </li>
@@ -327,7 +385,12 @@
             
             
             <li class="post-action hide-xs">
-                <a class="post-action-btn btn btn--default" target="_blank" href="https://plus.google.com/share?url=https://junhaeng90.github.io/2021/07/13/os-io-system/" title="Google+에 공유하기" aria-label="Google+에 공유하기" rel="external nofollow noopener noreferrer">
+                <a
+                    class="post-action-btn btn btn--default"
+                    target="new" href="https://plus.google.com/share?url=https://junhaeng90.github.io/2021/07/13/os-io-system/"
+                    title="Google+에 공유하기"
+                    aria-label="Google+에 공유하기"
+                >
                     <i class="fab fa-google-plus" aria-hidden="true"></i>
                 </a>
             </li>
@@ -358,7 +421,13 @@
 <!-- Comment -->
 <!--  utteranc comment -->
 
-<script src="https://utteranc.es/client.js" repo="junhaeng90/blog-comment" issue-term="title" label="Comment" theme="github-light" crossorigin="anonymous" async>
+<script src="https://utteranc.es/client.js"
+        repo="junhaeng90/blog-comment"
+        issue-term="title"
+        label="Comment"
+        theme="github-light"
+        crossorigin="anonymous"
+        async>
 </script>
 
                 <footer id="footer" class="main-content-wrap">
@@ -375,7 +444,10 @@
         <ul class="post-actions post-action-nav">
             <li class="post-action">
                 
-                    <a class="post-action-btn btn btn--disabled" aria-hidden="true">
+                    <a
+                        class="post-action-btn btn btn--disabled"
+                        aria-hidden="true"
+                    >
                         
                         <i class="fa fa-angle-left" aria-hidden="true"></i>
                         <span class="hide-xs hide-sm text-small icon-ml">이전</span>
@@ -384,7 +456,12 @@
             <li class="post-action">
                 
                     
-                <a class="post-action-btn btn btn--default tooltip--top" href="/2021/07/10/tr-ruud-gullit/" data-tooltip="(BBC 스포츠) 첼시 루드 굴리트 25년이 지난 지금 그의 프리미어그리 진출을 애정어린 시선으로 되돌아 보다" aria-label="다음: (BBC 스포츠) 첼시 루드 굴리트 25년이 지난 지금 그의 프리미어그리 진출을 애정어린 시선으로 되돌아 보다">
+                <a
+                    class="post-action-btn btn btn--default tooltip--top"
+                    href="/2021/07/10/tr-ruud-gullit/"
+                    data-tooltip="(BBC 스포츠) 첼시 루드 굴리트 25년이 지난 지금 그의 프리미어그리 진출을 애정어린 시선으로 되돌아 보다"
+                    aria-label="다음: (BBC 스포츠) 첼시 루드 굴리트 25년이 지난 지금 그의 프리미어그리 진출을 애정어린 시선으로 되돌아 보다"
+                >
                     
                         <span class="hide-xs hide-sm text-small icon-mr">다음</span>
                         <i class="fa fa-angle-right" aria-hidden="true"></i>
@@ -394,7 +471,11 @@
     </nav>
     <ul class="post-actions post-action-share">
         <li class="post-action hide-lg hide-md hide-sm">
-            <a class="post-action-btn btn btn--default btn-open-shareoptions" href="#btn-open-shareoptions" aria-label="이 포스트 공유하기">
+            <a
+                class="post-action-btn btn btn--default btn-open-shareoptions"
+                href="#btn-open-shareoptions"
+                aria-label="이 포스트 공유하기"
+            >
                 <i class="fa fa-share-alt" aria-hidden="true"></i>
             </a>
         </li>
@@ -402,7 +483,12 @@
             
             
             <li class="post-action hide-xs">
-                <a class="post-action-btn btn btn--default" target="_blank" href="https://www.facebook.com/sharer/sharer.php?u=https://junhaeng90.github.io/2021/07/13/os-io-system/" title="Facebook에 공유하기" aria-label="Facebook에 공유하기" rel="external nofollow noopener noreferrer">
+                <a
+                    class="post-action-btn btn btn--default"
+                    target="new" href="https://www.facebook.com/sharer/sharer.php?u=https://junhaeng90.github.io/2021/07/13/os-io-system/"
+                    title="Facebook에 공유하기"
+                    aria-label="Facebook에 공유하기"
+                >
                     <i class="fab fa-facebook" aria-hidden="true"></i>
                 </a>
             </li>
@@ -410,7 +496,12 @@
             
             
             <li class="post-action hide-xs">
-                <a class="post-action-btn btn btn--default" target="_blank" href="https://twitter.com/intent/tweet?text=https://junhaeng90.github.io/2021/07/13/os-io-system/" title="Twitter에 공유하기" aria-label="Twitter에 공유하기" rel="external nofollow noopener noreferrer">
+                <a
+                    class="post-action-btn btn btn--default"
+                    target="new" href="https://twitter.com/intent/tweet?text=https://junhaeng90.github.io/2021/07/13/os-io-system/"
+                    title="Twitter에 공유하기"
+                    aria-label="Twitter에 공유하기"
+                >
                     <i class="fab fa-twitter" aria-hidden="true"></i>
                 </a>
             </li>
@@ -418,7 +509,12 @@
             
             
             <li class="post-action hide-xs">
-                <a class="post-action-btn btn btn--default" target="_blank" href="https://plus.google.com/share?url=https://junhaeng90.github.io/2021/07/13/os-io-system/" title="Google+에 공유하기" aria-label="Google+에 공유하기" rel="external nofollow noopener noreferrer">
+                <a
+                    class="post-action-btn btn btn--default"
+                    target="new" href="https://plus.google.com/share?url=https://junhaeng90.github.io/2021/07/13/os-io-system/"
+                    title="Google+에 공유하기"
+                    aria-label="Google+에 공유하기"
+                >
                     <i class="fab fa-google-plus" aria-hidden="true"></i>
                 </a>
             </li>
@@ -446,7 +542,12 @@
                 
                 
                 <li class="share-option">
-                    <a class="share-option-btn" target="_blank" href="https://www.facebook.com/sharer/sharer.php?u=https://junhaeng90.github.io/2021/07/13/os-io-system/" aria-label="Facebook에 공유하기" rel="external nofollow noopener noreferrer">
+                    <a
+                        class="share-option-btn"
+                        target="new"
+                        href="https://www.facebook.com/sharer/sharer.php?u=https://junhaeng90.github.io/2021/07/13/os-io-system/"
+                        aria-label="Facebook에 공유하기"
+                    >
                         <i class="fab fa-facebook" aria-hidden="true"></i><span>Facebook에 공유하기</span>
                     </a>
                 </li>
@@ -454,7 +555,12 @@
                 
                 
                 <li class="share-option">
-                    <a class="share-option-btn" target="_blank" href="https://twitter.com/intent/tweet?text=https://junhaeng90.github.io/2021/07/13/os-io-system/" aria-label="Twitter에 공유하기" rel="external nofollow noopener noreferrer">
+                    <a
+                        class="share-option-btn"
+                        target="new"
+                        href="https://twitter.com/intent/tweet?text=https://junhaeng90.github.io/2021/07/13/os-io-system/"
+                        aria-label="Twitter에 공유하기"
+                    >
                         <i class="fab fa-twitter" aria-hidden="true"></i><span>Twitter에 공유하기</span>
                     </a>
                 </li>
@@ -462,7 +568,12 @@
                 
                 
                 <li class="share-option">
-                    <a class="share-option-btn" target="_blank" href="https://plus.google.com/share?url=https://junhaeng90.github.io/2021/07/13/os-io-system/" aria-label="Google+에 공유하기" rel="external nofollow noopener noreferrer">
+                    <a
+                        class="share-option-btn"
+                        target="new"
+                        href="https://plus.google.com/share?url=https://junhaeng90.github.io/2021/07/13/os-io-system/"
+                        aria-label="Google+에 공유하기"
+                    >
                         <i class="fab fa-google-plus" aria-hidden="true"></i><span>Google+에 공유하기</span>
                     </a>
                 </li>
@@ -486,17 +597,17 @@
             <i class="fa fa-times"></i>
         </div>
         
-            <img id="about-card-picture" src="/assets/images/chelsea_logo.png" alt="저자 이미지">
+            <img id="about-card-picture" src="/assets/images/chelsea_logo.png" alt="저자 이미지"/>
         
             <h4 id="about-card-name">chelseafandev</h4>
         
-            <div id="about-card-bio"><p><a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/junhaeng90">https://github.com/junhaeng90</a></p>
+            <div id="about-card-bio"><p><a target="_blank" rel="noopener" href="https://github.com/junhaeng90">https://github.com/junhaeng90</a></p>
 </div>
         
         
             <div id="about-card-job">
                 <i class="fa fa-briefcase"></i>
-                <br>
+                <br/>
                 <p>개발자</p>
 
             </div>
@@ -504,7 +615,7 @@
         
             <div id="about-card-location">
                 <i class="fa fa-map-marker-alt"></i>
-                <br>
+                <br/>
                 서울, 대한민국
             </div>
         
