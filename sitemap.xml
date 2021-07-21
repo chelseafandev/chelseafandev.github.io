@@ -3,12 +3,12 @@
 
 
     <sitemap>
-        <loc>http://example.com/post-sitemap.xml</loc>
+        <loc>https://junhaeng90.github.io/post-sitemap.xml</loc>
         <lastmod>2021-07-20T06:34:46.340Z</lastmod>
     </sitemap>
 
     <sitemap>
-        <loc>http://example.com/page-sitemap.xml</loc>
+        <loc>https://junhaeng90.github.io/page-sitemap.xml</loc>
         <lastmod>2021-07-09T00:41:47.010Z</lastmod>
     </sitemap>
 

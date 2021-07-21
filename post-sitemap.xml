@@ -2,14 +2,14 @@
 <urlset xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1" xsi:schemaLocation="http://www.sitemaps.org/schemas/sitemap/0.9 http://www.sitemaps.org/schemas/sitemap/0.9/sitemap.xsd" xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 
     <url>
-        <loc>http://example.com/</loc>
+        <loc>https://junhaeng90.github.io/</loc>
         <changefreq>daily</changefreq>
         <priority>1</priority>
     </url>
 
 
     <url>
-        <loc>http://example.com/2021/07/13/os-io-system/</loc>
+        <loc>https://junhaeng90.github.io/2021/07/13/os-io-system/</loc>
         <lastmod>2021-07-20T06:34:46.340Z</lastmod>
         <changefreq>weekly</changefreq>
         <priority>0.6</priority>
@@ -17,7 +17,7 @@
     </url>
 
     <url>
-        <loc>http://example.com/2021/07/08/hello-hexo/</loc>
+        <loc>https://junhaeng90.github.io/2021/07/08/hello-hexo/</loc>
         <lastmod>2021-07-12T02:50:12.320Z</lastmod>
         <changefreq>weekly</changefreq>
         <priority>0.6</priority>
@@ -25,7 +25,7 @@
     </url>
 
     <url>
-        <loc>http://example.com/2021/07/10/tr-ruud-gullit/</loc>
+        <loc>https://junhaeng90.github.io/2021/07/10/tr-ruud-gullit/</loc>
         <lastmod>2021-07-12T02:50:12.320Z</lastmod>
         <changefreq>weekly</changefreq>
         <priority>0.6</priority>
