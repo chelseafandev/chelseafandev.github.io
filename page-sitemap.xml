@@ -10,6 +10,15 @@
     
     
     <url>
+        <loc>http://example.com/googlea1f5cd234b28e962.html</loc>
+        <lastmod>2021-07-21T05:09:23.911Z</lastmod>
+        <changefreq>weekly</changefreq>
+        <priority>0.8</priority>
+    </url>
+    
+    
+    
+    <url>
         <loc>http://example.com/all-archives/</loc>
         <lastmod>2021-07-09T00:41:47.010Z</lastmod>
         <changefreq>weekly</changefreq>
