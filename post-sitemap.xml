@@ -10,39 +10,7 @@
 
     <url>
         <loc>https://chelseafandev.github.io/2021/11/09/gdb-chapter4-program-crash/</loc>
-        <lastmod>2021-11-19T07:26:00.490Z</lastmod>
-        <changefreq>weekly</changefreq>
-        <priority>0.6</priority>
-
-    </url>
-
-    <url>
-        <loc>https://chelseafandev.github.io/2021/07/08/hello-hexo/</loc>
-        <lastmod>2021-11-09T00:41:39.840Z</lastmod>
-        <changefreq>weekly</changefreq>
-        <priority>0.6</priority>
-
-    </url>
-
-    <url>
-        <loc>https://chelseafandev.github.io/2021/10/12/hyperscan-phase2/</loc>
-        <lastmod>2021-11-09T00:41:39.840Z</lastmod>
-        <changefreq>weekly</changefreq>
-        <priority>0.6</priority>
-
-    </url>
-
-    <url>
-        <loc>https://chelseafandev.github.io/2021/09/24/hyperscan-phase1/</loc>
-        <lastmod>2021-10-12T09:00:56.090Z</lastmod>
-        <changefreq>weekly</changefreq>
-        <priority>0.6</priority>
-
-    </url>
-
-    <url>
-        <loc>https://chelseafandev.github.io/2021/07/22/tip-how-to-use-tmux-md/</loc>
-        <lastmod>2021-09-08T02:29:33.440Z</lastmod>
+        <lastmod>2021-11-19T09:30:57.670Z</lastmod>
         <changefreq>weekly</changefreq>
         <priority>0.6</priority>
 
@@ -50,15 +18,7 @@
 
     <url>
         <loc>https://chelseafandev.github.io/2021/08/12/tr-son-new-contract/</loc>
-        <lastmod>2021-08-12T09:12:08.330Z</lastmod>
-        <changefreq>weekly</changefreq>
-        <priority>0.6</priority>
-
-    </url>
-
-    <url>
-        <loc>https://chelseafandev.github.io/2021/08/05/tr-lukaku-want-to-chelsea/</loc>
-        <lastmod>2021-08-12T05:17:14.300Z</lastmod>
+        <lastmod>2021-11-19T09:11:21.605Z</lastmod>
         <changefreq>weekly</changefreq>
         <priority>0.6</priority>
 
@@ -66,7 +26,23 @@
 
     <url>
         <loc>https://chelseafandev.github.io/2021/07/10/tr-ruud-gullit/</loc>
-        <lastmod>2021-08-12T05:17:14.300Z</lastmod>
+        <lastmod>2021-11-19T09:11:21.566Z</lastmod>
+        <changefreq>weekly</changefreq>
+        <priority>0.6</priority>
+
+    </url>
+
+    <url>
+        <loc>https://chelseafandev.github.io/2021/08/05/tr-lukaku-want-to-chelsea/</loc>
+        <lastmod>2021-11-19T09:11:21.504Z</lastmod>
+        <changefreq>weekly</changefreq>
+        <priority>0.6</priority>
+
+    </url>
+
+    <url>
+        <loc>https://chelseafandev.github.io/2021/07/22/tip-how-to-use-tmux-md/</loc>
+        <lastmod>2021-11-19T09:11:21.454Z</lastmod>
         <changefreq>weekly</changefreq>
         <priority>0.6</priority>
 
@@ -74,7 +50,7 @@
 
     <url>
         <loc>https://chelseafandev.github.io/2021/08/02/os-sync-async-block-nonblock/</loc>
-        <lastmod>2021-08-02T08:41:05.470Z</lastmod>
+        <lastmod>2021-11-19T09:11:21.413Z</lastmod>
         <changefreq>weekly</changefreq>
         <priority>0.6</priority>
 
@@ -82,7 +58,31 @@
 
     <url>
         <loc>https://chelseafandev.github.io/2021/07/13/os-io-system/</loc>
-        <lastmod>2021-08-02T06:59:37.920Z</lastmod>
+        <lastmod>2021-11-19T09:11:21.373Z</lastmod>
+        <changefreq>weekly</changefreq>
+        <priority>0.6</priority>
+
+    </url>
+
+    <url>
+        <loc>https://chelseafandev.github.io/2021/10/12/hyperscan-phase2/</loc>
+        <lastmod>2021-11-19T09:11:21.333Z</lastmod>
+        <changefreq>weekly</changefreq>
+        <priority>0.6</priority>
+
+    </url>
+
+    <url>
+        <loc>https://chelseafandev.github.io/2021/09/24/hyperscan-phase1/</loc>
+        <lastmod>2021-11-19T09:11:21.287Z</lastmod>
+        <changefreq>weekly</changefreq>
+        <priority>0.6</priority>
+
+    </url>
+
+    <url>
+        <loc>https://chelseafandev.github.io/2021/07/08/hello-hexo/</loc>
+        <lastmod>2021-11-19T09:11:21.174Z</lastmod>
         <changefreq>weekly</changefreq>
         <priority>0.6</priority>
 
