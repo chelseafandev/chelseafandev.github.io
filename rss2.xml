@@ -9,7 +9,7 @@
     <atom:link href="https://chelseafandev.github.io/rss2.xml" rel="self" type="application/rss+xml"/>
     
     <description></description>
-    <pubDate>Tue, 09 Nov 2021 07:59:54 GMT</pubDate>
+    <pubDate>Fri, 19 Nov 2021 07:26:00 GMT</pubDate>
     <generator>http://hexo.io/</generator>
     
     <item>
@@ -34,13 +34,13 @@
       
       <category domain="https://chelseafandev.github.io/tags/gdb-debugging/">gdb debugging</category>
       
-      <category domain="https://chelseafandev.github.io/tags/page/">page</category>
-      
-      <category domain="https://chelseafandev.github.io/tags/page-table/">page table</category>
-      
       <category domain="https://chelseafandev.github.io/tags/seg-fault/">seg fault</category>
       
       <category domain="https://chelseafandev.github.io/tags/segmentation-fault/">segmentation fault</category>
+      
+      <category domain="https://chelseafandev.github.io/tags/page/">page</category>
+      
+      <category domain="https://chelseafandev.github.io/tags/page-table/">page table</category>
       
       
       <comments>https://chelseafandev.github.io/2021/11/09/gdb-chapter4-program-crash/#disqus_thread</comments>
