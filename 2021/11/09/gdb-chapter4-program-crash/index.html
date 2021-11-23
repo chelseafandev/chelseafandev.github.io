@@ -8,7 +8,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="generator" content="첼시팬 개발자 작업 공간">
     <title>Seg Fault는 왜 발생하는가? - 첼시팬 개발자 작업 공간</title>
-    <meta name="author" content="chelseafandev">
+    <meta name="author" content="첼시팬개발자">
     
     
         <link rel="icon" href="https://chelseafandev.github.io/assets/images/chelsea_favicon.png">
@@ -18,7 +18,7 @@
             <link rel="alternate" type="application/rss+xml" title="RSS" href="/rss2.xml">
         
     
-    <script type="application/ld+json">{"@context":"http://schema.org","@type":"BlogPosting","author":{"@type":"Person","name":"chelseafandev","sameAs":[],"image":"chelsea_logo.png"},"articleBody":"이번 포스팅에서는 The Art of Debugging with GDB, DDD and Eclipse의 Chatper 4 WHEN A PROGRAM CRASHES 내용을 번역해보았습니다. 해당 챕터의 앞부분에서는 가상 주소 공간에서의 페이지(page)에 대한 개념을 소개하고 seg fault가 발생하는 원인을 페이지(page)와 연관지어 잘 설명해주고 있습니다.\n\n\n\n\n\n\n\n\nBackground Material: Memory ManagementWhy does a program crash?단연코 충돌이 발생하는 가장 일반적인 원인은 프로그램이 접근 권한이 없는 메모리 공간에 접근하려고 시도하기 때문입니다.\n\nBy far the most common cause of a crash is for a program to attempt to access a memory location without having the permission to do so.\n\n\n\nUnix 계열의 플랫폼에서는 일반적으로 프로그램이 segmentation fault(seg fault로 알려져있는)를 발생시켰다는 것을 알려주고 해당 프로그램의 실행을 중단할 것입니다.\n\nOn Unix-family platforms, the OS will normally announce that the program has caused a segmentation fault, commonly referred to as a seg fault, and discontinue execution of the program.\n\n\n\nseg fault를 처리하기 위한 용도로 GDB를 효율적으로 사용하기 위해서는, 메모리 접근 에러가 어떻게 발생하는지에 대해 정확히 이해하는 것이 중요합니다.\n\nIn order to effectively use GDB to deal with seg faults, it is important to understand exactly how memory access errors occur.\n\n\n\nProgram layout in memoryUnix 플랫폼에서 프로그램의 할당된 가상 주소들의 집합은 Figure 4-1 그림과 같은 형태로 배치되어있습니다.\n\nOn Unix platforms, a program’s set of allocated virtual addresses typically is laid out something like the diagram in Figure 4-1.\n\n\n\n\n\ntext section은 컴파일러가 당신의 프로그램 소스 코드로부터 생성해낸 기계 지시어들로 구성되어있습니다.\n\nThe text section consists of the machine instructions produced by the compiler from your program’s source code.\n\n\n\ndata section은 컴파일 타임에 할당되는 모든 프로그램 변수들을 포함합니다. (초기화된 변수는 data에 초기화되지않은 변수는 bss에)\n\nThe data section contains all the program variables that are allocated at compile time. \n\n\n\n당신의 프로그램이 런타임에 OS로부터 추가적인 메모리를 요청하는 경우에 요청된 메모리는 heap이라는 공간에 할당됩니다.\n\nWhen your program requests additional memory from the operating system at run time the requested memory is allocated in an area called the heap.\n\n\n\nstack section은 동적으로 할당된 데이터를 위한 공간입니다. 함수 호출 시 사용되는 인자들이나 지역 변수들 그리고 반환 주소값들이 stack 공간에 저장됩니다. stack은 함수 호출이 발생할 때 증가하고 호출자에게 함수가 다시 반환될때 줄어듭니다.\n\nThe stack section is space for dynamically allocated data. The data for function calls — including arguments, local variables, and return addresses — are stored on the stack. The stack grows each time a function call is made and shrinks each time a function returns to its caller.\n\n\n\nThe notion of pages가상 주소 공간은 page라고 불리는 덩어리(chunk)들의 구성으로 표현됩니다. RAM이나 ROM과 같은 물리적 메모리 또한 page들로 나누어진 무언가로 표현됩니다.\n\nA virtual address space is viewed as organized into chunks called pages. Physical memory (both RAM and ROM) is also viewed as divided into pages.\n\n\n\n실행에 의해 프로그램이 메모리에 로드될 때, OS는 프로그램의 몇몇 page들을 물리적 메모리의 page에 저장되도록 배열시킵니다. 이러한 page들을 resident라고 부르며 resident를 제외한 나머지 page들은 디스크에 저장됩니다.\n\nWhen a program is loaded into memory for execution, the OS arranges for some of the pages of the program to be stored in pages of physical memory. These pages are said to be resident, and the rest are stored on disk.\n\n\n\n지금 현재는 resident(물리적 메모리의 page에 저장된 프로그램의 page)가 아닌 몇몇 프로그램 page들이 프로그램이 실행 중에 있는 다양한 시간에 필요할 수 있습니다. 이러한 순간이 발생하는 경우에 그것은 하드웨어에 의해 감지되고 이를 통해 당신의 프로그램은 제어권을 OS로 넘겨주게 됩니다. OS는 요구되는 page를 메모리로 가져오고나서 제어권 다시 우리 프로그램에게 반환합니다. 쫓겨난 프로그램 page는 nonresident가 되고 디스크에 저장될 것입니다.\n\nAt various times during execution, some program page that is not currently resident will be needed. When this occurs, it will be sensed by the hardware, which transfers control to the OS. The latter brings the required page into memory and then returns control to our program. The evicted program page, if any, becomes nonresident and will be stored on disk.\n\n\n\n위의 모든 과정을 관리하기 위해서 OS는 각각의 프로세스마다 page table이라는 것을 유지합니다. 프로세스의 가상 page들 각각은 테이블 내의 entry를 가지고 있으며 이 entry에는 아래 정보들을 포함하고 있습니다.\n\nTo manage all of this, the OS maintains a page table for each process. Each of the process’s virtual pages has an entry in the table, which includes the following information:\n\n\n\n\npage의 메모리 혹은 디스크 상의 현재 물리적 위치 정보\npage의 read, write, execute 권한 정보\n\n\n\nThe current physical location of this page in memory or on disk.\nPermissions — read, write, execute — for this page.\n\n\n\n\nOS가 부분적인 page들을 프로그램에 할당하는 것이 아니라는 것에 주목합시다. 예를 들어, 실행 중인 프로그램이 약 10,000 bytes의 사이즈를 갖는다고 한다면, 이 프로그램이 온전히 로드됐을 경우 메모리의 3개 page를 차지(page 기본 사이즈가 4,096 bytes인 경우)할 것입니다. page는 VM 시스템에 의해 조작되는 메모리의 가장 작은 단위이기 때문에 약 2.5 page를 차지한다거나 하지는 않을것입니다. 바로 이 지점이 디버깅 시에 매우 중요한 포인트입니다. 왜냐하면 이것은 프로그램에 의해 발생하는 몇몇의 잘못된 메모리 접근들이 seg fault를 발생시키지 않을 것임을 의미하기 때문입니다. \n\nNote that the OS will not allocate partial pages to a program. For example, if the program to be run has a total size of about 10,000 bytes, it would occupy three pages of memory if fully loaded. It would not merely occupy about 2.5 pages, as pages are the smallest unit of memory manipulated by the VM system. This is an important point to understand when debugging, because it implies that some erroneous memory accesses by the program will not trigger seg faults, as you will see below. In other words, during your debugging session, you cannot say something like, “This line of source code must be okay, since it didn’t cause a seg fault.”\n\n\n\n다시 말해, 디버깅 세션에 있는 동안에 당신은 “소스 코드의 이 라인은 seg fault를 발생시키지 않았기 때문에 틀림없이 괜찮을 것이다”와 같이 이야기 할 수 없다는 것입니다.\n\nIn other words, during your debugging session, you cannot say something like, “This line of source code must be okay, since it didn’t cause a seg fault.”\n\n\n\nDetails on the role of the page tablepage 크기를 4,096 bytes 라고 가정\nvirtual page 0 : 0 ~ 4,095 bytesvirtual page 1 : 4,096 ~ 8,191 bytes…\nKeep the virtual address space in Table 4-1 in mind, and continue to assume that the page size is 4,096 bytes. Then virtual page 0 comprises bytes 0 though 4,095 of the virtual address space, page 1 comprises bytes 4,096 through 8,191, and so on.\n\n\n\n\n위에서 언급했듯이, 우리가 프로그램을 실행시킬때 OS는 프로그램 코드를 실행 시키는 프로세스의 가상 메모리를 관리하기 위한 page table을 생성합니다. 프로세스가 실행중이라면 언제든지 하드웨어의 page table register는 이 테이블을 가리키고 있을겁니다.\n\nAs mentioned, when we run a program, the OS creates a page table that it uses to manage the virtual memory of the process that executes the program code. Whenever that process runs, the hardware’s page table register will point to that table.\n\n\n\n개념적으로 이야기하자면, 프로세스의 가상 주소 공간의 각각의 page는 page table 안의 entry를 갖고 있습니다. 이 page table entry는 page와 관련된 다양한 정보들을 저장하고 있습니다. 이러한 정보 들중에서 seg faults와 관련된 데이터는 페이지에 대한 접근 권한입니다. 이는 read, write, execute와 같은 파일 접근 권한과 유사합니다. 예를 들어 page 3에 대한 page table entry는 여러분의 프로세스가 그 페이지로부터 데이터를 읽을 권한이 있는지, 그 페이지에 데이터를 쓸 권한이 있는지, 그 페이지에 지시어를 실행할 권한이 있는지 가리킬 것입니다.\n\nConceptually speaking, each page of the virtual address space of the process has an entry in the page table. This page table entry stores various pieces of information related to the page. The data of interest in relation to seg faults are the access permissions for the page, which are similar to file access permissions: read, write, and execute. For example, the page table entry for page 3 will indicate whether your process has the right to read data from that page, the right to write data to it, and the right to execute instructions on it.\n\n\n\n프로그램의 실행 과정에서, 프로그램의 실행에 의해 생성되는 주소들은 가상의 값일 것입니다. 프로그램이 y라고하는 특정한 가상 주소를 갖는 메모리에 접근하려고 할때, 하드웨어는 이 가상 주소 y를 가상 page 번호 v로 변환할 것입니다. 여기서 가상 page 번호인 v는 가상 주소 y를 4,096으로 나눈 것과 같습니다. 그리고나서 하드웨어는 page table내에서 entry값인 v가 수행하고자 하는 연산과 일치하는 권한을 가지고있는지 여부를 확인할 것입니다. 만약 일치한다면, 하드웨어는 이 table entry로부터 실제 물리적 메모리 공간의 page 번호를 얻어낼 것이며 요청된 메모리 연산을 수행할 것입니다. 하지만 만약 table entry가 요청한 연산에 대한 적절한 권한이 없을때에는 내부적인 인터럽트를 실행할 것입니다. 이 인터럽트는 OS의 에러 핸들링 루틴으로 jump하도록 합니다. OS는 일반적으로 메모리 접근 위반을 알려주고 프로그램의 실행을 중단시킵니다.\n\nDuring the execution of the program, the addresses it generates will be virtual. When the program attempts to access memory at a certain virtual address, say y, the hardware will convert that to a virtual page number v, which equals y divided by 4,096. The hardware will then check entry v in the page table to see whether the permissions for the page match the operation to be performed. If they do match, the hardware will get the desired location’s actual physical page number from this table entry and then carry out the requested memory operation. But if the table entry shows that the requested operation does not have the proper permission, the hardware will execute an internal interrupt. This will cause a jump to the OS’s error-handling routine. The OS will normally then announce a memory access violation and discontinue execution of the program.\n\n\n\nA slight memory-access bug might not cause a seg faultcpp12345678int q[200];main(){  int i;  for (i = 0; i &lt; 2000; i++) {    q[i] = i;  }}\n\n\n\n거의 대부분의 경우 실행 시간에 seg fault가 발생할 것입니다. 하지만 에러가 발생하는 시점이 당신을 놀라게 할 것입니다. 에러는 자연스러운 시점에 발생하지 않을 가능성이 있는데 다시 말해, i가 200인 경우가 아닌 그 이후 시점에 발생할 수 있다는 것입니다.\n\nAt execution time, a seg fault is quite likely to occur. However, the timing of the error may surprise you. The error is not likely to appear at the “natural” time, that is, when i = 200; rather, it is likely to happen much later than that. \n\n\n\n이 현상을 재현하기 위해 우리는 이 프로그램을 변수의 주소를 검색하기 편리한 GDB를 통해 실행시켰습니다. 이를 통해 seg fault는 i가 200이 아닌 728(테스트 환경에 따라 i의 값은 달라질 수 있음)에서 발생했다는 것을 확인할 수 있었습니다. 왜 이러한 현상이 발생하는지 살펴봅시다.\n\nTo illustrate this, we ran this program on a Linux PC under GDB, in order to conveniently query addresses of variables. It turned out that the seg fault occurred not at i = 200, but at i = 728. Let’s see why.\n\n\n\nGDB에 질의 결과, 우리는 배열 q(q[])의 주소값이 0x80497bf로 끝난다는 것을 확인했습니다. 즉, q[199]의 마지막 byte가 해당 메모리 주소에 존재한다는 것입니다. page 크기는 4,096 byte에 32-bit의 word 크기를 갖는 장치라고 고려해본다면, 가상 주소 공간은 20-bit의 page 넘버와 12-bit의 오프셋으로 나누어집니다. 우리 프로그램의 경우, 배열 q[]는 가상 page 넘버 0x8049 = 32841, 오프셋 값 0x7bf = 1983이 됩니다. 그래서 q가 할당된 메모리의 페이지 위에 여전히 2,112 byte의 공간이 남아있게 됩니다. 이 공간은 integer 변수 528개를 저장할 수 있으며, 우리 프로그램은 그것을 마치 q의 요소들이 포함된 공간으로 처리하게 됩니다(q[200] ~ q[727]).\n\nFrom queries to GDB we found that the array q[] ended at address 0x80497bf; that is, the last byte of q[199] was at that memory location. Taking into account the Intel page size of 4,096 bytes and the 32-bit word size of this machine, a virtual address breaks down into a 20-bit page number and a 12-bit offset. In our case, q[] ended in virtual page number 0x8049 = 32841, offset 0x7bf = 1983. So there were still 4,096 − 1,984 = 2,112 bytes on the page of memory on which q was allocated. That space can hold 2112 / 4 = 528 integer variables (since each is 4 bytes wide on the machine used here), and our code treated it as if it contained elements of q at “positions” 200 through 727.\n\n\n\n물론 q[] 배열의 이러한 요소(q[200] ~ q[727])들은 실제로 존재하지 않지만, 컴파일러는 불만을 제기하지 않습니다. 여전히 해당 페이지는 쓰기 권한을 가지고 있기 떄문에 하드웨어 또한 불만을 제기하지 않습니다. 오로지 i가 728이 되는 시점에 q[i]는 다른 page를 가리키게 됩니다. 바로 이 경우에, 해당 페이지에는 쓰기 권한이 없게되고 가상 메모리 하드웨어는 이를 감지하여 seg fault를 발생시킵니다.\n\nThose elements of q[] don’t exist, of course, but the compiler did not complain. Neither did the hardware, since the writes were still being performed to a page for which we certainly had write permission. Only when i became 728 did q[i] refer to an address on a different page. In this case, it was a page for which we didn’t have write (or any other) permission; the virtual memory hardware detected this and triggered a seg fault.\n\n\n\n교훈: 이전에 언급했듯이, seg fault가 발생하지 않았다는 것이 메모리 연산에 오류가 없다는 것은 아닙니다.\n\nThe moral: As stated earlier, we can’t conclude from the absence of a seg fault that a memory operation is correct.\n\n\n\n해당 게시글에서 발생한 오탈자나 잘못된 내용에 대한 정정 댓글 격하게 환영합니다😎\n\nReference\n\nNorman Matloff, Peter Jay Salzman. (2008). The Art of Debugging with GDB, DDD, and Eclipse. No Starch Press\nhttps://nostarch.com/debugging.htm\n\n","dateCreated":"2021-11-09T16:59:54+09:00","dateModified":"2021-11-19T18:30:57+09:00","datePublished":"2021-11-09T16:59:54+09:00","description":"이번 포스팅에서는 The Art of Debugging with GDB, DDD and Eclipse의 Chatper 4 WHEN A PROGRAM CRASHES 내용을 번역해보았습니다. 해당 챕터의 앞부분에서는 가상 주소 공간에서의 페이지(page)에 대한 개념을 소개하고 seg fault가 발생하는 원인을 페이지(page)와 연관지어 잘 설명해주고 있습니다.","headline":"Seg Fault는 왜 발생하는가?","image":[],"mainEntityOfPage":{"@type":"WebPage","@id":"https://chelseafandev.github.io/2021/11/09/gdb-chapter4-program-crash/"},"publisher":{"@type":"Organization","name":"chelseafandev","sameAs":[],"image":"chelsea_logo.png","logo":{"@type":"ImageObject","url":"chelsea_logo.png"}},"url":"https://chelseafandev.github.io/2021/11/09/gdb-chapter4-program-crash/","keywords":"gdb, coredump, gdb debugging, seg fault, segmentation fault, page, page table"}</script>
+    <script type="application/ld+json">{"@context":"http://schema.org","@type":"BlogPosting","author":{"@type":"Person","name":"첼시팬개발자","sameAs":[],"image":"chelsea_logo.png"},"articleBody":"이번 포스팅에서는 The Art of Debugging with GDB, DDD and Eclipse의 Chatper 4 WHEN A PROGRAM CRASHES 내용을 번역해보았습니다. 해당 챕터의 앞부분에서는 가상 주소 공간에서의 페이지(page)에 대한 개념을 소개하고 seg fault가 발생하는 원인을 페이지(page)와 연관지어 잘 설명해주고 있습니다.\n\n\n\n\n\n\n\n\nBackground Material: Memory ManagementWhy does a program crash?단연코 충돌이 발생하는 가장 일반적인 원인은 프로그램이 접근 권한이 없는 메모리 공간에 접근하려고 시도하기 때문입니다.\n\nBy far the most common cause of a crash is for a program to attempt to access a memory location without having the permission to do so.\n\n\n\nUnix 계열의 플랫폼에서는 일반적으로 프로그램이 segmentation fault(seg fault로 알려져있는)를 발생시켰다는 것을 알려주고 해당 프로그램의 실행을 중단할 것입니다.\n\nOn Unix-family platforms, the OS will normally announce that the program has caused a segmentation fault, commonly referred to as a seg fault, and discontinue execution of the program.\n\n\n\nseg fault를 처리하기 위한 용도로 GDB를 효율적으로 사용하기 위해서는, 메모리 접근 에러가 어떻게 발생하는지에 대해 정확히 이해하는 것이 중요합니다.\n\nIn order to effectively use GDB to deal with seg faults, it is important to understand exactly how memory access errors occur.\n\n\n\nProgram layout in memoryUnix 플랫폼에서 프로그램의 할당된 가상 주소들의 집합은 Figure 4-1 그림과 같은 형태로 배치되어있습니다.\n\nOn Unix platforms, a program’s set of allocated virtual addresses typically is laid out something like the diagram in Figure 4-1.\n\n\n\n\n\ntext section은 컴파일러가 당신의 프로그램 소스 코드로부터 생성해낸 기계 지시어들로 구성되어있습니다.\n\nThe text section consists of the machine instructions produced by the compiler from your program’s source code.\n\n\n\ndata section은 컴파일 타임에 할당되는 모든 프로그램 변수들을 포함합니다. (초기화된 변수는 data에 초기화되지않은 변수는 bss에)\n\nThe data section contains all the program variables that are allocated at compile time. \n\n\n\n당신의 프로그램이 런타임에 OS로부터 추가적인 메모리를 요청하는 경우에 요청된 메모리는 heap이라는 공간에 할당됩니다.\n\nWhen your program requests additional memory from the operating system at run time the requested memory is allocated in an area called the heap.\n\n\n\nstack section은 동적으로 할당된 데이터를 위한 공간입니다. 함수 호출 시 사용되는 인자들이나 지역 변수들 그리고 반환 주소값들이 stack 공간에 저장됩니다. stack은 함수 호출이 발생할 때 증가하고 호출자에게 함수가 다시 반환될때 줄어듭니다.\n\nThe stack section is space for dynamically allocated data. The data for function calls — including arguments, local variables, and return addresses — are stored on the stack. The stack grows each time a function call is made and shrinks each time a function returns to its caller.\n\n\n\nThe notion of pages가상 주소 공간은 page라고 불리는 덩어리(chunk)들의 구성으로 표현됩니다. RAM이나 ROM과 같은 물리적 메모리 또한 page들로 나누어진 무언가로 표현됩니다.\n\nA virtual address space is viewed as organized into chunks called pages. Physical memory (both RAM and ROM) is also viewed as divided into pages.\n\n\n\n실행에 의해 프로그램이 메모리에 로드될 때, OS는 프로그램의 몇몇 page들을 물리적 메모리의 page에 저장되도록 배열시킵니다. 이러한 page들을 resident라고 부르며 resident를 제외한 나머지 page들은 디스크에 저장됩니다.\n\nWhen a program is loaded into memory for execution, the OS arranges for some of the pages of the program to be stored in pages of physical memory. These pages are said to be resident, and the rest are stored on disk.\n\n\n\n지금 현재는 resident(물리적 메모리의 page에 저장된 프로그램의 page)가 아닌 몇몇 프로그램 page들이 프로그램이 실행 중에 있는 다양한 시간에 필요할 수 있습니다. 이러한 순간이 발생하는 경우에 그것은 하드웨어에 의해 감지되고 이를 통해 당신의 프로그램은 제어권을 OS로 넘겨주게 됩니다. OS는 요구되는 page를 메모리로 가져오고나서 제어권 다시 우리 프로그램에게 반환합니다. 쫓겨난 프로그램 page는 nonresident가 되고 디스크에 저장될 것입니다.\n\nAt various times during execution, some program page that is not currently resident will be needed. When this occurs, it will be sensed by the hardware, which transfers control to the OS. The latter brings the required page into memory and then returns control to our program. The evicted program page, if any, becomes nonresident and will be stored on disk.\n\n\n\n위의 모든 과정을 관리하기 위해서 OS는 각각의 프로세스마다 page table이라는 것을 유지합니다. 프로세스의 가상 page들 각각은 테이블 내의 entry를 가지고 있으며 이 entry에는 아래 정보들을 포함하고 있습니다.\n\nTo manage all of this, the OS maintains a page table for each process. Each of the process’s virtual pages has an entry in the table, which includes the following information:\n\n\n\n\npage의 메모리 혹은 디스크 상의 현재 물리적 위치 정보\npage의 read, write, execute 권한 정보\n\n\n\nThe current physical location of this page in memory or on disk.\nPermissions — read, write, execute — for this page.\n\n\n\n\nOS가 부분적인 page들을 프로그램에 할당하는 것이 아니라는 것에 주목합시다. 예를 들어, 실행 중인 프로그램이 약 10,000 bytes의 사이즈를 갖는다고 한다면, 이 프로그램이 온전히 로드됐을 경우 메모리의 3개 page를 차지(page 기본 사이즈가 4,096 bytes인 경우)할 것입니다. page는 VM 시스템에 의해 조작되는 메모리의 가장 작은 단위이기 때문에 약 2.5 page를 차지한다거나 하지는 않을것입니다. 바로 이 지점이 디버깅 시에 매우 중요한 포인트입니다. 왜냐하면 이것은 프로그램에 의해 발생하는 몇몇의 잘못된 메모리 접근들이 seg fault를 발생시키지 않을 것임을 의미하기 때문입니다. \n\nNote that the OS will not allocate partial pages to a program. For example, if the program to be run has a total size of about 10,000 bytes, it would occupy three pages of memory if fully loaded. It would not merely occupy about 2.5 pages, as pages are the smallest unit of memory manipulated by the VM system. This is an important point to understand when debugging, because it implies that some erroneous memory accesses by the program will not trigger seg faults, as you will see below. In other words, during your debugging session, you cannot say something like, “This line of source code must be okay, since it didn’t cause a seg fault.”\n\n\n\n다시 말해, 디버깅 세션에 있는 동안에 당신은 “소스 코드의 이 라인은 seg fault를 발생시키지 않았기 때문에 틀림없이 괜찮을 것이다”와 같이 이야기 할 수 없다는 것입니다.\n\nIn other words, during your debugging session, you cannot say something like, “This line of source code must be okay, since it didn’t cause a seg fault.”\n\n\n\nDetails on the role of the page tablepage 크기를 4,096 bytes 라고 가정\nvirtual page 0 : 0 ~ 4,095 bytesvirtual page 1 : 4,096 ~ 8,191 bytes…\nKeep the virtual address space in Table 4-1 in mind, and continue to assume that the page size is 4,096 bytes. Then virtual page 0 comprises bytes 0 though 4,095 of the virtual address space, page 1 comprises bytes 4,096 through 8,191, and so on.\n\n\n\n\n위에서 언급했듯이, 우리가 프로그램을 실행시킬때 OS는 프로그램 코드를 실행 시키는 프로세스의 가상 메모리를 관리하기 위한 page table을 생성합니다. 프로세스가 실행중이라면 언제든지 하드웨어의 page table register는 이 테이블을 가리키고 있을겁니다.\n\nAs mentioned, when we run a program, the OS creates a page table that it uses to manage the virtual memory of the process that executes the program code. Whenever that process runs, the hardware’s page table register will point to that table.\n\n\n\n개념적으로 이야기하자면, 프로세스의 가상 주소 공간의 각각의 page는 page table 안의 entry를 갖고 있습니다. 이 page table entry는 page와 관련된 다양한 정보들을 저장하고 있습니다. 이러한 정보 들중에서 seg faults와 관련된 데이터는 페이지에 대한 접근 권한입니다. 이는 read, write, execute와 같은 파일 접근 권한과 유사합니다. 예를 들어 page 3에 대한 page table entry는 여러분의 프로세스가 그 페이지로부터 데이터를 읽을 권한이 있는지, 그 페이지에 데이터를 쓸 권한이 있는지, 그 페이지에 지시어를 실행할 권한이 있는지 가리킬 것입니다.\n\nConceptually speaking, each page of the virtual address space of the process has an entry in the page table. This page table entry stores various pieces of information related to the page. The data of interest in relation to seg faults are the access permissions for the page, which are similar to file access permissions: read, write, and execute. For example, the page table entry for page 3 will indicate whether your process has the right to read data from that page, the right to write data to it, and the right to execute instructions on it.\n\n\n\n프로그램의 실행 과정에서, 프로그램의 실행에 의해 생성되는 주소들은 가상의 값일 것입니다. 프로그램이 y라고하는 특정한 가상 주소를 갖는 메모리에 접근하려고 할때, 하드웨어는 이 가상 주소 y를 가상 page 번호 v로 변환할 것입니다. 여기서 가상 page 번호인 v는 가상 주소 y를 4,096으로 나눈 것과 같습니다. 그리고나서 하드웨어는 page table내에서 entry값인 v가 수행하고자 하는 연산과 일치하는 권한을 가지고있는지 여부를 확인할 것입니다. 만약 일치한다면, 하드웨어는 이 table entry로부터 실제 물리적 메모리 공간의 page 번호를 얻어낼 것이며 요청된 메모리 연산을 수행할 것입니다. 하지만 만약 table entry가 요청한 연산에 대한 적절한 권한이 없을때에는 내부적인 인터럽트를 실행할 것입니다. 이 인터럽트는 OS의 에러 핸들링 루틴으로 jump하도록 합니다. OS는 일반적으로 메모리 접근 위반을 알려주고 프로그램의 실행을 중단시킵니다.\n\nDuring the execution of the program, the addresses it generates will be virtual. When the program attempts to access memory at a certain virtual address, say y, the hardware will convert that to a virtual page number v, which equals y divided by 4,096. The hardware will then check entry v in the page table to see whether the permissions for the page match the operation to be performed. If they do match, the hardware will get the desired location’s actual physical page number from this table entry and then carry out the requested memory operation. But if the table entry shows that the requested operation does not have the proper permission, the hardware will execute an internal interrupt. This will cause a jump to the OS’s error-handling routine. The OS will normally then announce a memory access violation and discontinue execution of the program.\n\n\n\nA slight memory-access bug might not cause a seg faultcpp12345678int q[200];main(){  int i;  for (i = 0; i &lt; 2000; i++) {    q[i] = i;  }}\n\n\n\n거의 대부분의 경우 실행 시간에 seg fault가 발생할 것입니다. 하지만 에러가 발생하는 시점이 당신을 놀라게 할 것입니다. 에러는 자연스러운 시점에 발생하지 않을 가능성이 있는데 다시 말해, i가 200인 경우가 아닌 그 이후 시점에 발생할 수 있다는 것입니다.\n\nAt execution time, a seg fault is quite likely to occur. However, the timing of the error may surprise you. The error is not likely to appear at the “natural” time, that is, when i = 200; rather, it is likely to happen much later than that. \n\n\n\n이 현상을 재현하기 위해 우리는 이 프로그램을 변수의 주소를 검색하기 편리한 GDB를 통해 실행시켰습니다. 이를 통해 seg fault는 i가 200이 아닌 728(테스트 환경에 따라 i의 값은 달라질 수 있음)에서 발생했다는 것을 확인할 수 있었습니다. 왜 이러한 현상이 발생하는지 살펴봅시다.\n\nTo illustrate this, we ran this program on a Linux PC under GDB, in order to conveniently query addresses of variables. It turned out that the seg fault occurred not at i = 200, but at i = 728. Let’s see why.\n\n\n\nGDB에 질의 결과, 우리는 배열 q(q[])의 주소값이 0x80497bf로 끝난다는 것을 확인했습니다. 즉, q[199]의 마지막 byte가 해당 메모리 주소에 존재한다는 것입니다. page 크기는 4,096 byte에 32-bit의 word 크기를 갖는 장치라고 고려해본다면, 가상 주소 공간은 20-bit의 page 넘버와 12-bit의 오프셋으로 나누어집니다. 우리 프로그램의 경우, 배열 q[]는 가상 page 넘버 0x8049 = 32841, 오프셋 값 0x7bf = 1983이 됩니다. 그래서 q가 할당된 메모리의 페이지 위에 여전히 2,112 byte의 공간이 남아있게 됩니다. 이 공간은 integer 변수 528개를 저장할 수 있으며, 우리 프로그램은 그것을 마치 q의 요소들이 포함된 공간으로 처리하게 됩니다(q[200] ~ q[727]).\n\nFrom queries to GDB we found that the array q[] ended at address 0x80497bf; that is, the last byte of q[199] was at that memory location. Taking into account the Intel page size of 4,096 bytes and the 32-bit word size of this machine, a virtual address breaks down into a 20-bit page number and a 12-bit offset. In our case, q[] ended in virtual page number 0x8049 = 32841, offset 0x7bf = 1983. So there were still 4,096 − 1,984 = 2,112 bytes on the page of memory on which q was allocated. That space can hold 2112 / 4 = 528 integer variables (since each is 4 bytes wide on the machine used here), and our code treated it as if it contained elements of q at “positions” 200 through 727.\n\n\n\n물론 q[] 배열의 이러한 요소(q[200] ~ q[727])들은 실제로 존재하지 않지만, 컴파일러는 불만을 제기하지 않습니다. 여전히 해당 페이지는 쓰기 권한을 가지고 있기 떄문에 하드웨어 또한 불만을 제기하지 않습니다. 오로지 i가 728이 되는 시점에 q[i]는 다른 page를 가리키게 됩니다. 바로 이 경우에, 해당 페이지에는 쓰기 권한이 없게되고 가상 메모리 하드웨어는 이를 감지하여 seg fault를 발생시킵니다.\n\nThose elements of q[] don’t exist, of course, but the compiler did not complain. Neither did the hardware, since the writes were still being performed to a page for which we certainly had write permission. Only when i became 728 did q[i] refer to an address on a different page. In this case, it was a page for which we didn’t have write (or any other) permission; the virtual memory hardware detected this and triggered a seg fault.\n\n\n\n교훈: 이전에 언급했듯이, seg fault가 발생하지 않았다는 것이 메모리 연산에 오류가 없다는 것은 아닙니다.\n\nThe moral: As stated earlier, we can’t conclude from the absence of a seg fault that a memory operation is correct.\n\n\n\n해당 게시글에서 발생한 오탈자나 잘못된 내용에 대한 정정 댓글 격하게 환영합니다😎\n\nReference\n\nNorman Matloff, Peter Jay Salzman. (2008). The Art of Debugging with GDB, DDD, and Eclipse. No Starch Press\nhttps://nostarch.com/debugging.htm\n\n","dateCreated":"2021-11-09T16:59:54+09:00","dateModified":"2021-11-19T18:30:57+09:00","datePublished":"2021-11-09T16:59:54+09:00","description":"이번 포스팅에서는 The Art of Debugging with GDB, DDD and Eclipse의 Chatper 4 WHEN A PROGRAM CRASHES 내용을 번역해보았습니다. 해당 챕터의 앞부분에서는 가상 주소 공간에서의 페이지(page)에 대한 개념을 소개하고 seg fault가 발생하는 원인을 페이지(page)와 연관지어 잘 설명해주고 있습니다.","headline":"Seg Fault는 왜 발생하는가?","image":[],"mainEntityOfPage":{"@type":"WebPage","@id":"https://chelseafandev.github.io/2021/11/09/gdb-chapter4-program-crash/"},"publisher":{"@type":"Organization","name":"첼시팬개발자","sameAs":[],"image":"chelsea_logo.png","logo":{"@type":"ImageObject","url":"chelsea_logo.png"}},"url":"https://chelseafandev.github.io/2021/11/09/gdb-chapter4-program-crash/","keywords":"gdb, coredump, gdb debugging, seg fault, segmentation fault, page, page table"}</script>
     <meta name="description" content="이번 포스팅에서는 The Art of Debugging with GDB, DDD and Eclipse의 Chatper 4 WHEN A PROGRAM CRASHES 내용을 번역해보았습니다. 해당 챕터의 앞부분에서는 가상 주소 공간에서의 페이지(page)에 대한 개념을 소개하고 seg fault가 발생하는 원인을 페이지(page)와 연관지어 잘 설명해주고 있습">
 <meta property="og:type" content="blog">
 <meta property="og:title" content="Seg Fault는 왜 발생하는가?">
@@ -29,7 +29,7 @@
 <meta property="og:image" content="https://chelseafandev.github.io/assets/images/figure-4-1-program-memory-layout.png">
 <meta property="article:published_time" content="2021-11-09T07:59:54.000Z">
 <meta property="article:modified_time" content="2021-11-19T09:30:57.670Z">
-<meta property="article:author" content="chelseafandev">
+<meta property="article:author" content="첼시팬개발자">
 <meta property="article:tag" content="gdb">
 <meta property="article:tag" content="coredump">
 <meta property="article:tag" content="gdb debugging">
@@ -84,7 +84,7 @@
         
     
 
-<header id="header" data-behavior="5">
+<header id="header" data-behavior="4">
     <i id="btn-open-sidebar" class="fa fa-lg fa-bars"></i>
     <div class="header-title">
         <a class="header-title-link" href="/" aria-label>
@@ -109,16 +109,16 @@
         
     
 
-<nav id="sidebar" data-behavior="5">
+<nav id="sidebar" data-behavior="4" style="border-top-width: 100px;padding-top: 150px;">
     <div class="sidebar-container">
         
             <div class="sidebar-profile">
                 <a href="/#about" aria-label="저자에 대해 더 알아보기">
                     <img class="sidebar-profile-picture" src="/assets/images/chelsea_logo.png" alt="저자 이미지">
                 </a>
-                <h4 class="sidebar-profile-name">chelseafandev</h4>
+                <h4 class="sidebar-profile-name">첼시팬개발자</h4>
                 
-                    <h5 class="sidebar-profile-bio"><p><a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/chelseafandev">https://github.com/chelseafandev</a></p>
+                    <h5 class="sidebar-profile-bio"><p>조금 더디더라도 꾸준히</p>
 </h5>
                 
             </div>
@@ -158,13 +158,29 @@
                     </a>
             </li>
             
+                <li class="sidebar-button">
+                    
+                        <a class="sidebar-button-link open-algolia-search" href="#search" rel="noopener" title="검색">
+                        <i class="sidebar-button-icon fa fa-search" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">검색</span>
+                    </a>
+            </li>
+            
+                <li class="sidebar-button">
+                    
+                        <a class="sidebar-button-link " href="https://github.com/chelseafandev" target="_blank" rel="external nofollow noopener noreferrer" title="GitHub">
+                        <i class="sidebar-button-icon fab fa-github" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">GitHub</span>
+                    </a>
+            </li>
+            
         </ul>
         
     </div>
 </nav>
 
             
-            <div id="main" data-behavior="5" class="
+            <div id="main" data-behavior="4" class="
                         hasCoverMetaIn
                         ">
                 
@@ -472,13 +488,13 @@
 
                 <footer id="footer" class="main-content-wrap">
     <span class="copyrights">
-        Copyrights &copy; 2021 chelseafandev. All Rights Reserved.
+        Copyrights &copy; 2021 첼시팬개발자. All Rights Reserved.
     </span>
 </footer>
 
             </div>
             
-                <div id="bottom-bar" class="post-bottom-bar" data-behavior="5">
+                <div id="bottom-bar" class="post-bottom-bar" data-behavior="4">
                     <div class="post-actions-wrap">
     <nav>
         <ul class="post-actions post-action-nav">
@@ -548,7 +564,7 @@
 
                 </div>
                 
-    <div id="share-options-bar" class="share-options-bar" data-behavior="5">
+    <div id="share-options-bar" class="share-options-bar" data-behavior="4">
         <i id="btn-close-shareoptions" class="fa fa-times"></i>
         <ul class="share-options">
             
@@ -597,9 +613,9 @@
         
             <img id="about-card-picture" src="/assets/images/chelsea_logo.png" alt="저자 이미지">
         
-            <h4 id="about-card-name">chelseafandev</h4>
+            <h4 id="about-card-name">첼시팬개발자</h4>
         
-            <div id="about-card-bio"><p><a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/chelseafandev">https://github.com/chelseafandev</a></p>
+            <div id="about-card-bio"><p>조금 더디더라도 꾸준히</p>
 </div>
         
         
@@ -617,6 +633,224 @@
                 서울, 대한민국
             </div>
         
+    </div>
+</div>
+
+        
+            <div id="algolia-search-modal" class="modal-container">
+    <div class="modal">
+        <div class="modal-header">
+            <span class="close-button"><i class="fa fa-times"></i></span>
+            <a href="https://algolia.com" target="_blank" rel="external nofollow noopener noreferrer" class="searchby-algolia text-color-light link-unstyled">
+                <span class="searchby-algolia-text text-color-light text-small">by</span>
+                <img class="searchby-algolia-logo" src="/assets/images/logo-algolia-nebula-blue-full.svg">
+            </a>
+            <i class="search-icon fa fa-search"></i>
+            <form id="algolia-search-form">
+                <input type="text" id="algolia-search-input" name="search" class="form-control input--large search-input" placeholder="Search ">
+            </form>
+        </div>
+        <div class="modal-body">
+            <div class="no-result text-color-light text-center">포스트가 없습니다.</div>
+            <div class="results">
+                
+                <div class="media">
+                    
+                    <div class="media-body">
+                        <a class="link-unstyled" href="https://chelseafandev.github.io/2021/07/08/hello-hexo/" aria-label=": Hexo Tranquilpeak 테마의 Markdown syntax">
+                            <h3 class="media-heading">Hexo Tranquilpeak 테마의 Markdown syntax</h3>
+                        </a>
+                        <span class="media-meta">
+                            <span class="media-date text-small">
+                                
+                                    2021년 7월 8일
+                                
+                            </span>
+                        </span>
+                        <div class="media-content hide-xs font-nanumsquareround"><p>Hexo 테마 중 하나인 <a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/LouisBarranqueiro/hexo-theme-tranquilpeak/blob/master/DOCUMENTATION.md">Tranquilpeak의 공식 문서</a>를 참조하여 Post시에 활용할 수 있는 다양한 Markdown syntax들을 사용해보았습니다.</p></div>
+                    </div>
+                    <div style="clear:both;"></div>
+                    <hr>
+                </div>
+                
+                <div class="media">
+                    
+                    <div class="media-body">
+                        <a class="link-unstyled" href="https://chelseafandev.github.io/2021/07/10/tr-ruud-gullit/" aria-label=": (BBC 스포츠) 첼시 루드 굴리트 25년이 지난 지금 그의 프리미어그리 진출을 애정어린 시선으로 되돌아 보다">
+                            <h3 class="media-heading">(BBC 스포츠) 첼시 루드 굴리트 25년이 지난 지금 그의 프리미어그리 진출을 애정어린 시선으로 되돌아 보다</h3>
+                        </a>
+                        <span class="media-meta">
+                            <span class="media-date text-small">
+                                
+                                    2021년 7월 10일
+                                
+                            </span>
+                        </span>
+                        <div class="media-content hide-xs font-nanumsquareround"><p>피파 좀 한다는 사람이라면 모두가 다 알만한 그 분, X사기캐 굴리트😬<br>커리어 막바지에 첼시에서도 잠깐 활약했었네요.<br><a target="_blank" rel="external nofollow noopener noreferrer" href="https://www.bbc.com/sport/football/52904670">BBC Sport에 굴리트가 직접 기고한 회고록 느낌의 글</a>을 한번 번역해보았습니다.</p></div>
+                    </div>
+                    <div style="clear:both;"></div>
+                    <hr>
+                </div>
+                
+                <div class="media">
+                    
+                    <div class="media-body">
+                        <a class="link-unstyled" href="https://chelseafandev.github.io/2021/07/13/os-io-system/" aria-label=": I/O는 어떻게 처리될까?">
+                            <h3 class="media-heading">I/O는 어떻게 처리될까?</h3>
+                        </a>
+                        <span class="media-meta">
+                            <span class="media-date text-small">
+                                
+                                    2021년 7월 13일
+                                
+                            </span>
+                        </span>
+                        <div class="media-content hide-xs font-nanumsquareround"><p>운영 체제의 바이블 <a target="_blank" rel="external nofollow noopener noreferrer" href="https://www.wiley.com/en-us/Operating+System+Concepts%2C+10th+Edition-p-9781119320913">Operating System Concepts</a>(흔히 공룡책🦕이라고들 하죠)을 바탕으로 I/O 시스템에 대해 정리해보았습니다.</p></div>
+                    </div>
+                    <div style="clear:both;"></div>
+                    <hr>
+                </div>
+                
+                <div class="media">
+                    
+                    <div class="media-body">
+                        <a class="link-unstyled" href="https://chelseafandev.github.io/2021/07/22/tip-how-to-use-tmux-md/" aria-label=": 강력한 터미널 멀티플렉서 tmux를 활용해보자">
+                            <h3 class="media-heading">강력한 터미널 멀티플렉서 tmux를 활용해보자</h3>
+                        </a>
+                        <span class="media-meta">
+                            <span class="media-date text-small">
+                                
+                                    2021년 7월 22일
+                                
+                            </span>
+                        </span>
+                        <div class="media-content hide-xs font-nanumsquareround"><p>이번엔 익숙해지면 정말 강력한 터미널 멀티플렉서인 tmux에 대해 소개해보려고 합니다.</p></div>
+                    </div>
+                    <div style="clear:both;"></div>
+                    <hr>
+                </div>
+                
+                <div class="media">
+                    
+                    <div class="media-body">
+                        <a class="link-unstyled" href="https://chelseafandev.github.io/2021/08/02/os-sync-async-block-nonblock/" aria-label=": Blocking, Nonblocking, Sync, Async">
+                            <h3 class="media-heading">Blocking, Nonblocking, Sync, Async</h3>
+                        </a>
+                        <span class="media-meta">
+                            <span class="media-date text-small">
+                                
+                                    2021년 8월 2일
+                                
+                            </span>
+                        </span>
+                        <div class="media-content hide-xs font-nanumsquareround"><p>오늘은 공룡책🦕에 언급된 Blocking과 Nonblocking, Synchronous와 Asynchronous에 대해서 정리해보고자 합니다. Synchronous와 Asynchronous의 개념은 쓰레드와 I/O에서 등장하게 되는데요, 각각이 어떠한 의미로 사용되는지도 구분해서 살펴보도록 하겠습니다.</p></div>
+                    </div>
+                    <div style="clear:both;"></div>
+                    <hr>
+                </div>
+                
+                <div class="media">
+                    
+                    <div class="media-body">
+                        <a class="link-unstyled" href="https://chelseafandev.github.io/2021/08/05/tr-lukaku-want-to-chelsea/" aria-label=": (BBC 스포츠) 첼시의 물망에 오른 루카쿠 적절한 오퍼가 온다면 인터 밀란을 떠나기 원해">
+                            <h3 class="media-heading">(BBC 스포츠) 첼시의 물망에 오른 루카쿠 적절한 오퍼가 온다면 인터 밀란을 떠나기 원해</h3>
+                        </a>
+                        <span class="media-meta">
+                            <span class="media-date text-small">
+                                
+                                    2021년 8월 5일
+                                
+                            </span>
+                        </span>
+                        <div class="media-content hide-xs font-nanumsquareround"><p>오늘은 첼시 이적설이 가까워져가고 있는 루카쿠 관련 기사를 가져왔습니다. 베르너의 결정력이 너무나도 아쉬웠던 지난 시즌 첼시를 생각하면 꼭 필요한 영입이라고 생각되네요😁</p></div>
+                    </div>
+                    <div style="clear:both;"></div>
+                    <hr>
+                </div>
+                
+                <div class="media">
+                    
+                    <div class="media-body">
+                        <a class="link-unstyled" href="https://chelseafandev.github.io/2021/08/12/tr-son-new-contract/" aria-label=": (BBC 스포츠) 토트넘 공격수 손흥민 4년 재계약 성사">
+                            <h3 class="media-heading">(BBC 스포츠) 토트넘 공격수 손흥민 4년 재계약 성사</h3>
+                        </a>
+                        <span class="media-meta">
+                            <span class="media-date text-small">
+                                
+                                    2021년 8월 12일
+                                
+                            </span>
+                        </span>
+                        <div class="media-content hide-xs font-nanumsquareround"><p>오늘은 현재 프리미어리그 토트넘 핫스퍼에서 활약 중인 손흥민 선수의 재계약 관련 기사를 가져왔습니다. 다음 시즌 누누감독이 이끌게 되는 토트넘, 쌉월클👍 손흥민선수와 함께 좋은 성적 거뒀으면 좋겠습니다.</p></div>
+                    </div>
+                    <div style="clear:both;"></div>
+                    <hr>
+                </div>
+                
+                <div class="media">
+                    
+                    <div class="media-body">
+                        <a class="link-unstyled" href="https://chelseafandev.github.io/2021/09/24/hyperscan-phase1/" aria-label=": 인텔 Hyperscan 레퍼런스 가이드 번역">
+                            <h3 class="media-heading">인텔 Hyperscan 레퍼런스 가이드 번역</h3>
+                        </a>
+                        <span class="media-meta">
+                            <span class="media-date text-small">
+                                
+                                    2021년 9월 24일
+                                
+                            </span>
+                        </span>
+                        <div class="media-content hide-xs font-nanumsquareround"><p>이번 포스팅에서는 인텔 Hyperscan의 <a target="_blank" rel="external nofollow noopener noreferrer" href="http://intel.github.io/hyperscan/dev-reference/index.html">공식 문서</a>를 통해 컴파일(compile)이나 스캔(scan)과 같은 Hyperscan의 기본적인 개념들에 대해 알아보도록 하겠습니다. 추후에는 Hyperscan API를 직접 사용하여 정규 표현식 패턴 매칭을 수행하는 샘플 코드도 업로드할 예정입니다.</p></div>
+                    </div>
+                    <div style="clear:both;"></div>
+                    <hr>
+                </div>
+                
+                <div class="media">
+                    
+                    <div class="media-body">
+                        <a class="link-unstyled" href="https://chelseafandev.github.io/2021/10/12/hyperscan-phase2/" aria-label=": 인텔 Hyperscan API 테스트 코드 작성">
+                            <h3 class="media-heading">인텔 Hyperscan API 테스트 코드 작성</h3>
+                        </a>
+                        <span class="media-meta">
+                            <span class="media-date text-small">
+                                
+                                    2021년 10월 12일
+                                
+                            </span>
+                        </span>
+                        <div class="media-content hide-xs font-nanumsquareround"><p>이번 포스팅에서는 <a href="https://chelseafandev.github.io/2021/09/24/hyperscan-phase1/">인텔 Hyperscan 레퍼런스 가이드 번역</a>에 이어서 Hyperscan API를 직접 사용하여 정규 표현식 패턴 매칭을 수행하는 샘플 코드를 작성하고 테스트 해보는 시간을 갖겠습니다.</p></div>
+                    </div>
+                    <div style="clear:both;"></div>
+                    <hr>
+                </div>
+                
+                <div class="media">
+                    
+                    <div class="media-body">
+                        <a class="link-unstyled" href="https://chelseafandev.github.io/2021/11/09/gdb-chapter4-program-crash/" aria-label=": Seg Fault는 왜 발생하는가?">
+                            <h3 class="media-heading">Seg Fault는 왜 발생하는가?</h3>
+                        </a>
+                        <span class="media-meta">
+                            <span class="media-date text-small">
+                                
+                                    2021년 11월 9일
+                                
+                            </span>
+                        </span>
+                        <div class="media-content hide-xs font-nanumsquareround"><p>이번 포스팅에서는 <a target="_blank" rel="external nofollow noopener noreferrer" href="https://nostarch.com/debugging.htm">The Art of Debugging with GDB, DDD and Eclipse</a>의 <em><strong>Chatper 4 WHEN A PROGRAM CRASHES</strong></em> 내용을 번역해보았습니다. 해당 챕터의 앞부분에서는 가상 주소 공간에서의 페이지(page)에 대한 개념을 소개하고 seg fault가 발생하는 원인을 페이지(page)와 연관지어 잘 설명해주고 있습니다.</p></div>
+                    </div>
+                    <div style="clear:both;"></div>
+                    <hr>
+                </div>
+                
+            </div>
+        </div>
+        <div class="modal-footer">
+            <p class="results-count text-medium" data-message-zero="포스트가 없습니다." data-message-one="1 개의 포스트가 있습니다." data-message-other="{n} 개의 포스트가 있습니다.">
+                10 개의 포스트가 있습니다.
+            </p>
+        </div>
     </div>
 </div>
 
@@ -642,6 +876,17 @@
     
 
 
+
+    
+<script src="/assets/js/moment-with-locales.js"></script>
+
+    
+<script src="/assets/js/algoliasearch.js"></script>
+
+    <script>
+      var algoliaClient = algoliasearch('FDTOJ7KLS8', '935491408ac4c43d728c68858e4ea147');
+      var algoliaIndex = algoliaClient.initIndex('chelseafandev');
+    </script>
 
 
     </body>
