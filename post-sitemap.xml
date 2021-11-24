@@ -9,8 +9,24 @@
 
 
     <url>
+        <loc>https://chelseafandev.github.io/2021/09/24/hyperscan-phase1/</loc>
+        <lastmod>2021-11-24T07:13:26.388Z</lastmod>
+        <changefreq>weekly</changefreq>
+        <priority>0.6</priority>
+
+    </url>
+
+    <url>
+        <loc>https://chelseafandev.github.io/2021/08/02/os-sync-async-block-nonblock/</loc>
+        <lastmod>2021-11-23T06:53:15.000Z</lastmod>
+        <changefreq>weekly</changefreq>
+        <priority>0.6</priority>
+
+    </url>
+
+    <url>
         <loc>https://chelseafandev.github.io/2021/07/13/os-io-system/</loc>
-        <lastmod>2021-11-23T04:19:11.470Z</lastmod>
+        <lastmod>2021-11-23T06:52:26.990Z</lastmod>
         <changefreq>weekly</changefreq>
         <priority>0.6</priority>
 
@@ -57,24 +73,8 @@
     </url>
 
     <url>
-        <loc>https://chelseafandev.github.io/2021/08/02/os-sync-async-block-nonblock/</loc>
-        <lastmod>2021-11-19T09:11:21.413Z</lastmod>
-        <changefreq>weekly</changefreq>
-        <priority>0.6</priority>
-
-    </url>
-
-    <url>
         <loc>https://chelseafandev.github.io/2021/10/12/hyperscan-phase2/</loc>
         <lastmod>2021-11-19T09:11:21.333Z</lastmod>
-        <changefreq>weekly</changefreq>
-        <priority>0.6</priority>
-
-    </url>
-
-    <url>
-        <loc>https://chelseafandev.github.io/2021/09/24/hyperscan-phase1/</loc>
-        <lastmod>2021-11-19T09:11:21.287Z</lastmod>
         <changefreq>weekly</changefreq>
         <priority>0.6</priority>
 
