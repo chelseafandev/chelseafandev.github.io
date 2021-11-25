@@ -9,8 +9,24 @@
 
 
     <url>
+        <loc>https://chelseafandev.github.io/2021/08/12/tr-son-new-contract/</loc>
+        <lastmod>2021-11-25T02:14:07.460Z</lastmod>
+        <changefreq>weekly</changefreq>
+        <priority>0.6</priority>
+
+    </url>
+
+    <url>
+        <loc>https://chelseafandev.github.io/2021/08/05/tr-lukaku-want-to-chelsea/</loc>
+        <lastmod>2021-11-25T02:13:08.360Z</lastmod>
+        <changefreq>weekly</changefreq>
+        <priority>0.6</priority>
+
+    </url>
+
+    <url>
         <loc>https://chelseafandev.github.io/2021/07/10/tr-ruud-gullit/</loc>
-        <lastmod>2021-11-25T02:06:44.940Z</lastmod>
+        <lastmod>2021-11-25T02:12:50.380Z</lastmod>
         <changefreq>weekly</changefreq>
         <priority>0.6</priority>
 
@@ -43,22 +59,6 @@
     <url>
         <loc>https://chelseafandev.github.io/2021/08/02/os-sync-async-block-nonblock/</loc>
         <lastmod>2021-11-23T06:53:15.000Z</lastmod>
-        <changefreq>weekly</changefreq>
-        <priority>0.6</priority>
-
-    </url>
-
-    <url>
-        <loc>https://chelseafandev.github.io/2021/08/12/tr-son-new-contract/</loc>
-        <lastmod>2021-11-19T09:11:21.605Z</lastmod>
-        <changefreq>weekly</changefreq>
-        <priority>0.6</priority>
-
-    </url>
-
-    <url>
-        <loc>https://chelseafandev.github.io/2021/08/05/tr-lukaku-want-to-chelsea/</loc>
-        <lastmod>2021-11-19T09:11:21.504Z</lastmod>
         <changefreq>weekly</changefreq>
         <priority>0.6</priority>
 
