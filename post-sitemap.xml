@@ -9,6 +9,30 @@
 
 
     <url>
+        <loc>https://chelseafandev.github.io/2021/07/10/tr-ruud-gullit/</loc>
+        <lastmod>2021-11-25T02:06:44.940Z</lastmod>
+        <changefreq>weekly</changefreq>
+        <priority>0.6</priority>
+
+    </url>
+
+    <url>
+        <loc>https://chelseafandev.github.io/2021/07/27/go-effective-go-4/</loc>
+        <lastmod>2021-11-24T08:50:58.198Z</lastmod>
+        <changefreq>weekly</changefreq>
+        <priority>0.6</priority>
+
+    </url>
+
+    <url>
+        <loc>https://chelseafandev.github.io/2021/11/09/gdb-chapter4-program-crash/</loc>
+        <lastmod>2021-11-24T07:58:13.298Z</lastmod>
+        <changefreq>weekly</changefreq>
+        <priority>0.6</priority>
+
+    </url>
+
+    <url>
         <loc>https://chelseafandev.github.io/2021/09/24/hyperscan-phase1/</loc>
         <lastmod>2021-11-24T07:13:26.388Z</lastmod>
         <changefreq>weekly</changefreq>
@@ -33,24 +57,8 @@
     </url>
 
     <url>
-        <loc>https://chelseafandev.github.io/2021/11/09/gdb-chapter4-program-crash/</loc>
-        <lastmod>2021-11-19T09:30:57.670Z</lastmod>
-        <changefreq>weekly</changefreq>
-        <priority>0.6</priority>
-
-    </url>
-
-    <url>
         <loc>https://chelseafandev.github.io/2021/08/12/tr-son-new-contract/</loc>
         <lastmod>2021-11-19T09:11:21.605Z</lastmod>
-        <changefreq>weekly</changefreq>
-        <priority>0.6</priority>
-
-    </url>
-
-    <url>
-        <loc>https://chelseafandev.github.io/2021/07/10/tr-ruud-gullit/</loc>
-        <lastmod>2021-11-19T09:11:21.566Z</lastmod>
         <changefreq>weekly</changefreq>
         <priority>0.6</priority>
 
