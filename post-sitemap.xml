@@ -9,8 +9,24 @@
 
 
     <url>
+        <loc>https://chelseafandev.github.io/2021/12/06/ethernet-switching-flow/</loc>
+        <lastmod>2021-12-06T03:18:33.570Z</lastmod>
+        <changefreq>weekly</changefreq>
+        <priority>0.6</priority>
+
+    </url>
+
+    <url>
+        <loc>https://chelseafandev.github.io/2021/07/13/os-io-system/</loc>
+        <lastmod>2021-12-02T00:47:03.486Z</lastmod>
+        <changefreq>weekly</changefreq>
+        <priority>0.6</priority>
+
+    </url>
+
+    <url>
         <loc>https://chelseafandev.github.io/2021/11/09/gdb-chapter4-program-crash/</loc>
-        <lastmod>2021-11-25T07:48:56.540Z</lastmod>
+        <lastmod>2021-11-25T07:50:58.550Z</lastmod>
         <changefreq>weekly</changefreq>
         <priority>0.6</priority>
 
@@ -35,14 +51,6 @@
     <url>
         <loc>https://chelseafandev.github.io/2021/07/10/tr-ruud-gullit/</loc>
         <lastmod>2021-11-25T02:12:50.380Z</lastmod>
-        <changefreq>weekly</changefreq>
-        <priority>0.6</priority>
-
-    </url>
-
-    <url>
-        <loc>https://chelseafandev.github.io/2021/07/13/os-io-system/</loc>
-        <lastmod>2021-11-24T08:37:52.788Z</lastmod>
         <changefreq>weekly</changefreq>
         <priority>0.6</priority>
 

@@ -9,8 +9,39 @@
     <atom:link href="https://chelseafandev.github.io/rss2.xml" rel="self" type="application/rss+xml"/>
     
     <description>더디더라도 꾸준히</description>
-    <pubDate>Thu, 25 Nov 2021 07:48:56 GMT</pubDate>
+    <pubDate>Mon, 06 Dec 2021 03:18:33 GMT</pubDate>
     <generator>http://hexo.io/</generator>
+    
+    <item>
+      <title>Ethernet 스위칭 과정에 대해 알아보자</title>
+      <link>https://chelseafandev.github.io/2021/12/06/ethernet-switching-flow/</link>
+      <guid>https://chelseafandev.github.io/2021/12/06/ethernet-switching-flow/</guid>
+      <pubDate>Mon, 06 Dec 2021 03:06:07 GMT</pubDate>
+      
+      <description>&lt;p&gt;이번 포스팅에서는 L3 스위치에서의 Ethernet 스위칭 과정에 대해 알아보겠습니다.&lt;/p&gt;</description>
+      
+      
+      
+      <content:encoded><![CDATA[<p>이번 포스팅에서는 L3 스위치에서의 Ethernet 스위칭 과정에 대해 알아보겠습니다.</p><span id="more"></span><p><a href="https://www.netmanias.com/ko/">넷매니아즈</a>라는 사이트에 총 4편의 시리즈로 연재된 L3 스위치의 패킷 전달에 대한 아주 양질의 게시물을 참고하여 정리해보았습니다. 실제 연재글에서는 상세한 그림과 함께 L3 스위치 내부 구조를 좀 더 세분화하여 설명하고 있으니 관심이 있으신분들은 <a href="https://www.netmanias.com/ko/?m=view&id=blog&no=5526">여기</a>를 참조해주시기 바랍니다.</p><br><!-- toc --><p>서버1과 서버3은 현재 동일한 VLAN(VLAN ID: 10)내에 있으며, 서버1의 ARP 테이블에는 서버3의 엔트리가 이미 존재한다고 가정(존재하지 않는 경우에는 ARP Request/Reply 메시지를 통해 ARP 테이블을 채워주어야함)하겠습니다.<br><br></p><h3 id="서버1에서-서버3으로-패킷-전달-Flooding"><a href="#서버1에서-서버3으로-패킷-전달-Flooding" class="headerlink" title="서버1에서 서버3으로 패킷 전달(Flooding)"></a>서버1에서 서버3으로 패킷 전달(Flooding)</h3><div class="figure center" style="width:;"><img class="fig-img" src="/assets/images/ehternet-switching-flooding.png" alt="Flooding"><span class="caption">Flooding</span></div><ol><li>서버1에서 서버3으로 Ping 패킷을 보내려고합니다.</li><li>서버1의 <strong>라우팅 테이블</strong>을 참조(Destination 주소 별 게이트웨이 IP와 출력 포트를 확인할 수 있음)하여 서버3이 서버1과 동일한 네트워크라는 것과 패킷을 내보낼 출력 포트를 확인합니다.</li><li>서버1의 <strong>ARP 테이블</strong>을 참조하여 서버3의 IP주소에 대한 MAC 주소를 확인합니다.</li><li>출력 포트와 MAC 주소를 확인했으니 서버1은 서버3으로 Ping 패킷을 송신합니다.</li><li>Ping 패킷은 출력 포트를 통해 L3 스위치로 이동합니다.</li><li>Ping 패킷을 수신한 L3 스위치는 해당 패킷을 버퍼(Ingress Packet Buffer)에 잠시 저장해둡니다.</li><li>이제 L3 스위치에서 수신한 Ping 패킷의 <strong>Source MAC 주소를 학습</strong>할 차례입니다. 동일 VLAN을 소유한 Line Card들에만 Source MAC 주소 정보를 공유하여 각각의 <strong>MAC 테이블</strong>에 그 값(VLAN, Source MAC 주소, 포트)을 저장하도록 합니다.</li><li>다음으로 해당 패킷을 <strong>IP 라우팅</strong>시킬지 <strong>Ethernet 스위칭</strong>시킬것인지를 결정하는데 이를 위해 Destination MAC 주소를 참조합니다.<div class="alert info"><p>Destination MAC 주소가 L3 스위치의 MAC 주소인 경우에는, <strong>IP 라우팅</strong><br>Destination MAC 주소가 L3 스위치의 MAC 주소가 아닌 경우에는, <strong>Ethernet 스위칭</strong></p></div><br></li><li>이 경우에는 해당 패킷의 Destination MAC 주소가 서버3의 MAC 주소이므로 Ethernet 스위칭을 시킵니다.</li><li>Ethernet 스위칭을 위해 L3 스위치에서는 해당 패킷의 Destination MAC 주소가 MAC 테이블에 존재하는지 확인합니다.</li><li>만약 등록되어 있지 않다면 동일 VLAN에 속한 포트들 중에서 수신 포트(서버1의 포트)를 제외한 나머지 모든 포트(여기서는 서버2와 서버3의 포트라고 가정)로 수신한 Ping 패킷을 <strong>Flooding</strong>해야함을 알게됩니다.</li><li>L3 스위치는 앞서 버퍼에 잠시 저장해둔 패킷(6번 과정을 참고)을 출력을 위한 버퍼(Egress Packet Buffer)로 옮긴 후 11번에서 확인된 포트들로 해당 패킷을 Flooding합니다.</li><li>이제 서버2와 서버3이 서버1이 보낸 Ping 패킷을 수신하게 됩니다.</li></ol><hr><h3 id="서버3에서-서버1로-패킷-전달-Unicasting"><a href="#서버3에서-서버1로-패킷-전달-Unicasting" class="headerlink" title="서버3에서 서버1로 패킷 전달(Unicasting)"></a>서버3에서 서버1로 패킷 전달(Unicasting)</h3><div class="figure center" style="width:;"><img class="fig-img" src="/assets/images/ehternet-switching-unicasting.png" alt="Unicasting"><span class="caption">Unicasting</span></div><ol><li>Ping 패킷의 Destination MAC 주소는 서버3의 MAC 주소이기때문에 서버2에서는 수신한 Ping 패킷을 버립니다.</li><li>서버3은 수신한 Ping 패킷에 대한 응답 패킷을 서버1로 송신합니다.(서버1에서와 마찬가지로 서버3은 자신의 라우팅 테이블과 ARP 테이블을 참조하여 출력 포트와 서버1의 MAC주소를 확인함)</li><li>응답 패킷은 출력 포트를 통해 L3 스위치로 이동합니다.</li><li>응답 패킷을 수신한 L3 스위치는 해당 패킷을 버퍼(Ingress Packet Buffer)에 잠시 저장해둡니다.</li><li>이제 L3 스위치에서 수신한 응답 패킷의 <strong>Source MAC 주소를 학습</strong>할 차례입니다. 동일 VLAN을 소유한 Line Card들에만 Source MAC 주소 정보를 공유하여 각각의 <strong>MAC 테이블</strong>에 그 값(VLAN, Source MAC 주소, 포트)을 저장하도록 합니다.</li><li>다음으로 해당 패킷을 <strong>IP 라우팅</strong>시킬지 <strong>Ethernet 스위칭</strong>시킬것인지를 결정하는데 이를 위해 Destination MAC 주소를 참조합니다.</li><li>이 경우에는 해당 패킷의 Destination MAC 주소가 서버1의 MAC 주소이므로 Ethernet 스위칭을 시킵니다.</li><li>Ethernet 스위칭을 위해 L3 스위치에서는 해당 패킷의 Destination MAC 주소가 MAC 테이블에 존재하는지 확인합니다. 이번에는 존재(이전의 Source MAC 주소 학습을 통해 서버1의 MAC 주소가 저장된 상태이므로)합니다.</li><li>L3 스위치는 앞서 버퍼에 잠시 저장해둔 패킷(4번 과정을 참고)을 출력을 위한 버퍼(Egress Packet Buffer)로 옮긴 후 8번에서 확인된 MAC주소로 해당 패킷을 송신합니다. 이렇게 MAC 테이블에 매칭되어 하나의 포트로 패킷이 나가는 경우를 Unicasting이라고 합니다.</li></ol><br><br><span class="highlight-text yellow">해당 게시글에서 발생한 오탈자나 잘못된 내용에 대한 정정 댓글 격하게 환영합니다</span>😎<p><strong>Reference</strong></p><ul><li><a href="https://www.netmanias.com/ko/?m=view&amp;id=blog&amp;no=5526">https://www.netmanias.com/ko/?m=view&amp;id=blog&amp;no=5526</a></li></ul>]]></content:encoded>
+      
+      
+      <category domain="https://chelseafandev.github.io/categories/%EB%84%A4%ED%8A%B8%EC%9B%8C%ED%81%AC/">네트워크</category>
+      
+      
+      <category domain="https://chelseafandev.github.io/tags/L3-%EC%8A%A4%EC%9C%84%EC%B9%98/">L3 스위치</category>
+      
+      <category domain="https://chelseafandev.github.io/tags/ethernet-switching/">ethernet switching</category>
+      
+      <category domain="https://chelseafandev.github.io/tags/%EC%9D%B4%EB%8D%94%EB%84%B7-%EC%8A%A4%EC%9C%84%EC%B9%98/">이더넷 스위치</category>
+      
+      <category domain="https://chelseafandev.github.io/tags/Source-MAC-Learning/">Source MAC Learning</category>
+      
+      <category domain="https://chelseafandev.github.io/tags/ARP-Table/">ARP Table</category>
+      
+      
+      <comments>https://chelseafandev.github.io/2021/12/06/ethernet-switching-flow/#disqus_thread</comments>
+      
+    </item>
     
     <item>
       <title>Seg Fault는 왜 발생하는가?</title>
