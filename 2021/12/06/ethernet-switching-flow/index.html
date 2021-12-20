@@ -173,6 +173,14 @@
                     </a>
             </li>
             
+                <li class="sidebar-button">
+                    
+                        <a class="sidebar-button-link " href="/rss2.xml" rel="noopener" title="RSS">
+                        <i class="sidebar-button-icon fa fa-rss" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">RSS</span>
+                    </a>
+            </li>
+            
         </ul>
         
     </div>
@@ -227,7 +235,7 @@
 <p><a target="_blank" rel="external nofollow noopener noreferrer" href="https://www.netmanias.com/ko/">넷매니아즈</a>라는 사이트에 총 4편의 시리즈로 연재된 L3 스위치의 패킷 전달에 대한 아주 양질의 게시물을 참고하여 정리해보았습니다. 실제 연재글에서는 상세한 그림과 함께 L3 스위치 내부 구조를 좀 더 세분화하여 설명하고 있으니 관심이 있으신분들은 <a target="_blank" rel="external nofollow noopener noreferrer" href="https://www.netmanias.com/ko/?m=view&id=blog&no=5526">여기</a>를 참조해주시기 바랍니다.</p>
 <br>
 
-<h1 id="table-of-contents">목차</h1><ol class="toc"><li class="toc-item toc-level-3"><a class="toc-link" href="#%EC%84%9C%EB%B2%841%EC%97%90%EC%84%9C-%EC%84%9C%EB%B2%843%EC%9C%BC%EB%A1%9C-%ED%8C%A8%ED%82%B7-%EC%A0%84%EB%8B%AC-Flooding"><span class="toc-text">서버1에서 서버3으로 패킷 전달(Flooding)</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%EC%84%9C%EB%B2%843%EC%97%90%EC%84%9C-%EC%84%9C%EB%B2%841%EB%A1%9C-%ED%8C%A8%ED%82%B7-%EC%A0%84%EB%8B%AC-Unicasting"><span class="toc-text">서버3에서 서버1로 패킷 전달(Unicasting)</span></a></li></ol>
+<h1 id="table-of-contents">목차</h1><ol class="toc"><li class="toc-item toc-level-3"><a class="toc-link" href="#%EC%84%9C%EB%B2%841%EC%97%90%EC%84%9C-%EC%84%9C%EB%B2%843%EC%9C%BC%EB%A1%9C-%ED%8C%A8%ED%82%B7-%EC%A0%84%EB%8B%AC-Flooding"><span class="toc-number">1.</span> <span class="toc-text">서버1에서 서버3으로 패킷 전달(Flooding)</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%EC%84%9C%EB%B2%843%EC%97%90%EC%84%9C-%EC%84%9C%EB%B2%841%EB%A1%9C-%ED%8C%A8%ED%82%B7-%EC%A0%84%EB%8B%AC-Unicasting"><span class="toc-number">2.</span> <span class="toc-text">서버3에서 서버1로 패킷 전달(Unicasting)</span></a></li></ol>
 
 
 <p>서버1과 서버3은 현재 동일한 VLAN(VLAN ID: 10)내에 있으며, 서버1의 ARP 테이블에는 서버3의 엔트리가 이미 존재한다고 가정(존재하지 않는 경우에는 ARP Request/Reply 메시지를 통해 ARP 테이블을 채워주어야함)하겠습니다.<br><br></p>

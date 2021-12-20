@@ -171,6 +171,14 @@
                     </a>
             </li>
             
+                <li class="sidebar-button">
+                    
+                        <a class="sidebar-button-link " href="/rss2.xml" rel="noopener" title="RSS">
+                        <i class="sidebar-button-icon fa fa-rss" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">RSS</span>
+                    </a>
+            </li>
+            
         </ul>
         
     </div>
@@ -223,7 +231,7 @@
             <p>오늘은 공룡책🦕에 언급된 Blocking과 Nonblocking, Synchronous와 Asynchronous에 대해서 정리해보고자 합니다. Synchronous와 Asynchronous의 개념은 <strong>쓰레드</strong>와 <strong>I/O</strong>에서 등장하게 되는데요, 각각이 어떠한 의미로 사용되는지도 구분해서 살펴보도록 하겠습니다.</p>
 <span id="more"></span>
 
-<h1 id="table-of-contents">목차</h1><ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#I-O-%EA%B4%80%EC%A0%90%EC%97%90%EC%84%9C%EC%9D%98-%EB%8F%99%EA%B8%B0%EC%99%80-%EB%B9%84%EB%8F%99%EA%B8%B0"><span class="toc-text">I&#x2F;O 관점에서의 동기와 비동기</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%EB%85%BC%EB%B8%94%EB%A1%9D%ED%82%B9%EA%B3%BC-%EB%B9%84%EB%8F%99%EA%B8%B0-I-O"><span class="toc-text">논블록킹과 비동기 I&#x2F;O</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%EC%93%B0%EB%A0%88%EB%93%9C-%EA%B4%80%EC%A0%90%EC%97%90%EC%84%9C%EC%9D%98-%EB%8F%99%EA%B8%B0%EC%99%80-%EB%B9%84%EB%8F%99%EA%B8%B0"><span class="toc-text">쓰레드 관점에서의 동기와 비동기</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%EC%A0%95%EB%A6%AC%ED%95%B4%EB%B3%B4%EB%A9%B4"><span class="toc-text">정리해보면</span></a></li></ol>
+<h1 id="table-of-contents">목차</h1><ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#I-O-%EA%B4%80%EC%A0%90%EC%97%90%EC%84%9C%EC%9D%98-%EB%8F%99%EA%B8%B0%EC%99%80-%EB%B9%84%EB%8F%99%EA%B8%B0"><span class="toc-number">1.</span> <span class="toc-text">I&#x2F;O 관점에서의 동기와 비동기</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%EB%85%BC%EB%B8%94%EB%A1%9D%ED%82%B9%EA%B3%BC-%EB%B9%84%EB%8F%99%EA%B8%B0-I-O"><span class="toc-number">2.</span> <span class="toc-text">논블록킹과 비동기 I&#x2F;O</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%EC%93%B0%EB%A0%88%EB%93%9C-%EA%B4%80%EC%A0%90%EC%97%90%EC%84%9C%EC%9D%98-%EB%8F%99%EA%B8%B0%EC%99%80-%EB%B9%84%EB%8F%99%EA%B8%B0"><span class="toc-number">3.</span> <span class="toc-text">쓰레드 관점에서의 동기와 비동기</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%EC%A0%95%EB%A6%AC%ED%95%B4%EB%B3%B4%EB%A9%B4"><span class="toc-number">4.</span> <span class="toc-text">정리해보면</span></a></li></ol>
 <br>
 
 <h2 id="I-O-관점에서의-동기와-비동기"><a href="#I-O-관점에서의-동기와-비동기" class="headerlink" title="I/O 관점에서의 동기와 비동기"></a>I/O 관점에서의 동기와 비동기</h2><p>동기(synchronous) 장치는 예측 가능한 응답 시간을 갖는 데이터 전송 작업을 수행합니다. 이와 반대로 비동기(asynchronous) 장치는 데이터 전송 작업에 대한 응답 시간이 불규칙 하거나 예측이 불가능합니다.</p>

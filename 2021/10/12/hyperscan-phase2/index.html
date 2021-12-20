@@ -172,6 +172,14 @@
                     </a>
             </li>
             
+                <li class="sidebar-button">
+                    
+                        <a class="sidebar-button-link " href="/rss2.xml" rel="noopener" title="RSS">
+                        <i class="sidebar-button-icon fa fa-rss" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">RSS</span>
+                    </a>
+            </li>
+            
         </ul>
         
     </div>
@@ -227,7 +235,7 @@
 <p>해당 포스팅의 Hyperscan 설치 및 테스트 환경은 <span class="highlight-text yellow">Ubuntu 18.04.5 LTS 기준</span>입니다. 다른 OS에서 Hyperscan 테스트 코드를 작성하고자 하시는 분들은 <a target="_blank" rel="external nofollow noopener noreferrer" href="http://intel.github.io/hyperscan/dev-reference/getting_started.html#requirements">Hyperscan 공식 홈페이지에 명시된 요구사항 정보</a>를 확인해주시기 바랍니다. </p>
 <br>
 
-<h1 id="table-of-contents">목차</h1><ol class="toc"><li class="toc-item toc-level-3"><a class="toc-link" href="#CMake-%EC%84%A4%EC%B9%98"><span class="toc-text">CMake 설치</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#Ragel-%EC%84%A4%EC%B9%98"><span class="toc-text">Ragel 설치</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#Python-%EC%84%A4%EC%B9%98"><span class="toc-text">Python 설치</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#Boost-%EC%84%A4%EC%B9%98"><span class="toc-text">Boost 설치</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#Hyperscan-%EC%86%8C%EC%8A%A4-%EB%B9%8C%EB%93%9C"><span class="toc-text">Hyperscan 소스 빌드</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%ED%85%8C%EC%8A%A4%ED%8A%B8%EC%BD%94%EB%93%9C-%EC%9E%91%EC%84%B1"><span class="toc-text">테스트코드 작성</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%EC%A0%95%EA%B7%9C%ED%91%9C%ED%98%84%EC%8B%9D-%EC%83%98%ED%94%8C-%ED%8C%A8%ED%84%B4-%EB%93%B1%EB%A1%9D"><span class="toc-text">정규표현식 샘플 패턴 등록</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%EB%B9%8C%EB%93%9C-%EB%B0%8F-%ED%85%8C%EC%8A%A4%ED%8A%B8"><span class="toc-text">빌드 및 테스트</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%EB%A7%88%EC%B9%98%EB%A9%B0"><span class="toc-text">마치며</span></a></li></ol>
+<h1 id="table-of-contents">목차</h1><ol class="toc"><li class="toc-item toc-level-3"><a class="toc-link" href="#CMake-%EC%84%A4%EC%B9%98"><span class="toc-number">1.</span> <span class="toc-text">CMake 설치</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#Ragel-%EC%84%A4%EC%B9%98"><span class="toc-number">2.</span> <span class="toc-text">Ragel 설치</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#Python-%EC%84%A4%EC%B9%98"><span class="toc-number">3.</span> <span class="toc-text">Python 설치</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#Boost-%EC%84%A4%EC%B9%98"><span class="toc-number">4.</span> <span class="toc-text">Boost 설치</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#Hyperscan-%EC%86%8C%EC%8A%A4-%EB%B9%8C%EB%93%9C"><span class="toc-number">5.</span> <span class="toc-text">Hyperscan 소스 빌드</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%ED%85%8C%EC%8A%A4%ED%8A%B8%EC%BD%94%EB%93%9C-%EC%9E%91%EC%84%B1"><span class="toc-number">6.</span> <span class="toc-text">테스트코드 작성</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%EC%A0%95%EA%B7%9C%ED%91%9C%ED%98%84%EC%8B%9D-%EC%83%98%ED%94%8C-%ED%8C%A8%ED%84%B4-%EB%93%B1%EB%A1%9D"><span class="toc-number">7.</span> <span class="toc-text">정규표현식 샘플 패턴 등록</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%EB%B9%8C%EB%93%9C-%EB%B0%8F-%ED%85%8C%EC%8A%A4%ED%8A%B8"><span class="toc-number">8.</span> <span class="toc-text">빌드 및 테스트</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%EB%A7%88%EC%B9%98%EB%A9%B0"><span class="toc-number">9.</span> <span class="toc-text">마치며</span></a></li></ol>
 
 <br>
 
