@@ -143,7 +143,17 @@ dl {
 .toc-child {
   list-style: none; }
 
-.toc-link {
+.toc-link:link {
+  color: inherit; }
+
+.toc-link:visited {
+  color: inherit; }
+
+.toc-link:hover {
+  color: inherit;
+  text-decoration: underline; }
+
+.toc-link:active {
   color: inherit; }
 
 a, a:hover, a:active, a:visited {
