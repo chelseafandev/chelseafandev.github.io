@@ -143,6 +143,9 @@ dl {
 .toc-child {
   list-style: none; }
 
+.toc-link {
+  color: inherit; }
+
 a, a:hover, a:active, a:visited {
   cursor: pointer;
   color: #349ef3;
