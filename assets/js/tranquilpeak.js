@@ -929,6 +929,7 @@
         var lang = window.navigator.userLanguage || window.navigator.language || post.lang;
 
         html += '<div class="media">';
+        /*
         if (post.thumbnailImageUrl) {
           html += '<div class="media-left">';
           html += '<a class="link-unstyled" href="' + (post.link || post.permalink) + '">';
@@ -938,6 +939,7 @@
           html += '</a>';
           html += '</div>';
         }
+        */
 
         html += '<div class="media-body">';
         html += '<a class="link-unstyled" href="' + (post.link || post.permalink) + '">';

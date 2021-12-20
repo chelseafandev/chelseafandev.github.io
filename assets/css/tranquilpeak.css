@@ -139,6 +139,10 @@ ol,
 dl {
   margin: 0 0 0.5em 0; }
 
+.toc,
+.toc-child {
+  list-style: none; }
+
 a, a:hover, a:active, a:visited {
   cursor: pointer;
   color: #349ef3;
