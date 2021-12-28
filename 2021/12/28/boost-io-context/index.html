@@ -7,7 +7,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="generator" content="첼시팬 개발자 작업 공간">
-    <title>Ethernet 스위칭 과정에 대해 알아보자 - 첼시팬 개발자 작업 공간</title>
+    <title>boost io_context에 대한 고찰 - 첼시팬 개발자 작업 공간</title>
     <meta name="author" content="첼시팬개발자">
     
     
@@ -18,26 +18,25 @@
             <link rel="alternate" type="application/rss+xml" title="RSS" href="/rss2.xml">
         
     
-    <script type="application/ld+json">{"@context":"http://schema.org","@type":"BlogPosting","author":{"@type":"Person","name":"첼시팬개발자","sameAs":[],"image":"chelsea_logo.png"},"articleBody":"이번 포스팅에서는 L3 스위치에서의 Ethernet 스위칭 과정에 대해 알아보겠습니다.\n\n넷매니아즈라는 사이트에 총 4편의 시리즈로 연재된 L3 스위치의 패킷 전달에 대한 아주 양질의 게시물을 참고하여 정리해보았습니다. 실제 연재글에서는 상세한 그림과 함께 L3 스위치 내부 구조를 좀 더 세분화하여 설명하고 있으니 관심이 있으신분들은 여기를 참조해주시기 바랍니다.\n\n\n\n\n\n서버1과 서버3은 현재 동일한 VLAN(VLAN ID: 10)내에 있으며, 서버1의 ARP 테이블에는 서버3의 엔트리가 이미 존재한다고 가정(존재하지 않는 경우에는 ARP Request/Reply 메시지를 통해 ARP 테이블을 채워주어야함)하겠습니다.\n서버1에서 서버3으로 패킷 전달(Flooding)Flooding\n\n\n서버1에서 서버3으로 Ping 패킷을 보내려고합니다.\n서버1의 라우팅 테이블을 참조(Destination 주소 별 게이트웨이 IP와 출력 포트를 확인할 수 있음)하여 서버3이 서버1과 동일한 네트워크라는 것과 패킷을 내보낼 출력 포트를 확인합니다.\n서버1의 ARP 테이블을 참조하여 서버3의 IP주소에 대한 MAC 주소를 확인합니다.\n출력 포트와 MAC 주소를 확인했으니 서버1은 서버3으로 Ping 패킷을 송신합니다.\nPing 패킷은 출력 포트를 통해 L3 스위치로 이동합니다.\nPing 패킷을 수신한 L3 스위치는 해당 패킷을 버퍼(Ingress Packet Buffer)에 잠시 저장해둡니다.\n이제 L3 스위치에서 수신한 Ping 패킷의 Source MAC 주소를 학습할 차례입니다. 동일 VLAN을 소유한 Line Card들에만 Source MAC 주소 정보를 공유하여 각각의 MAC 테이블에 그 값(VLAN, Source MAC 주소, 포트)을 저장하도록 합니다.\n다음으로 해당 패킷을 IP 라우팅시킬지 Ethernet 스위칭시킬것인지를 결정하는데 이를 위해 Destination MAC 주소를 참조합니다.Destination MAC 주소가 L3 스위치의 MAC 주소인 경우에는, IP 라우팅Destination MAC 주소가 L3 스위치의 MAC 주소가 아닌 경우에는, Ethernet 스위칭\n\n\n이 경우에는 해당 패킷의 Destination MAC 주소가 서버3의 MAC 주소이므로 Ethernet 스위칭을 시킵니다.\nEthernet 스위칭을 위해 L3 스위치에서는 해당 패킷의 Destination MAC 주소가 MAC 테이블에 존재하는지 확인합니다.\n만약 등록되어 있지 않다면 동일 VLAN에 속한 포트들 중에서 수신 포트(서버1의 포트)를 제외한 나머지 모든 포트(여기서는 서버2와 서버3의 포트라고 가정)로 수신한 Ping 패킷을 Flooding해야함을 알게됩니다.\nL3 스위치는 앞서 버퍼에 잠시 저장해둔 패킷(6번 과정을 참고)을 출력을 위한 버퍼(Egress Packet Buffer)로 옮긴 후 11번에서 확인된 포트들로 해당 패킷을 Flooding합니다.\n이제 서버2와 서버3이 서버1이 보낸 Ping 패킷을 수신하게 됩니다.\n\n\n서버3에서 서버1로 패킷 전달(Unicasting)Unicasting\n\n\nPing 패킷의 Destination MAC 주소는 서버3의 MAC 주소이기때문에 서버2에서는 수신한 Ping 패킷을 버립니다.\n서버3은 수신한 Ping 패킷에 대한 응답 패킷을 서버1로 송신합니다.(서버1에서와 마찬가지로 서버3은 자신의 라우팅 테이블과 ARP 테이블을 참조하여 출력 포트와 서버1의 MAC주소를 확인함)\n응답 패킷은 출력 포트를 통해 L3 스위치로 이동합니다.\n응답 패킷을 수신한 L3 스위치는 해당 패킷을 버퍼(Ingress Packet Buffer)에 잠시 저장해둡니다.\n이제 L3 스위치에서 수신한 응답 패킷의 Source MAC 주소를 학습할 차례입니다. 동일 VLAN을 소유한 Line Card들에만 Source MAC 주소 정보를 공유하여 각각의 MAC 테이블에 그 값(VLAN, Source MAC 주소, 포트)을 저장하도록 합니다.\n다음으로 해당 패킷을 IP 라우팅시킬지 Ethernet 스위칭시킬것인지를 결정하는데 이를 위해 Destination MAC 주소를 참조합니다.\n이 경우에는 해당 패킷의 Destination MAC 주소가 서버1의 MAC 주소이므로 Ethernet 스위칭을 시킵니다.\nEthernet 스위칭을 위해 L3 스위치에서는 해당 패킷의 Destination MAC 주소가 MAC 테이블에 존재하는지 확인합니다. 이번에는 존재(이전의 Source MAC 주소 학습을 통해 서버1의 MAC 주소가 저장된 상태이므로)합니다.\nL3 스위치는 앞서 버퍼에 잠시 저장해둔 패킷(4번 과정을 참고)을 출력을 위한 버퍼(Egress Packet Buffer)로 옮긴 후 8번에서 확인된 MAC주소로 해당 패킷을 송신합니다. 이렇게 MAC 테이블에 매칭되어 하나의 포트로 패킷이 나가는 경우를 Unicasting이라고 합니다.\n\n\n\n\n해당 게시글에서 발생한 오탈자나 잘못된 내용에 대한 정정 댓글 격하게 환영합니다😎\n\nReference\n\nhttps://www.netmanias.com/ko/?m=view&amp;id=blog&amp;no=5526\n\n","dateCreated":"2021-12-06T12:06:07+09:00","dateModified":"2021-12-06T12:18:33+09:00","datePublished":"2021-12-06T12:06:07+09:00","description":"이번 포스팅에서는 L3 스위치에서의 Ethernet 스위칭 과정에 대해 알아보겠습니다.","headline":"Ethernet 스위칭 과정에 대해 알아보자","image":[],"mainEntityOfPage":{"@type":"WebPage","@id":"https://chelseafandev.github.io/2021/12/06/ethernet-switching-flow/"},"publisher":{"@type":"Organization","name":"첼시팬개발자","sameAs":[],"image":"chelsea_logo.png","logo":{"@type":"ImageObject","url":"chelsea_logo.png"}},"url":"https://chelseafandev.github.io/2021/12/06/ethernet-switching-flow/","keywords":"ethernet switching, 이더넷 스위치, Source MAC Learning, ARP Table, L3 스위치"}</script>
-    <meta name="description" content="이번 포스팅에서는 L3 스위치에서의 Ethernet 스위칭 과정에 대해 알아보겠습니다.">
+    <script type="application/ld+json">{"@context":"http://schema.org","@type":"BlogPosting","author":{"@type":"Person","name":"첼시팬개발자","sameAs":[],"image":"chelsea_logo.png"},"articleBody":"이번 포스팅에서는 boost 라이브러리를 사용하며 자주 마주치게되는 io_context에 대해 생각해보는 시간을 갖겠습니다.\n\n\n\n\n\n\n\n\nBoost Asio우선 io_context에 대해 이야기하기 전에 Boost Asio를 간략하게 소개하고 넘어가도록 하겠습니다. boost 공식 홈페이지의 내용을 참고하여 작성하였으니 원문 내용은 여기를 참조해주시기 바랍니다.\n\n\nBoost.Asio는 쓰레드와 명시적 Locking을 기반으로한 동시성 모델의 사용을 프로그램에게 요구하지 않으면서 느린 I/O operation을 관리하는 도구를 제공합니다. (이는 Boost.Asio 내부적으로 동시성 처리를 할거니깐 사용자들은 걱정말고 사용하라는 의미로도 볼 수 있죠.)\n\nBoost.Asio provides the tools to manage these long running operations, without requiring programs to use concurrency models based on threads and explicit locking.\n\n소켓을 예로 들어 Boost.Asio에서 사용하는 용어들에 대해 조금 더 알아보도록 하겠습니다.\n\n\n동기 연결여러분의 프로그램은 적어도 한 개 이상의 (boost::asio::io_context나 boost::asio::thread_pool 또는 boost::asio::system_context 객체와 같은)I/O execution context를 가지고 있을 것입니다. I/O execution context는 OS의 I/O 서비스에 대한 프로그램의 링크를 나타냅니다.\n\nYour program will have at least one I/O execution context, such as an boost::asio::io_context object, boost::asio::thread_pool object, or boost::asio::system_context. This I/O execution context represents your program‘s link to the operating system‘s I/O services.\n\n\n\n\n\n\n\n\nI/O object(여기서는 socket)에서 connect 호출\nI/O object는 I/O execution context에게 요청 전달\nI/O execution context는 connect 동작을 수행하기 위해 OS 호출\nOS는 I/O execution context에게 수행 결과를 리턴\nI/O execution context는 boost::system::error_code에 수행 결과 발생한 에러를 해석하고 이를 I/O object에게 다시 전달\nI/O object는 수행에 실패했을 경우 예외를 던짐\n\n\n\n비동기 연결\n\n\n\n\nI/O object에서 async_connect 호출(your_completion_handler는 함수 또는 함수 객체임)\n123socket.async_connect(server_endpoint, your_completion_handler);void your_completion_handler(const boost::system::error_code&amp; ec);\nI/O object는 I/O execution context에게 요청 전달\n\nI/O execution context는 async_connect 동작을 수행하기 위해 OS 호출(동기 연결과 다르게 async_connect의 수행 결과를 기다리지는 않음)\n\nOS는 큐에 처리 결과를 추가함으로써 async_connect 수행이 완료됐다는 것을 알림\n\nI/O execution context로 io_context를 사용하는 경우에는 io_context::run()함수를 반드시 호출해야함. io_context::run()함수는 완료되지 않은 비동기 수행이 있는 경우에는 block 상태이므로 대게 최초 비동기 수행을 시작하자마자 해당 함수를 호출함\n\nio_context::run()함수 내에서 I/O execution context는 큐에 추가된 수행 결과들을 뽑아내어 error_code에 해석 결과를 저장하고 handler 함수에게 전달함\n\n\n동기 및 비동기 소켓 연결에 대한 내용을 바탕으로 io_context의 개념을 정리해보면 다음과 같습니다.  \n\n유저 공간에서 커널에 접근하기 위한 시스템 콜을 날리려고 할때 실제 커널과의 통신을 중계하는 주체\n\n \n\nExecution Contextio_context에 대한 개념을 구체화하기 위해 위에서 언급된 execution context에대해 좀 더 알아보도록 하겠습니다. 아래 내용은 Executors and Asynchronous Operations를 참조하여 작성하였습니다.\nexecution context는 함수 객체가 실행되는 공간입니다.\n\n\nAn execution context is a place where function objects are executed.\nExamples\nA fixed-size thread pool\nA loop scheduler\nAn asio::io_context\nThe set of all threads in the process\n\n\n\n\n말그대로 함수 객체(우리가 흔히 핸들러라고 부르는)가 실제로 실행되는 공간이라는 겁니다. 대표적인 execution context인 io_context와 thread pool 사용 예제를 한번 살펴봅시다.\n\n\n1234567891011#include &lt;iostream&gt;#include &lt;boost/asio.hpp&gt;int main()&#123;  boost::asio::io_context context;  boost::asio::post(context, []()&#123; std::cout &lt;&lt; &quot;hello boost::asio::post in context&quot; &lt;&lt; std::endl; &#125;);  context.run();  return 0;&#125;\n\n위 코드는 boost::asio::post 함수를 사용하여 람다 식으로 정의된 함수 객체를 위에서 정의한 io_context에서 실행시키겠다는 내용입니다. (람다 식은 closure라는 이름없는 함수 객체를 생성해줍니다. 람다 식의 정의는 여기를 참고하세요.)  \n아 그리고 post 함수 아래 io_context의 run 함수는 함수 객체를 실행시킬 공간(여기서는 io_context)을 활성화시켜주는 역할을 한다고 생각하시면 될 것같습니다. (run 함수를 실행하지 않고서는 람다 식이 실행되지 않습니다!)\n\n\n아래 코드는 마찬가지로 boost::asio::post 함수를 사용하여 이번에는 직접 정의한 함수 test_function을 io_context가 아닌 thread_pool(또 다른 execution context들 중 하나죠)에서 실행시키겠다는 내용입니다.\n123456789101112131415#include &lt;iostream&gt;#include &lt;boost/asio.hpp&gt;void test_function()&#123;    std::cout &lt;&lt; &quot;hello boost::asio::post in thread pool&quot; &lt;&lt; std::endl;&#125;int main()&#123;  boost::asio::thread_pool tp;  boost::asio::post(tp, test_function);  tp.join();  return 0;&#125;\n\n\n\n마치며한 줄로 정리하며 마치겠습니다.\n\nExecution Context는 함수 또는 함수 객체가 실행되는 공간\n\n\n\n\n해당 게시글에서 발생한 오탈자나 잘못된 내용에 대한 정정 댓글 격하게 환영합니다😎\n\nReference\n\nhttps://www.boost.org/doc/libs/1_78_0/doc/html/boost_asio/overview.html\nhttps://www.boost.org/doc/libs/1_78_0/doc/html/boost_asio/overview/rationale.html\nhttps://www.boost.org/doc/libs/1_78_0/doc/html/boost_asio/overview/core/basics.html\nhttps://think-async.com/executors/Executors_and_Asynchronous_Operations_Slides.pdf\nhttps://en.cppreference.com/w/cpp/language/lambda\n\n","dateCreated":"2021-12-28T10:54:29+09:00","dateModified":"2021-12-28T10:54:29+09:00","datePublished":"2021-12-28T10:54:29+09:00","description":"이번 포스팅에서는 boost 라이브러리를 사용하며 자주 마주치게되는 io_context에 대해 생각해보는 시간을 갖겠습니다.","headline":"boost io_context에 대한 고찰","image":[],"mainEntityOfPage":{"@type":"WebPage","@id":"https://chelseafandev.github.io/2021/12/28/boost-io-context/"},"publisher":{"@type":"Organization","name":"첼시팬개발자","sameAs":[],"image":"chelsea_logo.png","logo":{"@type":"ImageObject","url":"chelsea_logo.png"}},"url":"https://chelseafandev.github.io/2021/12/28/boost-io-context/","keywords":"boost asio, io_context, io_service, execution context"}</script>
+    <meta name="description" content="이번 포스팅에서는 boost 라이브러리를 사용하며 자주 마주치게되는 io_context에 대해 생각해보는 시간을 갖겠습니다.">
 <meta property="og:type" content="blog">
-<meta property="og:title" content="Ethernet 스위칭 과정에 대해 알아보자">
-<meta property="og:url" content="https://chelseafandev.github.io/2021/12/06/ethernet-switching-flow/index.html">
+<meta property="og:title" content="boost io_context에 대한 고찰">
+<meta property="og:url" content="https://chelseafandev.github.io/2021/12/28/boost-io-context/index.html">
 <meta property="og:site_name" content="첼시팬 개발자 작업 공간">
-<meta property="og:description" content="이번 포스팅에서는 L3 스위치에서의 Ethernet 스위칭 과정에 대해 알아보겠습니다.">
+<meta property="og:description" content="이번 포스팅에서는 boost 라이브러리를 사용하며 자주 마주치게되는 io_context에 대해 생각해보는 시간을 갖겠습니다.">
 <meta property="og:locale" content="ko_KR">
-<meta property="og:image" content="https://chelseafandev.github.io/assets/images/ehternet-switching-flooding.png">
-<meta property="og:image" content="https://chelseafandev.github.io/assets/images/ehternet-switching-unicasting.png">
-<meta property="article:published_time" content="2021-12-06T03:06:07.000Z">
-<meta property="article:modified_time" content="2021-12-06T03:18:33.570Z">
+<meta property="og:image" content="https://chelseafandev.github.io/assets/images/boost-asio-sync-socket.png">
+<meta property="og:image" content="https://chelseafandev.github.io/assets/images/boost-asio-async-socket.png">
+<meta property="article:published_time" content="2021-12-28T01:54:29.000Z">
+<meta property="article:modified_time" content="2021-12-28T01:54:29.630Z">
 <meta property="article:author" content="첼시팬개발자">
-<meta property="article:tag" content="ethernet switching">
-<meta property="article:tag" content="이더넷 스위치">
-<meta property="article:tag" content="Source MAC Learning">
-<meta property="article:tag" content="ARP Table">
-<meta property="article:tag" content="L3 스위치">
+<meta property="article:tag" content="boost asio">
+<meta property="article:tag" content="io_context">
+<meta property="article:tag" content="io_service">
+<meta property="article:tag" content="execution context">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:image" content="https://chelseafandev.github.io/assets/images/ehternet-switching-flooding.png">
+<meta name="twitter:image" content="https://chelseafandev.github.io/assets/images/boost-asio-sync-socket.png">
     
     
         
@@ -69,7 +68,7 @@
     
         
     
-    <link rel="canonical" href="https://chelseafandev.github.io/2021/12/06/ethernet-switching-flow/">
+    <link rel="canonical" href="https://chelseafandev.github.io/2021/12/28/boost-io-context/">
 </head>
 
     <body>
@@ -197,20 +196,20 @@
         <div class="post-header main-content-wrap text-left">
     
         <h1 class="post-title">
-            Ethernet 스위칭 과정에 대해 알아보자
+            boost io_context에 대한 고찰
         </h1>
     
     
         <div class="post-meta">
-    <time datetime="2021-12-06T12:06:07+09:00">
+    <time datetime="2021-12-28T10:54:29+09:00">
 	
-		    2021/12/06 12:06:07
+		    2021/12/28 10:54:29
     	
     </time>
     
         <span>카테고리 </span>
         
-    <a class="category-link" href="/categories/%EB%84%A4%ED%8A%B8%EC%9B%8C%ED%81%AC/">네트워크</a>
+    <a class="category-link" href="/categories/%EA%B8%B0%EC%88%A0%EB%AC%B8%EC%84%9C-%EB%B2%88%EC%97%AD/">기술문서 번역</a>
 
 
     
@@ -218,7 +217,7 @@
         -
         <span class="reading-time">⏱</span>
         
-            읽는데 3 분 정도 소요 예상
+            읽는데 4 분 정도 소요 예상
         
         
     
@@ -230,48 +229,101 @@
     
     <div class="post-content markdown">
         <div class="main-content-wrap">
-            <p>이번 포스팅에서는 L3 스위치에서의 Ethernet 스위칭 과정에 대해 알아보겠습니다.</p>
+            <p>이번 포스팅에서는 boost 라이브러리를 사용하며 자주 마주치게되는 io_context에 대해 생각해보는 시간을 갖겠습니다.</p>
 <span id="more"></span>
-<p><a target="_blank" rel="external nofollow noopener noreferrer" href="https://www.netmanias.com/ko/">넷매니아즈</a>라는 사이트에 총 4편의 시리즈로 연재된 L3 스위치의 패킷 전달에 대한 아주 양질의 게시물을 참고하여 정리해보았습니다. 실제 연재글에서는 상세한 그림과 함께 L3 스위치 내부 구조를 좀 더 세분화하여 설명하고 있으니 관심이 있으신분들은 <a target="_blank" rel="external nofollow noopener noreferrer" href="https://www.netmanias.com/ko/?m=view&id=blog&no=5526">여기</a>를 참조해주시기 바랍니다.</p>
+
 <br>
 
-<h1 id="table-of-contents">목차</h1><ol class="toc"><li class="toc-item toc-level-3"><a class="toc-link" href="#%EC%84%9C%EB%B2%841%EC%97%90%EC%84%9C-%EC%84%9C%EB%B2%843%EC%9C%BC%EB%A1%9C-%ED%8C%A8%ED%82%B7-%EC%A0%84%EB%8B%AC-Flooding"><span class="toc-number">1.</span> <span class="toc-text">서버1에서 서버3으로 패킷 전달(Flooding)</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%EC%84%9C%EB%B2%843%EC%97%90%EC%84%9C-%EC%84%9C%EB%B2%841%EB%A1%9C-%ED%8C%A8%ED%82%B7-%EC%A0%84%EB%8B%AC-Unicasting"><span class="toc-number">2.</span> <span class="toc-text">서버3에서 서버1로 패킷 전달(Unicasting)</span></a></li></ol>
+<h1 id="table-of-contents">목차</h1><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#Boost-Asio"><span class="toc-number">1.</span> <span class="toc-text">Boost Asio</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%EB%8F%99%EA%B8%B0-%EC%97%B0%EA%B2%B0"><span class="toc-number">1.1.</span> <span class="toc-text">동기 연결</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%EB%B9%84%EB%8F%99%EA%B8%B0-%EC%97%B0%EA%B2%B0"><span class="toc-number">1.2.</span> <span class="toc-text">비동기 연결</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#Execution-Context"><span class="toc-number">2.</span> <span class="toc-text">Execution Context</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%EB%A7%88%EC%B9%98%EB%A9%B0"><span class="toc-number">3.</span> <span class="toc-text">마치며</span></a></li></ol>
 
+<br>
 
-<p>서버1과 서버3은 현재 동일한 VLAN(VLAN ID: 10)내에 있으며, 서버1의 ARP 테이블에는 서버3의 엔트리가 이미 존재한다고 가정(존재하지 않는 경우에는 ARP Request/Reply 메시지를 통해 ARP 테이블을 채워주어야함)하겠습니다.<br><br></p>
-<h3 id="서버1에서-서버3으로-패킷-전달-Flooding"><a href="#서버1에서-서버3으로-패킷-전달-Flooding" class="headerlink" title="서버1에서 서버3으로 패킷 전달(Flooding)"></a>서버1에서 서버3으로 패킷 전달(Flooding)</h3><div class="figure center" style="width:;"><img class="fig-img" src="/assets/images/ehternet-switching-flooding.png" alt="Flooding"><span class="caption">Flooding</span></div>
+<h1 id="Boost-Asio"><a href="#Boost-Asio" class="headerlink" title="Boost Asio"></a>Boost Asio</h1><p>우선 io_context에 대해 이야기하기 전에 Boost Asio를 간략하게 소개하고 넘어가도록 하겠습니다. boost 공식 홈페이지의 내용을 참고하여 작성하였으니 원문 내용은 <a target="_blank" rel="external nofollow noopener noreferrer" href="https://www.boost.org/doc/libs/1_78_0/doc/html/boost_asio/overview.html">여기</a>를 참조해주시기 바랍니다.</p>
+<br>
 
-<ol>
-<li>서버1에서 서버3으로 Ping 패킷을 보내려고합니다.</li>
-<li>서버1의 <strong>라우팅 테이블</strong>을 참조(Destination 주소 별 게이트웨이 IP와 출력 포트를 확인할 수 있음)하여 서버3이 서버1과 동일한 네트워크라는 것과 패킷을 내보낼 출력 포트를 확인합니다.</li>
-<li>서버1의 <strong>ARP 테이블</strong>을 참조하여 서버3의 IP주소에 대한 MAC 주소를 확인합니다.</li>
-<li>출력 포트와 MAC 주소를 확인했으니 서버1은 서버3으로 Ping 패킷을 송신합니다.</li>
-<li>Ping 패킷은 출력 포트를 통해 L3 스위치로 이동합니다.</li>
-<li>Ping 패킷을 수신한 L3 스위치는 해당 패킷을 버퍼(Ingress Packet Buffer)에 잠시 저장해둡니다.</li>
-<li>이제 L3 스위치에서 수신한 Ping 패킷의 <strong>Source MAC 주소를 학습</strong>할 차례입니다. 동일 VLAN을 소유한 Line Card들에만 Source MAC 주소 정보를 공유하여 각각의 <strong>MAC 테이블</strong>에 그 값(VLAN, Source MAC 주소, 포트)을 저장하도록 합니다.</li>
-<li>다음으로 해당 패킷을 <strong>IP 라우팅</strong>시킬지 <strong>Ethernet 스위칭</strong>시킬것인지를 결정하는데 이를 위해 Destination MAC 주소를 참조합니다.<div class="alert info"><p>Destination MAC 주소가 L3 스위치의 MAC 주소인 경우에는, <strong>IP 라우팅</strong><br>Destination MAC 주소가 L3 스위치의 MAC 주소가 아닌 경우에는, <strong>Ethernet 스위칭</strong></p>
-</div>
-<br></li>
-<li>이 경우에는 해당 패킷의 Destination MAC 주소가 서버3의 MAC 주소이므로 Ethernet 스위칭을 시킵니다.</li>
-<li>Ethernet 스위칭을 위해 L3 스위치에서는 해당 패킷의 Destination MAC 주소가 MAC 테이블에 존재하는지 확인합니다.</li>
-<li>만약 등록되어 있지 않다면 동일 VLAN에 속한 포트들 중에서 수신 포트(서버1의 포트)를 제외한 나머지 모든 포트(여기서는 서버2와 서버3의 포트라고 가정)로 수신한 Ping 패킷을 <strong>Flooding</strong>해야함을 알게됩니다.</li>
-<li>L3 스위치는 앞서 버퍼에 잠시 저장해둔 패킷(6번 과정을 참고)을 출력을 위한 버퍼(Egress Packet Buffer)로 옮긴 후 11번에서 확인된 포트들로 해당 패킷을 Flooding합니다.</li>
-<li>이제 서버2와 서버3이 서버1이 보낸 Ping 패킷을 수신하게 됩니다.</li>
-</ol>
-<hr>
-<h3 id="서버3에서-서버1로-패킷-전달-Unicasting"><a href="#서버3에서-서버1로-패킷-전달-Unicasting" class="headerlink" title="서버3에서 서버1로 패킷 전달(Unicasting)"></a>서버3에서 서버1로 패킷 전달(Unicasting)</h3><div class="figure center" style="width:;"><img class="fig-img" src="/assets/images/ehternet-switching-unicasting.png" alt="Unicasting"><span class="caption">Unicasting</span></div>
+<p>Boost.Asio는 쓰레드와 명시적 Locking을 기반으로한 동시성 모델의 사용을 프로그램에게 요구하지 않으면서 느린 I/O operation을 관리하는 도구를 제공합니다. (이는 Boost.Asio 내부적으로 동시성 처리를 할거니깐 사용자들은 걱정말고 사용하라는 의미로도 볼 수 있죠.)</p>
+<blockquote>
+<p>Boost.Asio provides the tools to manage these long running operations, without requiring programs to use concurrency models based on threads and explicit locking.</p>
+</blockquote>
+<p>소켓을 예로 들어 Boost.Asio에서 사용하는 용어들에 대해 조금 더 알아보도록 하겠습니다.</p>
+<br>
+
+<h2 id="동기-연결"><a href="#동기-연결" class="headerlink" title="동기 연결"></a>동기 연결</h2><p>여러분의 프로그램은 적어도 한 개 이상의 (boost::asio::io_context나 boost::asio::thread_pool 또는 boost::asio::system_context 객체와 같은)I/O execution context를 가지고 있을 것입니다. I/O execution context는 OS의 I/O 서비스에 대한 프로그램의 링크를 나타냅니다.</p>
+<blockquote>
+<p><strong>Your program</strong> will have at least one <strong>I/O execution context</strong>, such as an boost::asio::io_context object, boost::asio::thread_pool object, or boost::asio::system_context. This <strong>I/O execution context</strong> represents <strong>your program</strong>‘s link to the <strong>operating system</strong>‘s I/O services.</p>
+</blockquote>
+<br>
+
+<div class="figure " style="width:;"><img class="fig-img" src="/assets/images/boost-asio-sync-socket.png" alt></div>
+
+<br>
 
 <ol>
-<li>Ping 패킷의 Destination MAC 주소는 서버3의 MAC 주소이기때문에 서버2에서는 수신한 Ping 패킷을 버립니다.</li>
-<li>서버3은 수신한 Ping 패킷에 대한 응답 패킷을 서버1로 송신합니다.(서버1에서와 마찬가지로 서버3은 자신의 라우팅 테이블과 ARP 테이블을 참조하여 출력 포트와 서버1의 MAC주소를 확인함)</li>
-<li>응답 패킷은 출력 포트를 통해 L3 스위치로 이동합니다.</li>
-<li>응답 패킷을 수신한 L3 스위치는 해당 패킷을 버퍼(Ingress Packet Buffer)에 잠시 저장해둡니다.</li>
-<li>이제 L3 스위치에서 수신한 응답 패킷의 <strong>Source MAC 주소를 학습</strong>할 차례입니다. 동일 VLAN을 소유한 Line Card들에만 Source MAC 주소 정보를 공유하여 각각의 <strong>MAC 테이블</strong>에 그 값(VLAN, Source MAC 주소, 포트)을 저장하도록 합니다.</li>
-<li>다음으로 해당 패킷을 <strong>IP 라우팅</strong>시킬지 <strong>Ethernet 스위칭</strong>시킬것인지를 결정하는데 이를 위해 Destination MAC 주소를 참조합니다.</li>
-<li>이 경우에는 해당 패킷의 Destination MAC 주소가 서버1의 MAC 주소이므로 Ethernet 스위칭을 시킵니다.</li>
-<li>Ethernet 스위칭을 위해 L3 스위치에서는 해당 패킷의 Destination MAC 주소가 MAC 테이블에 존재하는지 확인합니다. 이번에는 존재(이전의 Source MAC 주소 학습을 통해 서버1의 MAC 주소가 저장된 상태이므로)합니다.</li>
-<li>L3 스위치는 앞서 버퍼에 잠시 저장해둔 패킷(4번 과정을 참고)을 출력을 위한 버퍼(Egress Packet Buffer)로 옮긴 후 8번에서 확인된 MAC주소로 해당 패킷을 송신합니다. 이렇게 MAC 테이블에 매칭되어 하나의 포트로 패킷이 나가는 경우를 Unicasting이라고 합니다.</li>
+<li>I/O object(여기서는 socket)에서 connect 호출</li>
+<li>I/O object는 I/O execution context에게 요청 전달</li>
+<li>I/O execution context는 connect 동작을 수행하기 위해 OS 호출</li>
+<li>OS는 I/O execution context에게 수행 결과를 리턴</li>
+<li>I/O execution context는 boost::system::error_code에 수행 결과 발생한 에러를 해석하고 이를 I/O object에게 다시 전달</li>
+<li>I/O object는 수행에 실패했을 경우 예외를 던짐</li>
 </ol>
+<br>
+
+<h2 id="비동기-연결"><a href="#비동기-연결" class="headerlink" title="비동기 연결"></a>비동기 연결</h2><div class="figure " style="width:;"><img class="fig-img" src="/assets/images/boost-asio-async-socket.png" alt></div>
+
+<br>
+
+<ol>
+<li><p>I/O object에서 async_connect 호출(your_completion_handler는 함수 또는 함수 객체임)</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">socket.<span class="built_in">async_connect</span>(server_endpoint, your_completion_handler);</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">your_completion_handler</span><span class="params">(<span class="keyword">const</span> boost::system::error_code&amp; ec)</span></span>;</span><br></pre></td></tr></table></figure></li>
+<li><p>I/O object는 I/O execution context에게 요청 전달</p>
+</li>
+<li><p>I/O execution context는 async_connect 동작을 수행하기 위해 OS 호출(동기 연결과 다르게 async_connect의 수행 결과를 기다리지는 않음)</p>
+</li>
+<li><p>OS는 큐에 처리 결과를 추가함으로써 async_connect 수행이 완료됐다는 것을 알림</p>
+</li>
+<li><p>I/O execution context로 io_context를 사용하는 경우에는 io_context::run()함수를 반드시 호출해야함. io_context::run()함수는 완료되지 않은 비동기 수행이 있는 경우에는 block 상태이므로 대게 최초 비동기 수행을 시작하자마자 해당 함수를 호출함</p>
+</li>
+<li><p>io_context::run()함수 내에서 I/O execution context는 큐에 추가된 수행 결과들을 뽑아내어 error_code에 해석 결과를 저장하고 handler 함수에게 전달함</p>
+</li>
+</ol>
+<p>동기 및 비동기 소켓 연결에 대한 내용을 바탕으로 io_context의 개념을 정리해보면 다음과 같습니다.  </p>
+<blockquote>
+<p>유저 공간에서 커널에 접근하기 위한 시스템 콜을 날리려고 할때 실제 커널과의 통신을 중계하는 주체</p>
+</blockquote>
+<br> 
+
+<h1 id="Execution-Context"><a href="#Execution-Context" class="headerlink" title="Execution Context"></a>Execution Context</h1><p>io_context에 대한 개념을 구체화하기 위해 위에서 언급된 execution context에대해 좀 더 알아보도록 하겠습니다. 아래 내용은 <a target="_blank" rel="external nofollow noopener noreferrer" href="https://think-async.com/executors/Executors_and_Asynchronous_Operations_Slides.pdf">Executors and Asynchronous Operations</a>를 참조하여 작성하였습니다.</p>
+<p>execution context는 <u>함수 객체가 실행되는 공간</u>입니다.</p>
+<blockquote>
+<ul>
+<li>An execution context is <u>a place where function objects are executed.</u></li>
+<li>Examples<ul>
+<li>A fixed-size thread pool</li>
+<li>A loop scheduler</li>
+<li>An asio::io_context</li>
+<li>The set of all threads in the process</li>
+</ul>
+</li>
+</ul>
+</blockquote>
+<p>말그대로 함수 객체(우리가 흔히 핸들러라고 부르는)가 실제로 실행되는 공간이라는 겁니다. 대표적인 execution context인 io_context와 thread pool 사용 예제를 한번 살펴봅시다.</p>
+<br>
+
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;iostream&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;boost/asio.hpp&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">main</span><span class="params">()</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">  boost::asio::io_context context;</span><br><span class="line">  boost::asio::<span class="built_in">post</span>(context, []()&#123; std::cout &lt;&lt; <span class="string">&quot;hello boost::asio::post in context&quot;</span> &lt;&lt; std::endl; &#125;);</span><br><span class="line">  context.<span class="built_in">run</span>();</span><br><span class="line">  <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>위 코드는 boost::asio::post 함수를 사용하여 람다 식으로 정의된 함수 객체를 위에서 정의한 io_context에서 실행시키겠다는 내용입니다. (람다 식은 closure라는 이름없는 함수 객체를 생성해줍니다. <a target="_blank" rel="external nofollow noopener noreferrer" href="https://en.cppreference.com/w/cpp/language/lambda">람다 식의 정의</a>는 여기를 참고하세요.)  </p>
+<p>아 그리고 post 함수 아래 io_context의 run 함수는 함수 객체를 실행시킬 공간(여기서는 io_context)을 활성화시켜주는 역할을 한다고 생각하시면 될 것같습니다. (run 함수를 실행하지 않고서는 람다 식이 실행되지 않습니다!)</p>
+<br>
+
+<p>아래 코드는 마찬가지로 boost::asio::post 함수를 사용하여 이번에는 직접 정의한 함수 test_function을 io_context가 아닌 thread_pool(또 다른 execution context들 중 하나죠)에서 실행시키겠다는 내용입니다.</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;iostream&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;boost/asio.hpp&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">test_function</span><span class="params">()</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    std::cout &lt;&lt; <span class="string">&quot;hello boost::asio::post in thread pool&quot;</span> &lt;&lt; std::endl;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">main</span><span class="params">()</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">  boost::asio::thread_pool tp;</span><br><span class="line">  boost::asio::<span class="built_in">post</span>(tp, test_function);</span><br><span class="line">  tp.<span class="built_in">join</span>();</span><br><span class="line">  <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<br>
+
+<h1 id="마치며"><a href="#마치며" class="headerlink" title="마치며"></a>마치며</h1><p>한 줄로 정리하며 마치겠습니다.</p>
+<blockquote>
+<p>Execution Context는 함수 또는 함수 객체가 실행되는 공간</p>
+</blockquote>
 <br>
 <br>
 
@@ -279,7 +331,11 @@
 
 <p><strong>Reference</strong></p>
 <ul>
-<li><a target="_blank" rel="external nofollow noopener noreferrer" href="https://www.netmanias.com/ko/?m=view&amp;id=blog&amp;no=5526">https://www.netmanias.com/ko/?m=view&amp;id=blog&amp;no=5526</a></li>
+<li><a target="_blank" rel="external nofollow noopener noreferrer" href="https://www.boost.org/doc/libs/1_78_0/doc/html/boost_asio/overview.html">https://www.boost.org/doc/libs/1_78_0/doc/html/boost_asio/overview.html</a></li>
+<li><a target="_blank" rel="external nofollow noopener noreferrer" href="https://www.boost.org/doc/libs/1_78_0/doc/html/boost_asio/overview/rationale.html">https://www.boost.org/doc/libs/1_78_0/doc/html/boost_asio/overview/rationale.html</a></li>
+<li><a target="_blank" rel="external nofollow noopener noreferrer" href="https://www.boost.org/doc/libs/1_78_0/doc/html/boost_asio/overview/core/basics.html">https://www.boost.org/doc/libs/1_78_0/doc/html/boost_asio/overview/core/basics.html</a></li>
+<li><a target="_blank" rel="external nofollow noopener noreferrer" href="https://think-async.com/executors/Executors_and_Asynchronous_Operations_Slides.pdf">https://think-async.com/executors/Executors_and_Asynchronous_Operations_Slides.pdf</a></li>
+<li><a target="_blank" rel="external nofollow noopener noreferrer" href="https://en.cppreference.com/w/cpp/language/lambda">https://en.cppreference.com/w/cpp/language/lambda</a></li>
 </ul>
 
             
@@ -292,7 +348,7 @@
             <div class="post-footer-tags">
                 <span class="text-color-light text-small">태그</span><br>
                 
-    <a class="tag tag--primary tag--small t-none-link" href="/tags/ARP-Table/" rel="tag">ARP Table</a> <a class="tag tag--primary tag--small t-none-link" href="/tags/L3-%EC%8A%A4%EC%9C%84%EC%B9%98/" rel="tag">L3 스위치</a> <a class="tag tag--primary tag--small t-none-link" href="/tags/Source-MAC-Learning/" rel="tag">Source MAC Learning</a> <a class="tag tag--primary tag--small t-none-link" href="/tags/ethernet-switching/" rel="tag">ethernet switching</a> <a class="tag tag--primary tag--small t-none-link" href="/tags/%EC%9D%B4%EB%8D%94%EB%84%B7-%EC%8A%A4%EC%9C%84%EC%B9%98/" rel="tag">이더넷 스위치</a>
+    <a class="tag tag--primary tag--small t-none-link" href="/tags/boost-asio/" rel="tag">boost asio</a> <a class="tag tag--primary tag--small t-none-link" href="/tags/execution-context/" rel="tag">execution context</a> <a class="tag tag--primary tag--small t-none-link" href="/tags/io-context/" rel="tag">io_context</a> <a class="tag tag--primary tag--small t-none-link" href="/tags/io-service/" rel="tag">io_service</a>
 
             </div>
         
@@ -302,9 +358,8 @@
         <ul class="post-actions post-action-nav">
             <li class="post-action">
                 
-                    
-                <a class="post-action-btn btn btn--default tooltip--top" href="/2021/12/06/ip-routing-flow/" data-tooltip="IP 라우팅 과정에 대해 알아보자" aria-label="이전: IP 라우팅 과정에 대해 알아보자">
-                    
+                    <a class="post-action-btn btn btn--disabled" aria-hidden="true">
+                        
                         <i class="fa fa-angle-left" aria-hidden="true"></i>
                         <span class="hide-xs hide-sm text-small icon-ml">이전</span>
                     </a>
@@ -312,7 +367,7 @@
             <li class="post-action">
                 
                     
-                <a class="post-action-btn btn btn--default tooltip--top" href="/2021/11/09/gdb-chapter4-program-crash/" data-tooltip="Seg Fault는 왜 발생하는가?" aria-label="다음: Seg Fault는 왜 발생하는가?">
+                <a class="post-action-btn btn btn--default tooltip--top" href="/2021/12/06/ip-routing-flow/" data-tooltip="IP 라우팅 과정에 대해 알아보자" aria-label="다음: IP 라우팅 과정에 대해 알아보자">
                     
                         <span class="hide-xs hide-sm text-small icon-mr">다음</span>
                         <i class="fa fa-angle-right" aria-hidden="true"></i>
@@ -330,7 +385,7 @@
             
             
             <li class="post-action hide-xs">
-                <a class="post-action-btn btn btn--default" target="_blank" href="https://www.facebook.com/sharer/sharer.php?u=https://chelseafandev.github.io/2021/12/06/ethernet-switching-flow/" title="Facebook에 공유하기" aria-label="Facebook에 공유하기" rel="external nofollow noopener noreferrer">
+                <a class="post-action-btn btn btn--default" target="_blank" href="https://www.facebook.com/sharer/sharer.php?u=https://chelseafandev.github.io/2021/12/28/boost-io-context/" title="Facebook에 공유하기" aria-label="Facebook에 공유하기" rel="external nofollow noopener noreferrer">
                     <i class="fab fa-facebook" aria-hidden="true"></i>
                 </a>
             </li>
@@ -338,7 +393,7 @@
             
             
             <li class="post-action hide-xs">
-                <a class="post-action-btn btn btn--default" target="_blank" href="https://twitter.com/intent/tweet?text=https://chelseafandev.github.io/2021/12/06/ethernet-switching-flow/" title="Twitter에 공유하기" aria-label="Twitter에 공유하기" rel="external nofollow noopener noreferrer">
+                <a class="post-action-btn btn btn--default" target="_blank" href="https://twitter.com/intent/tweet?text=https://chelseafandev.github.io/2021/12/28/boost-io-context/" title="Twitter에 공유하기" aria-label="Twitter에 공유하기" rel="external nofollow noopener noreferrer">
                     <i class="fab fa-twitter" aria-hidden="true"></i>
                 </a>
             </li>
@@ -346,7 +401,7 @@
             
             
             <li class="post-action hide-xs">
-                <a class="post-action-btn btn btn--default" target="_blank" href="https://plus.google.com/share?url=https://chelseafandev.github.io/2021/12/06/ethernet-switching-flow/" title="Google+에 공유하기" aria-label="Google+에 공유하기" rel="external nofollow noopener noreferrer">
+                <a class="post-action-btn btn btn--default" target="_blank" href="https://plus.google.com/share?url=https://chelseafandev.github.io/2021/12/28/boost-io-context/" title="Google+에 공유하기" aria-label="Google+에 공유하기" rel="external nofollow noopener noreferrer">
                     <i class="fab fa-google-plus" aria-hidden="true"></i>
                 </a>
             </li>
@@ -394,9 +449,8 @@
         <ul class="post-actions post-action-nav">
             <li class="post-action">
                 
-                    
-                <a class="post-action-btn btn btn--default tooltip--top" href="/2021/12/06/ip-routing-flow/" data-tooltip="IP 라우팅 과정에 대해 알아보자" aria-label="이전: IP 라우팅 과정에 대해 알아보자">
-                    
+                    <a class="post-action-btn btn btn--disabled" aria-hidden="true">
+                        
                         <i class="fa fa-angle-left" aria-hidden="true"></i>
                         <span class="hide-xs hide-sm text-small icon-ml">이전</span>
                     </a>
@@ -404,7 +458,7 @@
             <li class="post-action">
                 
                     
-                <a class="post-action-btn btn btn--default tooltip--top" href="/2021/11/09/gdb-chapter4-program-crash/" data-tooltip="Seg Fault는 왜 발생하는가?" aria-label="다음: Seg Fault는 왜 발생하는가?">
+                <a class="post-action-btn btn btn--default tooltip--top" href="/2021/12/06/ip-routing-flow/" data-tooltip="IP 라우팅 과정에 대해 알아보자" aria-label="다음: IP 라우팅 과정에 대해 알아보자">
                     
                         <span class="hide-xs hide-sm text-small icon-mr">다음</span>
                         <i class="fa fa-angle-right" aria-hidden="true"></i>
@@ -422,7 +476,7 @@
             
             
             <li class="post-action hide-xs">
-                <a class="post-action-btn btn btn--default" target="_blank" href="https://www.facebook.com/sharer/sharer.php?u=https://chelseafandev.github.io/2021/12/06/ethernet-switching-flow/" title="Facebook에 공유하기" aria-label="Facebook에 공유하기" rel="external nofollow noopener noreferrer">
+                <a class="post-action-btn btn btn--default" target="_blank" href="https://www.facebook.com/sharer/sharer.php?u=https://chelseafandev.github.io/2021/12/28/boost-io-context/" title="Facebook에 공유하기" aria-label="Facebook에 공유하기" rel="external nofollow noopener noreferrer">
                     <i class="fab fa-facebook" aria-hidden="true"></i>
                 </a>
             </li>
@@ -430,7 +484,7 @@
             
             
             <li class="post-action hide-xs">
-                <a class="post-action-btn btn btn--default" target="_blank" href="https://twitter.com/intent/tweet?text=https://chelseafandev.github.io/2021/12/06/ethernet-switching-flow/" title="Twitter에 공유하기" aria-label="Twitter에 공유하기" rel="external nofollow noopener noreferrer">
+                <a class="post-action-btn btn btn--default" target="_blank" href="https://twitter.com/intent/tweet?text=https://chelseafandev.github.io/2021/12/28/boost-io-context/" title="Twitter에 공유하기" aria-label="Twitter에 공유하기" rel="external nofollow noopener noreferrer">
                     <i class="fab fa-twitter" aria-hidden="true"></i>
                 </a>
             </li>
@@ -438,7 +492,7 @@
             
             
             <li class="post-action hide-xs">
-                <a class="post-action-btn btn btn--default" target="_blank" href="https://plus.google.com/share?url=https://chelseafandev.github.io/2021/12/06/ethernet-switching-flow/" title="Google+에 공유하기" aria-label="Google+에 공유하기" rel="external nofollow noopener noreferrer">
+                <a class="post-action-btn btn btn--default" target="_blank" href="https://plus.google.com/share?url=https://chelseafandev.github.io/2021/12/28/boost-io-context/" title="Google+에 공유하기" aria-label="Google+에 공유하기" rel="external nofollow noopener noreferrer">
                     <i class="fab fa-google-plus" aria-hidden="true"></i>
                 </a>
             </li>
@@ -466,7 +520,7 @@
                 
                 
                 <li class="share-option">
-                    <a class="share-option-btn" target="_blank" href="https://www.facebook.com/sharer/sharer.php?u=https://chelseafandev.github.io/2021/12/06/ethernet-switching-flow/" aria-label="Facebook에 공유하기" rel="external nofollow noopener noreferrer">
+                    <a class="share-option-btn" target="_blank" href="https://www.facebook.com/sharer/sharer.php?u=https://chelseafandev.github.io/2021/12/28/boost-io-context/" aria-label="Facebook에 공유하기" rel="external nofollow noopener noreferrer">
                         <i class="fab fa-facebook" aria-hidden="true"></i><span>Facebook에 공유하기</span>
                     </a>
                 </li>
@@ -474,7 +528,7 @@
                 
                 
                 <li class="share-option">
-                    <a class="share-option-btn" target="_blank" href="https://twitter.com/intent/tweet?text=https://chelseafandev.github.io/2021/12/06/ethernet-switching-flow/" aria-label="Twitter에 공유하기" rel="external nofollow noopener noreferrer">
+                    <a class="share-option-btn" target="_blank" href="https://twitter.com/intent/tweet?text=https://chelseafandev.github.io/2021/12/28/boost-io-context/" aria-label="Twitter에 공유하기" rel="external nofollow noopener noreferrer">
                         <i class="fab fa-twitter" aria-hidden="true"></i><span>Twitter에 공유하기</span>
                     </a>
                 </li>
@@ -482,7 +536,7 @@
                 
                 
                 <li class="share-option">
-                    <a class="share-option-btn" target="_blank" href="https://plus.google.com/share?url=https://chelseafandev.github.io/2021/12/06/ethernet-switching-flow/" aria-label="Google+에 공유하기" rel="external nofollow noopener noreferrer">
+                    <a class="share-option-btn" target="_blank" href="https://plus.google.com/share?url=https://chelseafandev.github.io/2021/12/28/boost-io-context/" aria-label="Google+에 공유하기" rel="external nofollow noopener noreferrer">
                         <i class="fab fa-google-plus" aria-hidden="true"></i><span>Google+에 공유하기</span>
                     </a>
                 </li>
