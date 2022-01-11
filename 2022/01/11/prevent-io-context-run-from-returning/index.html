@@ -1,0 +1,851 @@
+
+<!DOCTYPE html>
+<html lang="ko">
+    
+<head>
+    <meta name="google-site-verification" content="J5mMHtKHn3iGTruZZnDBXVLvKljF6NEGw2XsHk8BDU4">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="generator" content="첼시팬 개발자 작업 공간">
+    <title>io_context::run 함수가 반환되는 것을 막는 방법 - 첼시팬 개발자 작업 공간</title>
+    <meta name="author" content="첼시팬개발자">
+    
+    
+        <link rel="icon" href="https://chelseafandev.github.io/assets/images/chelsea_favicon.png">
+    
+    
+        
+            <link rel="alternate" type="application/rss+xml" title="RSS" href="/rss2.xml">
+        
+    
+    <script type="application/ld+json">{"@context":"http://schema.org","@type":"BlogPosting","author":{"@type":"Person","name":"첼시팬개발자","sameAs":[],"image":"chelsea_logo.png"},"articleBody":"뭐하는 놈인지는 알고 쓰자 시리즈의 두번째 주제는 boost io_context::run 함수를 실행 상태로 유지하는 방법입니다.\n\n해당 포스팅에서는 io_context를 사용하기 위해서는 반드시 run 함수를 호출해야한다는 주입식(?) 교육에서 벗어나고자 boost io_context::run 함수에 대해 간략히 알아보고, 우리의 최종 목표인 io_context에 당장에 할당된 작업이 없더라도 io_context::run 함수를 실행 상태로 유지하는 방법에 대해 알아보도록 하겠습니다. Prevent io_context::run from returning 사이트의 내용을 바탕으로 작성되었으니 참고부탁드립니다.\n\n\n\n\n\n\nio_context::run 함수란?먼저 Boost 공식 매뉴얼의 내용을 참고하여 io_context::run 함수에 대해 간략히 알아보도록 하겠습니다.\n\n\nio_context::run 함수는 io_context 객체의 이벤트 처리 루프를 실행합니다.\n\nRun the io_context object’s event processing loop.\n\nrun() 함수는 모든 작업이 완료되거나 더이상 처리할 핸들러가 없을때까지 블록상태를 유지합니다. \n\nThe run() function blocks until all work has finished and there are no more handlers to be dispatched, or until the io_context has been stopped.\n\nio_context가 핸들러를 실행하는 공간인 쓰레드 풀을 설정하기 위해 다중 쓰레드에서도 run() 함수를 호출할 수 있습니다. 쓰레드 풀에서 대기 중인 쓰레드들은 모두 동등한 자격을 가지며 io_context는 핸들러를 실행시키기위해 임의로 그들중 한개를 선택하게됩니다.\n\nMultiple threads may call the run() function to set up a pool of threads from which the io_context may execute handlers. All threads that are waiting in the pool are equivalent and the io_context may choose any one of them to invoke a handler.\n\nrun() 함수로 부터 빠져나오기 위한 일반적인 방법은 io_context 객체가 종료되도록하는 것입니다. run(), run_one(), poll() 또는 poll_one() 함수를 restart() 함수 호출없이 연속해서 호출하는 경우에는 곧바로 해당 함수를 빠져나오게 될 것입니다.\n\nA normal exit from the run() function implies that the io_context object is stopped (the stopped() function returns true). Subsequent calls to run(), run_one(), poll() or poll_one() will return immediately unless there is a prior call to restart().\n\n여기서 저희가 주목할 내용은 io_context::run 함수는 (의도적인 종료 함수의 호출을 제외하고는) io_context 상의 모든 작업이 종료되고, 더이상 io_context에 할당(dispatch)된 핸들러가 없을때까지만 블록(block)상태를 유지한다는 것입니다.\n\n\nio_context::run 함수가 반환되지 않도록 하는 방법그렇다면 io_context에 당장에 할당할 작업은 없더라도 run 함수를 블록상태로 유지하기 위해서는 어떻게 해야할까요? 여기서 부터는 원문 포스팅에 대한 번역 내용입니다.\n\n\nio_context::run은 모든 예약된 작업이 완료될때까지 실행 상태를 유지합니다. 모든 작업이 완료된 이후에 io_context::run은 반환될것이며, 해당 함수를 호출한 쓰레드는 블록이 해제될 것입니다.\n\nio_context::run runs until all scheduled tasks are completed. After that io_context::run will return and the caller thread will unblock:\n\n1234boost::asio::io_context io_context;// Schedule some tasksio_context.run();std::cout &lt;&lt; &quot;Job&#x27;s done! Continue the execution\\n&quot;;\n\n하지만 때때로 수행할 작업의 유무에 관계없이 io_context::run의 실행 상태를 유지해야하는 경우가 있습니다. 지금까지 살펴보았던 서버들은 항상 async_accept를 수행중이었기때문에 적어도 하나의 예약된 작업을 계속해서 가지고 있었습니다. 그렇기때문에 우리는 특정한 방법을 활용하여 그들을 실행중인 상태로 유지해야할 필요가 없었습니다.\n\nHowever sometimes you may need to keep it running regardless if there are tasks to execute or not. Servers we’ve reviewed so far were always doing async_accept, so they always had at least one task scheduled, so we didn’t really need to keep them running in such a way. \n\n하지만 클라이언트는 async_accept 작업을 수행하지 않으며, 그것의 입장에서 어떠한 특정 시점에 예약된 작업이 없다는 것은 지극히 일반적인 상황입니다. 이러한 상황에서 io_context::run 함수가 반환되는 것을 막기 위해 여러분은 boost::asio::executor_work_guard 클래스 인스턴스를 사용해야 합니다. 그것의 이름이 너무 길어지는 관계로 별칭(alias)을 사용하도록 하겠습니다.\n\nHowever a client doesn’t do async_accept and it’s a normal thing for it not to have scheduled tasks at some point at all. To prevent io_context::run from returning you should use boost::asio::executor_work_guard(a former io_context::work which is currently deprecated) class instance. Its name is too long, so let’s alias it right away:\n\n1234567using work_guard_type = boost::asio::executor_work_guard&lt;boost::asio::io_context::executor_type&gt;;boost::asio::io_context io_context;work_guard_type work_guard(io_context.get_executor());// Schedule some tasks or notio_context.run();std::cout &lt;&lt; &quot;Sorry, we&#x27;ll never reach this!\\n&quot;;\n\n여러분은 여전히 어플리케이션을 강제로 혹은 우아하게 종료하기 위한 방법이 필요합니다. 이를 위해 io_context::stop 함수를 사용할 수 있습니다.\n\nYou still need a way to stop your application somehow, and to stop it gracefully. You may use io_context::stop function:\n\n12345678910boost::asio::io_context io_context;work_guard_type work_guard(io_context.get_executor());// Schedule some tasks or notstd::thread watchdog([&amp;]&#123;    std::this_thread::sleep_for(10s);    io_context.stop(); // That&#x27;s OK, io_context::stop is thread-safe&#125;);io_context.run();std::cout &lt;&lt; &quot;We stopped after 10 seconds of running\\n&quot;;\n\n위 경우에 io_context::run 함수는 그 즉시 종료되지는 않을 것이지만 가장 적절한 시점에 종료될 것이며 남아있는 예약 작업들은 버려지게 될 것입니다. 이것은 정확히 우리가 원하던 동작일 겁니다.\n\nIn that case io_context::run won’t stop right away but do this in the nearest suitable point of time, and the rest of scheduled tasks will be discarded. And that may be exactly what you’re needed.\n\n여러분은 또한 예약된 모든 작업이 완료될때까지 대기하다 그 이후에 io_context::run 함수가 반환되길 원할수도 있습니다. 이를위해 io_context::work 클래스 인스턴스를 파괴해주기만 하면 됩니다. 파괴하는 연산 또한 쓰레드에 안전합니다.\n\nYou may also need to wait until all scheduled tasks are completed and return from io_context::run after that. To do so you just need to destroy io_context::work class instance. This operation is also thread-safe:\n\n12345678910boost::asio::io_context io_context;auto work_guard = std::make_unique&lt;work_guard_type&gt;(io_context.get_executor());// Schedule some tasks or notstd::thread watchdog([&amp;]&#123;    std::this_thread::sleep_for(10s);    work_guard.reset(); // Work guard is destroyed, io_context::run is free to return&#125;);io_context.run();std::cout &lt;&lt; &quot;We stopped after 10+ seconds of running\\n&quot;;\n\n만약 io_context::run 함수가 반환된 후 그것을 다시 호출하고 싶다면 그 전에 io_context::restart 함수를 호출해야합니다.\n\nIf you’re going to call io_context::run once again after it returned, then you should call io_context::restart before that.\n\n123456boost::asio::io_context context;boost::asio::post(context, []()&#123; std::cout &lt;&lt; &quot;hello boost::asio::post in context first&quot; &lt;&lt; std::endl; &#125;);temp_context.run();boost::asio::post(temp_context, []()&#123; std::cout &lt;&lt; &quot;hello boost::asio::post in context second&quot; &lt;&lt; std::endl; &#125;);temp_context.restart();temp_context.run();\n\n\n\n마치며지금까지 io_context에 당장에 할당된 작업이 없더라도 io_context::run 함수를 실행 상태로 유지하는 방법에 대해 알아보았습니다. 아래와 같이 정리해보면서 포스팅을 마치도록 하겠습니다.\n\nio_context에 할당된 작업이 없으면 io_context::run 함수는 즉시 반환된다.\nio_context에 당장에 할당된 작업이 없는 상황에서 io_context::run 함수가 반환되는 것을 막기 위해서는 boost::asio::executor_work_guard 클래스 인스턴스를 사용하라.\nio_context::run 함수가 반환된 후 다시 한번 호출하고 싶다면 io_context::restart 함수를 먼저 호출하라.\n\n\n\n\n해당 게시글에서 발생한 오탈자나 잘못된 내용에 대한 정정 댓글 격하게 환영합니다😎\n\nReference\n\nhttps://www.boost.org/doc/libs/1_78_0/doc/html/boost_asio/reference/io_context/run/overload1.html\nhttps://dens.website/tutorials/cpp-asio/work\n\n","dateCreated":"2022-01-11T16:17:36+09:00","dateModified":"2022-01-11T16:19:23+09:00","datePublished":"2022-01-11T16:17:36+09:00","description":"뭐하는 놈인지는 알고 쓰자 시리즈의 두번째 주제는 boost io_context::run 함수를 실행 상태로 유지하는 방법입니다.","headline":"io_context::run 함수가 반환되는 것을 막는 방법","image":[],"mainEntityOfPage":{"@type":"WebPage","@id":"https://chelseafandev.github.io/2022/01/11/prevent-io-context-run-from-returning/"},"publisher":{"@type":"Organization","name":"첼시팬개발자","sameAs":[],"image":"chelsea_logo.png","logo":{"@type":"ImageObject","url":"chelsea_logo.png"}},"url":"https://chelseafandev.github.io/2022/01/11/prevent-io-context-run-from-returning/","keywords":"boost asio, io_context, io_context run, io_context block"}</script>
+    <meta name="description" content="뭐하는 놈인지는 알고 쓰자 시리즈의 두번째 주제는 boost io_context::run 함수를 실행 상태로 유지하는 방법입니다.">
+<meta property="og:type" content="blog">
+<meta property="og:title" content="io_context::run 함수가 반환되는 것을 막는 방법">
+<meta property="og:url" content="https://chelseafandev.github.io/2022/01/11/prevent-io-context-run-from-returning/index.html">
+<meta property="og:site_name" content="첼시팬 개발자 작업 공간">
+<meta property="og:description" content="뭐하는 놈인지는 알고 쓰자 시리즈의 두번째 주제는 boost io_context::run 함수를 실행 상태로 유지하는 방법입니다.">
+<meta property="og:locale" content="ko_KR">
+<meta property="article:published_time" content="2022-01-11T07:17:36.000Z">
+<meta property="article:modified_time" content="2022-01-11T07:19:23.320Z">
+<meta property="article:author" content="첼시팬개발자">
+<meta property="article:tag" content="boost asio">
+<meta property="article:tag" content="io_context">
+<meta property="article:tag" content="io_context run">
+<meta property="article:tag" content="io_context block">
+<meta name="twitter:card" content="summary">
+    
+    
+        
+    
+    
+        <meta property="og:image" content="https://chelseafandev.github.io/assets/images/chelsea_logo.png">
+    
+    
+    
+    
+    <!--STYLES-->
+    
+<link rel="stylesheet" href="/assets/css/all.css">
+
+    
+<link rel="stylesheet" href="/assets/css/jquery.fancybox.css">
+
+    
+<link rel="stylesheet" href="/assets/css/thumbs.css">
+
+    
+<link rel="stylesheet" href="/assets/css/tranquilpeak.css">
+
+    <!--STYLES END-->
+    
+
+    
+
+    
+        
+    
+    <link rel="canonical" href="https://chelseafandev.github.io/2022/01/11/prevent-io-context-run-from-returning/">
+</head>
+
+    <body>
+        <div id="blog">
+            <!-- Define author's picture -->
+
+
+    
+        
+            
+        
+    
+
+<header id="header" data-behavior="4">
+    <i id="btn-open-sidebar" class="fa fa-lg fa-bars"></i>
+    <div class="header-title">
+        <a class="header-title-link" href="/" aria-label>
+            첼시팬 개발자 작업 공간
+        </a>
+    </div>
+    
+        
+            <a class="header-right-picture " href="#about" aria-label="링크 열기: /#about">
+        
+        
+            <img class="header-picture" src="/assets/images/chelsea_logo.png" alt="저자 이미지">
+        
+        </a>
+    
+</header>
+
+            <!-- Define author's picture -->
+
+
+
+        
+    
+
+<nav id="sidebar" data-behavior="4" style="border-top-width: 100px;padding-top: 150px;">
+    <div class="sidebar-container">
+        
+            <div class="sidebar-profile">
+                <a href="/#about" aria-label="저자에 대해 더 알아보기">
+                    <img class="sidebar-profile-picture" src="/assets/images/chelsea_logo.png" alt="저자 이미지">
+                </a>
+                <h4 class="sidebar-profile-name">첼시팬개발자</h4>
+                
+                    <h5 class="sidebar-profile-bio"><p>조금 더디더라도 꾸준히</p>
+</h5>
+                
+            </div>
+        
+        
+            <ul class="sidebar-buttons">
+            
+                <li class="sidebar-button">
+                    
+                        <a class="sidebar-button-link " href="/" rel="noopener" title="전체글">
+                        <i class="sidebar-button-icon fas fa-list-ul" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">전체글</span>
+                    </a>
+            </li>
+            
+                <li class="sidebar-button">
+                    
+                        <a class="sidebar-button-link " href="/all-categories" rel="noopener" title="카테고리">
+                        <i class="sidebar-button-icon fa fa-bookmark" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">카테고리</span>
+                    </a>
+            </li>
+            
+                <li class="sidebar-button">
+                    
+                        <a class="sidebar-button-link " href="/all-tags" rel="noopener" title="태그">
+                        <i class="sidebar-button-icon fa fa-tags" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">태그</span>
+                    </a>
+            </li>
+            
+                <li class="sidebar-button">
+                    
+                        <a class="sidebar-button-link " href="/all-archives" rel="noopener" title="아카이브">
+                        <i class="sidebar-button-icon fa fa-archive" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">아카이브</span>
+                    </a>
+            </li>
+            
+                <li class="sidebar-button">
+                    
+                        <a class="sidebar-button-link open-algolia-search" href="#search" rel="noopener" title="검색">
+                        <i class="sidebar-button-icon fa fa-search" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">검색</span>
+                    </a>
+            </li>
+            
+                <li class="sidebar-button">
+                    
+                        <a class="sidebar-button-link " href="https://github.com/chelseafandev" target="_blank" rel="external nofollow noopener noreferrer" title="GitHub">
+                        <i class="sidebar-button-icon fab fa-github" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">GitHub</span>
+                    </a>
+            </li>
+            
+                <li class="sidebar-button">
+                    
+                        <a class="sidebar-button-link " href="/rss2.xml" rel="noopener" title="RSS">
+                        <i class="sidebar-button-icon fa fa-rss" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">RSS</span>
+                    </a>
+            </li>
+            
+        </ul>
+        
+    </div>
+</nav>
+
+            
+            <div id="main" data-behavior="4" class="
+                        hasCoverMetaIn
+                        ">
+                
+<article class="post">
+    
+    
+        <div class="post-header main-content-wrap text-left">
+    
+        <h1 class="post-title">
+            io_context::run 함수가 반환되는 것을 막는 방법
+        </h1>
+    
+    
+        <div class="post-meta">
+    <time datetime="2022-01-11T16:17:36+09:00">
+	
+		    2022/01/11 16:17:36
+    	
+    </time>
+    
+        <span>카테고리 </span>
+        
+    <a class="category-link" href="/categories/%EA%B8%B0%EC%88%A0%EB%AC%B8%EC%84%9C-%EB%B2%88%EC%97%AD/">기술문서 번역</a>
+
+
+    
+    
+        -
+        <span class="reading-time">⏱</span>
+        
+            읽는데 6 분 정도 소요 예상
+        
+        
+    
+</div>
+
+    
+</div>
+
+    
+    <div class="post-content markdown">
+        <div class="main-content-wrap">
+            <p><em><strong>뭐하는 놈인지는 알고 쓰자</strong></em> 시리즈의 두번째 주제는 <code>boost io_context::run 함수를 실행 상태로 유지하는 방법</code>입니다.</p>
+<span id="more"></span>
+<p>해당 포스팅에서는 io_context를 사용하기 위해서는 반드시 run 함수를 호출해야한다는 주입식(?) 교육에서 벗어나고자 boost io_context::run 함수에 대해 간략히 알아보고, 우리의 최종 목표인 io_context에 당장에 할당된 작업이 없더라도 io_context::run 함수를 실행 상태로 유지하는 방법에 대해 알아보도록 하겠습니다. <a target="_blank" rel="external nofollow noopener noreferrer" href="https://dens.website/tutorials/cpp-asio/work">Prevent io_context::run from returning</a> 사이트의 내용을 바탕으로 작성되었으니 참고부탁드립니다.</p>
+<br>
+
+<h1 id="table-of-contents">목차</h1><ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#io-context-run-%ED%95%A8%EC%88%98%EB%9E%80"><span class="toc-number">1.</span> <span class="toc-text">io_context::run 함수란?</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#io-context-run-%ED%95%A8%EC%88%98%EA%B0%80-%EB%B0%98%ED%99%98%EB%90%98%EC%A7%80-%EC%95%8A%EB%8F%84%EB%A1%9D-%ED%95%98%EB%8A%94-%EB%B0%A9%EB%B2%95"><span class="toc-number">2.</span> <span class="toc-text">io_context::run 함수가 반환되지 않도록 하는 방법</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%EB%A7%88%EC%B9%98%EB%A9%B0"><span class="toc-number">3.</span> <span class="toc-text">마치며</span></a></li></ol>
+
+<br>
+
+<h2 id="io-context-run-함수란"><a href="#io-context-run-함수란" class="headerlink" title="io_context::run 함수란?"></a>io_context::run 함수란?</h2><p>먼저 <a target="_blank" rel="external nofollow noopener noreferrer" href="https://www.boost.org/doc/libs/1_78_0/doc/html/boost_asio/reference/io_context/run/overload1.html">Boost 공식 매뉴얼</a>의 내용을 참고하여 io_context::run 함수에 대해 간략히 알아보도록 하겠습니다.</p>
+<br>
+
+<p>io_context::run 함수는 io_context 객체의 이벤트 처리 루프를 실행합니다.</p>
+<blockquote>
+<p>Run the io_context object’s event processing loop.</p>
+</blockquote>
+<p>run() 함수는 모든 작업이 완료되거나 더이상 처리할 핸들러가 없을때까지 블록상태를 유지합니다. </p>
+<blockquote>
+<p>The run() function blocks until all work has finished and there are no more handlers to be dispatched, or until the io_context has been stopped.</p>
+</blockquote>
+<p>io_context가 핸들러를 실행하는 공간인 쓰레드 풀을 설정하기 위해 다중 쓰레드에서도 run() 함수를 호출할 수 있습니다. 쓰레드 풀에서 대기 중인 쓰레드들은 모두 동등한 자격을 가지며 io_context는 핸들러를 실행시키기위해 임의로 그들중 한개를 선택하게됩니다.</p>
+<blockquote>
+<p>Multiple threads may call the run() function to set up a pool of threads from which the io_context may execute handlers. All threads that are waiting in the pool are equivalent and the io_context may choose any one of them to invoke a handler.</p>
+</blockquote>
+<p>run() 함수로 부터 빠져나오기 위한 일반적인 방법은 io_context 객체가 종료되도록하는 것입니다. run(), run_one(), poll() 또는 poll_one() 함수를 restart() 함수 호출없이 연속해서 호출하는 경우에는 곧바로 해당 함수를 빠져나오게 될 것입니다.</p>
+<blockquote>
+<p>A normal exit from the run() function implies that the io_context object is stopped (the stopped() function returns true). Subsequent calls to run(), run_one(), poll() or poll_one() will return immediately unless there is a prior call to restart().</p>
+</blockquote>
+<p>여기서 저희가 주목할 내용은 io_context::run 함수는 (의도적인 종료 함수의 호출을 제외하고는) io_context 상의 모든 작업이 종료되고, 더이상 io_context에 할당(dispatch)된 핸들러가 없을때까지만 블록(block)상태를 유지한다는 것입니다.</p>
+<br>
+
+<h2 id="io-context-run-함수가-반환되지-않도록-하는-방법"><a href="#io-context-run-함수가-반환되지-않도록-하는-방법" class="headerlink" title="io_context::run 함수가 반환되지 않도록 하는 방법"></a>io_context::run 함수가 반환되지 않도록 하는 방법</h2><p>그렇다면 io_context에 당장에 할당할 작업은 없더라도 run 함수를 블록상태로 유지하기 위해서는 어떻게 해야할까요? 여기서 부터는 원문 포스팅에 대한 번역 내용입니다.</p>
+<br>
+
+<p><strong>io_context::run</strong>은 모든 예약된 작업이 완료될때까지 실행 상태를 유지합니다. 모든 작업이 완료된 이후에 <strong>io_context::run</strong>은 반환될것이며, 해당 함수를 호출한 쓰레드는 블록이 해제될 것입니다.</p>
+<blockquote>
+<p><strong>io_context::run</strong> runs until all scheduled tasks are completed. After that <strong>io_context::run</strong> will return and the caller thread will unblock:</p>
+</blockquote>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">boost::asio::io_context io_context;</span><br><span class="line"><span class="comment">// Schedule some tasks</span></span><br><span class="line">io_context.<span class="built_in">run</span>();</span><br><span class="line">std::cout &lt;&lt; <span class="string">&quot;Job&#x27;s done! Continue the execution\n&quot;</span>;</span><br></pre></td></tr></table></figure>
+
+<p>하지만 때때로 수행할 작업의 유무에 관계없이 io_context::run의 실행 상태를 유지해야하는 경우가 있습니다. 지금까지 살펴보았던 서버들은 항상 <strong>async_accept</strong>를 수행중이었기때문에 적어도 하나의 예약된 작업을 계속해서 가지고 있었습니다. 그렇기때문에 우리는 특정한 방법을 활용하여 그들을 실행중인 상태로 유지해야할 필요가 없었습니다.</p>
+<blockquote>
+<p>However sometimes you may need to keep it running regardless if there are tasks to execute or not. Servers we’ve reviewed so far were always doing <strong>async_accept</strong>, so they always had at least one task scheduled, so we didn’t really need to keep them running in such a way. </p>
+</blockquote>
+<p>하지만 클라이언트는 <strong>async_accept</strong> 작업을 수행하지 않으며, 그것의 입장에서 어떠한 특정 시점에 예약된 작업이 없다는 것은 지극히 일반적인 상황입니다. 이러한 상황에서 <strong>io_context::run</strong> 함수가 반환되는 것을 막기 위해 여러분은 <strong>boost::asio::executor_work_guard</strong> 클래스 인스턴스를 사용해야 합니다. 그것의 이름이 너무 길어지는 관계로 별칭(alias)을 사용하도록 하겠습니다.</p>
+<blockquote>
+<p>However a client doesn’t do <strong>async_accept</strong> and it’s a normal thing for it not to have scheduled tasks at some point at all. To prevent <strong>io_context::run</strong> from returning you should use <strong>boost::asio::executor_work_guard</strong>(a former <strong>io_context::work</strong> which is currently deprecated) class instance. Its name is too long, so let’s alias it right away:</p>
+</blockquote>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">using</span> work_guard_type = boost::asio::executor_work_guard&lt;boost::asio::io_context::executor_type&gt;;</span><br><span class="line"></span><br><span class="line">boost::asio::io_context io_context;</span><br><span class="line"><span class="function">work_guard_type <span class="title">work_guard</span><span class="params">(io_context.get_executor())</span></span>;</span><br><span class="line"><span class="comment">// Schedule some tasks or not</span></span><br><span class="line">io_context.<span class="built_in">run</span>();</span><br><span class="line">std::cout &lt;&lt; <span class="string">&quot;Sorry, we&#x27;ll never reach this!\n&quot;</span>;</span><br></pre></td></tr></table></figure>
+
+<p>여러분은 여전히 어플리케이션을 강제로 혹은 우아하게 종료하기 위한 방법이 필요합니다. 이를 위해 <strong>io_context::stop</strong> 함수를 사용할 수 있습니다.</p>
+<blockquote>
+<p>You still need a way to stop your application somehow, and to stop it gracefully. You may use <strong>io_context::stop</strong> function:</p>
+</blockquote>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">boost::asio::io_context io_context;</span><br><span class="line"><span class="function">work_guard_type <span class="title">work_guard</span><span class="params">(io_context.get_executor())</span></span>;</span><br><span class="line"><span class="comment">// Schedule some tasks or not</span></span><br><span class="line"><span class="function">std::thread <span class="title">watchdog</span><span class="params">([&amp;]</span></span></span><br><span class="line"><span class="params"><span class="function">&#123;</span></span></span><br><span class="line"><span class="params"><span class="function">    std::this_thread::sleep_for(<span class="number">10</span>s);</span></span></span><br><span class="line"><span class="params"><span class="function">    io_context.stop(); <span class="comment">// That&#x27;s OK, io_context::stop is thread-safe</span></span></span></span><br><span class="line"><span class="params"><span class="function">&#125;)</span></span>;</span><br><span class="line">io_context.<span class="built_in">run</span>();</span><br><span class="line">std::cout &lt;&lt; <span class="string">&quot;We stopped after 10 seconds of running\n&quot;</span>;</span><br></pre></td></tr></table></figure>
+
+<p>위 경우에 <strong>io_context::run</strong> 함수는 그 즉시 종료되지는 않을 것이지만 가장 적절한 시점에 종료될 것이며 남아있는 예약 작업들은 버려지게 될 것입니다. 이것은 정확히 우리가 원하던 동작일 겁니다.</p>
+<blockquote>
+<p>In that case <strong>io_context::run</strong> won’t stop right away but do this in the nearest suitable point of time, and the rest of scheduled tasks will be discarded. And that may be exactly what you’re needed.</p>
+</blockquote>
+<p>여러분은 또한 예약된 모든 작업이 완료될때까지 대기하다 그 이후에 <strong>io_context::run</strong> 함수가 반환되길 원할수도 있습니다. 이를위해 <strong>io_context::work</strong> 클래스 인스턴스를 파괴해주기만 하면 됩니다. 파괴하는 연산 또한 쓰레드에 안전합니다.</p>
+<blockquote>
+<p>You may also need to wait until all scheduled tasks are completed and return from <strong>io_context::run</strong> after that. To do so you just need to destroy <strong>io_context::work</strong> class instance. This operation is also thread-safe:</p>
+</blockquote>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">boost::asio::io_context io_context;</span><br><span class="line"><span class="keyword">auto</span> work_guard = std::make_unique&lt;work_guard_type&gt;(io_context.<span class="built_in">get_executor</span>());</span><br><span class="line"><span class="comment">// Schedule some tasks or not</span></span><br><span class="line"><span class="function">std::thread <span class="title">watchdog</span><span class="params">([&amp;]</span></span></span><br><span class="line"><span class="params"><span class="function">&#123;</span></span></span><br><span class="line"><span class="params"><span class="function">    std::this_thread::sleep_for(<span class="number">10</span>s);</span></span></span><br><span class="line"><span class="params"><span class="function">    work_guard.reset(); <span class="comment">// Work guard is destroyed, io_context::run is free to return</span></span></span></span><br><span class="line"><span class="params"><span class="function">&#125;)</span></span>;</span><br><span class="line">io_context.<span class="built_in">run</span>();</span><br><span class="line">std::cout &lt;&lt; <span class="string">&quot;We stopped after 10+ seconds of running\n&quot;</span>;</span><br></pre></td></tr></table></figure>
+
+<p>만약 <strong>io_context::run</strong> 함수가 반환된 후 그것을 다시 호출하고 싶다면 그 전에 <strong>io_context::restart</strong> 함수를 호출해야합니다.</p>
+<blockquote>
+<p>If you’re going to call <strong>io_context::run</strong> once again after it returned, then you should call <strong>io_context::restart</strong> before that.</p>
+</blockquote>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">boost::asio::io_context context;</span><br><span class="line">boost::asio::<span class="built_in">post</span>(context, []()&#123; std::cout &lt;&lt; <span class="string">&quot;hello boost::asio::post in context first&quot;</span> &lt;&lt; std::endl; &#125;);</span><br><span class="line">temp_context.<span class="built_in">run</span>();</span><br><span class="line">boost::asio::<span class="built_in">post</span>(temp_context, []()&#123; std::cout &lt;&lt; <span class="string">&quot;hello boost::asio::post in context second&quot;</span> &lt;&lt; std::endl; &#125;);</span><br><span class="line">temp_context.<span class="built_in">restart</span>();</span><br><span class="line">temp_context.<span class="built_in">run</span>();</span><br></pre></td></tr></table></figure>
+
+<br>
+
+<h2 id="마치며"><a href="#마치며" class="headerlink" title="마치며"></a>마치며</h2><p>지금까지 io_context에 당장에 할당된 작업이 없더라도 io_context::run 함수를 실행 상태로 유지하는 방법에 대해 알아보았습니다. 아래와 같이 정리해보면서 포스팅을 마치도록 하겠습니다.<br><br></p>
+<ul>
+<li>io_context에 할당된 작업이 없으면 io_context::run 함수는 즉시 반환된다.</li>
+<li>io_context에 당장에 할당된 작업이 없는 상황에서 io_context::run 함수가 반환되는 것을 막기 위해서는 boost::asio::executor_work_guard 클래스 인스턴스를 사용하라.</li>
+<li>io_context::run 함수가 반환된 후 다시 한번 호출하고 싶다면 io_context::restart 함수를 먼저 호출하라.</li>
+</ul>
+<br>
+<br>
+
+<span class="highlight-text yellow">해당 게시글에서 발생한 오탈자나 잘못된 내용에 대한 정정 댓글 격하게 환영합니다</span>😎
+
+<p><strong>Reference</strong></p>
+<ul>
+<li><a target="_blank" rel="external nofollow noopener noreferrer" href="https://www.boost.org/doc/libs/1_78_0/doc/html/boost_asio/reference/io_context/run/overload1.html">https://www.boost.org/doc/libs/1_78_0/doc/html/boost_asio/reference/io_context/run/overload1.html</a></li>
+<li><a target="_blank" rel="external nofollow noopener noreferrer" href="https://dens.website/tutorials/cpp-asio/work">https://dens.website/tutorials/cpp-asio/work</a></li>
+</ul>
+
+            
+
+
+        </div>
+    </div>
+    <div id="post-footer" class="post-footer main-content-wrap">
+        
+            <div class="post-footer-tags">
+                <span class="text-color-light text-small">태그</span><br>
+                
+    <a class="tag tag--primary tag--small t-none-link" href="/tags/boost-asio/" rel="tag">boost asio</a> <a class="tag tag--primary tag--small t-none-link" href="/tags/io-context/" rel="tag">io_context</a> <a class="tag tag--primary tag--small t-none-link" href="/tags/io-context-block/" rel="tag">io_context block</a> <a class="tag tag--primary tag--small t-none-link" href="/tags/io-context-run/" rel="tag">io_context run</a>
+
+            </div>
+        
+        
+            <div class="post-actions-wrap">
+    <nav>
+        <ul class="post-actions post-action-nav">
+            <li class="post-action">
+                
+                    <a class="post-action-btn btn btn--disabled" aria-hidden="true">
+                        
+                        <i class="fa fa-angle-left" aria-hidden="true"></i>
+                        <span class="hide-xs hide-sm text-small icon-ml">이전</span>
+                    </a>
+            </li>
+            <li class="post-action">
+                
+                    
+                <a class="post-action-btn btn btn--default tooltip--top" href="/2021/12/28/boost-io-context/" data-tooltip="boost io_context에 대한 고찰" aria-label="다음: boost io_context에 대한 고찰">
+                    
+                        <span class="hide-xs hide-sm text-small icon-mr">다음</span>
+                        <i class="fa fa-angle-right" aria-hidden="true"></i>
+                    </a>
+            </li>
+        </ul>
+    </nav>
+    <ul class="post-actions post-action-share">
+        <li class="post-action hide-lg hide-md hide-sm">
+            <a class="post-action-btn btn btn--default btn-open-shareoptions" href="#btn-open-shareoptions" aria-label="이 포스트 공유하기">
+                <i class="fa fa-share-alt" aria-hidden="true"></i>
+            </a>
+        </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a class="post-action-btn btn btn--default" target="_blank" href="https://www.facebook.com/sharer/sharer.php?u=https://chelseafandev.github.io/2022/01/11/prevent-io-context-run-from-returning/" title="Facebook에 공유하기" aria-label="Facebook에 공유하기" rel="external nofollow noopener noreferrer">
+                    <i class="fab fa-facebook" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a class="post-action-btn btn btn--default" target="_blank" href="https://twitter.com/intent/tweet?text=https://chelseafandev.github.io/2022/01/11/prevent-io-context-run-from-returning/" title="Twitter에 공유하기" aria-label="Twitter에 공유하기" rel="external nofollow noopener noreferrer">
+                    <i class="fab fa-twitter" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a class="post-action-btn btn btn--default" target="_blank" href="https://plus.google.com/share?url=https://chelseafandev.github.io/2022/01/11/prevent-io-context-run-from-returning/" title="Google+에 공유하기" aria-label="Google+에 공유하기" rel="external nofollow noopener noreferrer">
+                    <i class="fab fa-google-plus" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+        
+            
+        
+        <li class="post-action">
+            
+                <a class="post-action-btn btn btn--default" href="#table-of-contents" aria-label="목차">
+            
+                <i class="fa fa-list" aria-hidden="true"></i>
+            </a>
+        </li>
+    </ul>
+</div>
+
+
+        
+        
+            
+        
+    </div>
+</article>
+
+
+
+<!-- Comment -->
+<!--  utteranc comment -->
+
+<script src="https://utteranc.es/client.js" repo="chelseafandev/blog-comment" issue-term="title" label="Comment" theme="github-light" crossorigin="anonymous" async>
+</script>
+
+                <footer id="footer" class="main-content-wrap">
+    <span class="copyrights">
+        Copyrights &copy; 2022 첼시팬개발자. All Rights Reserved.
+    </span>
+</footer>
+
+            </div>
+            
+                <div id="bottom-bar" class="post-bottom-bar" data-behavior="4">
+                    <div class="post-actions-wrap">
+    <nav>
+        <ul class="post-actions post-action-nav">
+            <li class="post-action">
+                
+                    <a class="post-action-btn btn btn--disabled" aria-hidden="true">
+                        
+                        <i class="fa fa-angle-left" aria-hidden="true"></i>
+                        <span class="hide-xs hide-sm text-small icon-ml">이전</span>
+                    </a>
+            </li>
+            <li class="post-action">
+                
+                    
+                <a class="post-action-btn btn btn--default tooltip--top" href="/2021/12/28/boost-io-context/" data-tooltip="boost io_context에 대한 고찰" aria-label="다음: boost io_context에 대한 고찰">
+                    
+                        <span class="hide-xs hide-sm text-small icon-mr">다음</span>
+                        <i class="fa fa-angle-right" aria-hidden="true"></i>
+                    </a>
+            </li>
+        </ul>
+    </nav>
+    <ul class="post-actions post-action-share">
+        <li class="post-action hide-lg hide-md hide-sm">
+            <a class="post-action-btn btn btn--default btn-open-shareoptions" href="#btn-open-shareoptions" aria-label="이 포스트 공유하기">
+                <i class="fa fa-share-alt" aria-hidden="true"></i>
+            </a>
+        </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a class="post-action-btn btn btn--default" target="_blank" href="https://www.facebook.com/sharer/sharer.php?u=https://chelseafandev.github.io/2022/01/11/prevent-io-context-run-from-returning/" title="Facebook에 공유하기" aria-label="Facebook에 공유하기" rel="external nofollow noopener noreferrer">
+                    <i class="fab fa-facebook" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a class="post-action-btn btn btn--default" target="_blank" href="https://twitter.com/intent/tweet?text=https://chelseafandev.github.io/2022/01/11/prevent-io-context-run-from-returning/" title="Twitter에 공유하기" aria-label="Twitter에 공유하기" rel="external nofollow noopener noreferrer">
+                    <i class="fab fa-twitter" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a class="post-action-btn btn btn--default" target="_blank" href="https://plus.google.com/share?url=https://chelseafandev.github.io/2022/01/11/prevent-io-context-run-from-returning/" title="Google+에 공유하기" aria-label="Google+에 공유하기" rel="external nofollow noopener noreferrer">
+                    <i class="fab fa-google-plus" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+        
+            
+        
+        <li class="post-action">
+            
+                <a class="post-action-btn btn btn--default" href="#table-of-contents" aria-label="목차">
+            
+                <i class="fa fa-list" aria-hidden="true"></i>
+            </a>
+        </li>
+    </ul>
+</div>
+
+
+                </div>
+                
+    <div id="share-options-bar" class="share-options-bar" data-behavior="4">
+        <i id="btn-close-shareoptions" class="fa fa-times"></i>
+        <ul class="share-options">
+            
+                
+                
+                <li class="share-option">
+                    <a class="share-option-btn" target="_blank" href="https://www.facebook.com/sharer/sharer.php?u=https://chelseafandev.github.io/2022/01/11/prevent-io-context-run-from-returning/" aria-label="Facebook에 공유하기" rel="external nofollow noopener noreferrer">
+                        <i class="fab fa-facebook" aria-hidden="true"></i><span>Facebook에 공유하기</span>
+                    </a>
+                </li>
+            
+                
+                
+                <li class="share-option">
+                    <a class="share-option-btn" target="_blank" href="https://twitter.com/intent/tweet?text=https://chelseafandev.github.io/2022/01/11/prevent-io-context-run-from-returning/" aria-label="Twitter에 공유하기" rel="external nofollow noopener noreferrer">
+                        <i class="fab fa-twitter" aria-hidden="true"></i><span>Twitter에 공유하기</span>
+                    </a>
+                </li>
+            
+                
+                
+                <li class="share-option">
+                    <a class="share-option-btn" target="_blank" href="https://plus.google.com/share?url=https://chelseafandev.github.io/2022/01/11/prevent-io-context-run-from-returning/" aria-label="Google+에 공유하기" rel="external nofollow noopener noreferrer">
+                        <i class="fab fa-google-plus" aria-hidden="true"></i><span>Google+에 공유하기</span>
+                    </a>
+                </li>
+            
+        </ul>
+    </div>
+
+
+            
+        </div>
+        
+
+
+    
+        
+    
+
+<div id="about">
+    <div id="about-card">
+        <div id="about-btn-close">
+            <i class="fa fa-times"></i>
+        </div>
+        
+            <img id="about-card-picture" src="/assets/images/chelsea_logo.png" alt="저자 이미지">
+        
+            <h4 id="about-card-name">첼시팬개발자</h4>
+        
+            <div id="about-card-bio"><p>조금 더디더라도 꾸준히</p>
+</div>
+        
+        
+            <div id="about-card-job">
+                <i class="fa fa-briefcase"></i>
+                <br>
+                <p>개발자</p>
+
+            </div>
+        
+        
+            <div id="about-card-location">
+                <i class="fa fa-map-marker-alt"></i>
+                <br>
+                서울, 대한민국
+            </div>
+        
+    </div>
+</div>
+
+        
+            <div id="algolia-search-modal" class="modal-container">
+    <div class="modal">
+        <div class="modal-header">
+            <span class="close-button"><i class="fa fa-times"></i></span>
+            <a href="https://algolia.com" target="_blank" rel="external nofollow noopener noreferrer" class="searchby-algolia text-color-light link-unstyled">
+                <span class="searchby-algolia-text text-color-light text-small">by</span>
+                <img class="searchby-algolia-logo" src="/assets/images/logo-algolia-nebula-blue-full.svg">
+            </a>
+            <i class="search-icon fa fa-search"></i>
+            <form id="algolia-search-form">
+                <input type="text" id="algolia-search-input" name="search" class="form-control input--large search-input" placeholder="Search ">
+            </form>
+        </div>
+        <div class="modal-body">
+            <div class="no-result text-color-light text-center">포스트가 없습니다.</div>
+            <div class="results">
+                
+                <div class="media">
+                    <!--  -->
+                    <div class="media-body">
+                        <a class="link-unstyled" href="https://chelseafandev.github.io/2021/07/08/hello-hexo/" aria-label=": Hexo Tranquilpeak 테마의 Markdown syntax">
+                            <h3 class="media-heading">Hexo Tranquilpeak 테마의 Markdown syntax</h3>
+                        </a>
+                        <span class="media-meta">
+                            <span class="media-date text-small">
+                                
+                                    2021년 7월 8일
+                                
+                            </span>
+                        </span>
+                        <div class="media-content hide-xs font-nanumsquareround"><p>Hexo 테마 중 하나인 <a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/LouisBarranqueiro/hexo-theme-tranquilpeak/blob/master/DOCUMENTATION.md">Tranquilpeak의 공식 문서</a>를 참조하여 Post시에 활용할 수 있는 다양한 Markdown syntax들을 사용해보았습니다.</p></div>
+                    </div>
+                    <div style="clear:both;"></div>
+                    <hr>
+                </div>
+                
+                <div class="media">
+                    <!-- 
+                    <div class="media-left">
+                        <a
+                            class="link-unstyled"
+                            href="https://chelseafandev.github.io/2021/07/10/tr-ruud-gullit/"
+                            aria-label=": (BBC 스포츠) 첼시 루드 굴리트 25년이 지난 지금 그의 프리미어그리 진출을 애정어린 시선으로 되돌아 보다"
+                        >
+                            <img class="media-image" src="https://chelseafandev.github.io/2021/07/10/tr-ruud-gullit/tr_ruud_gullit_picture_1.png" width="90" height="90"/>
+                        </a>
+                    </div>
+                     -->
+                    <div class="media-body">
+                        <a class="link-unstyled" href="https://chelseafandev.github.io/2021/07/10/tr-ruud-gullit/" aria-label=": (BBC 스포츠) 첼시 루드 굴리트 25년이 지난 지금 그의 프리미어그리 진출을 애정어린 시선으로 되돌아 보다">
+                            <h3 class="media-heading">(BBC 스포츠) 첼시 루드 굴리트 25년이 지난 지금 그의 프리미어그리 진출을 애정어린 시선으로 되돌아 보다</h3>
+                        </a>
+                        <span class="media-meta">
+                            <span class="media-date text-small">
+                                
+                                    2021년 7월 10일
+                                
+                            </span>
+                        </span>
+                        <div class="media-content hide-xs font-nanumsquareround"><p>피파 좀 한다는 사람이라면 모두가 다 알만한 그 분, X사기캐 굴리트😬<br>커리어 막바지에 첼시에서도 잠깐 활약했었네요.<br><a target="_blank" rel="external nofollow noopener noreferrer" href="https://www.bbc.com/sport/football/52904670">BBC Sport에 굴리트가 직접 기고한 회고록 느낌의 글</a>을 한번 번역해보았습니다.</p></div>
+                    </div>
+                    <div style="clear:both;"></div>
+                    <hr>
+                </div>
+                
+                <div class="media">
+                    <!--  -->
+                    <div class="media-body">
+                        <a class="link-unstyled" href="https://chelseafandev.github.io/2021/07/13/os-io-system/" aria-label=": I/O는 어떻게 처리될까?">
+                            <h3 class="media-heading">I/O는 어떻게 처리될까?</h3>
+                        </a>
+                        <span class="media-meta">
+                            <span class="media-date text-small">
+                                
+                                    2021년 7월 13일
+                                
+                            </span>
+                        </span>
+                        <div class="media-content hide-xs font-nanumsquareround"><p>운영 체제의 바이블 <a target="_blank" rel="external nofollow noopener noreferrer" href="https://www.wiley.com/en-us/Operating+System+Concepts%2C+10th+Edition-p-9781119320913">Operating System Concepts</a>(흔히 공룡책🦕이라고들 하죠)을 바탕으로 I/O 시스템에 대해 정리해보았습니다.</p></div>
+                    </div>
+                    <div style="clear:both;"></div>
+                    <hr>
+                </div>
+                
+                <div class="media">
+                    <!--  -->
+                    <div class="media-body">
+                        <a class="link-unstyled" href="https://chelseafandev.github.io/2021/07/22/tip-how-to-use-tmux-md/" aria-label=": 강력한 터미널 멀티플렉서 tmux를 활용해보자">
+                            <h3 class="media-heading">강력한 터미널 멀티플렉서 tmux를 활용해보자</h3>
+                        </a>
+                        <span class="media-meta">
+                            <span class="media-date text-small">
+                                
+                                    2021년 7월 22일
+                                
+                            </span>
+                        </span>
+                        <div class="media-content hide-xs font-nanumsquareround"><p>이번엔 익숙해지면 정말 강력한 터미널 멀티플렉서인 tmux에 대해 소개해보려고 합니다.</p></div>
+                    </div>
+                    <div style="clear:both;"></div>
+                    <hr>
+                </div>
+                
+                <div class="media">
+                    <!--  -->
+                    <div class="media-body">
+                        <a class="link-unstyled" href="https://chelseafandev.github.io/2021/08/02/os-sync-async-block-nonblock/" aria-label=": Blocking, Nonblocking, Sync, Async">
+                            <h3 class="media-heading">Blocking, Nonblocking, Sync, Async</h3>
+                        </a>
+                        <span class="media-meta">
+                            <span class="media-date text-small">
+                                
+                                    2021년 8월 2일
+                                
+                            </span>
+                        </span>
+                        <div class="media-content hide-xs font-nanumsquareround"><p>오늘은 공룡책🦕에 언급된 Blocking과 Nonblocking, Synchronous와 Asynchronous에 대해서 정리해보고자 합니다. Synchronous와 Asynchronous의 개념은 <strong>쓰레드</strong>와 <strong>I/O</strong>에서 등장하게 되는데요, 각각이 어떠한 의미로 사용되는지도 구분해서 살펴보도록 하겠습니다.</p></div>
+                    </div>
+                    <div style="clear:both;"></div>
+                    <hr>
+                </div>
+                
+                <div class="media">
+                    <!-- 
+                    <div class="media-left">
+                        <a
+                            class="link-unstyled"
+                            href="https://chelseafandev.github.io/2021/08/05/tr-lukaku-want-to-chelsea/"
+                            aria-label=": (BBC 스포츠) 첼시의 물망에 오른 루카쿠 적절한 오퍼가 온다면 인터 밀란을 떠나기 원해"
+                        >
+                            <img class="media-image" src="https://chelseafandev.github.io/2021/08/05/tr-lukaku-want-to-chelsea/tr-lukaku-want-to-chelsea.jpg" width="90" height="90"/>
+                        </a>
+                    </div>
+                     -->
+                    <div class="media-body">
+                        <a class="link-unstyled" href="https://chelseafandev.github.io/2021/08/05/tr-lukaku-want-to-chelsea/" aria-label=": (BBC 스포츠) 첼시의 물망에 오른 루카쿠 적절한 오퍼가 온다면 인터 밀란을 떠나기 원해">
+                            <h3 class="media-heading">(BBC 스포츠) 첼시의 물망에 오른 루카쿠 적절한 오퍼가 온다면 인터 밀란을 떠나기 원해</h3>
+                        </a>
+                        <span class="media-meta">
+                            <span class="media-date text-small">
+                                
+                                    2021년 8월 5일
+                                
+                            </span>
+                        </span>
+                        <div class="media-content hide-xs font-nanumsquareround"><p>오늘은 첼시 이적설이 가까워져가고 있는 루카쿠 관련 기사를 가져왔습니다. 베르너의 결정력이 너무나도 아쉬웠던 지난 시즌 첼시를 생각하면 꼭 필요한 영입이라고 생각되네요😁</p></div>
+                    </div>
+                    <div style="clear:both;"></div>
+                    <hr>
+                </div>
+                
+                <div class="media">
+                    <!-- 
+                    <div class="media-left">
+                        <a
+                            class="link-unstyled"
+                            href="https://chelseafandev.github.io/2021/08/12/tr-son-new-contract/"
+                            aria-label=": (BBC 스포츠) 토트넘 공격수 손흥민 4년 재계약 성사"
+                        >
+                            <img class="media-image" src="https://chelseafandev.github.io/2021/08/12/tr-son-new-contract/tr-son-new-contract-figure1.jpg" width="90" height="90"/>
+                        </a>
+                    </div>
+                     -->
+                    <div class="media-body">
+                        <a class="link-unstyled" href="https://chelseafandev.github.io/2021/08/12/tr-son-new-contract/" aria-label=": (BBC 스포츠) 토트넘 공격수 손흥민 4년 재계약 성사">
+                            <h3 class="media-heading">(BBC 스포츠) 토트넘 공격수 손흥민 4년 재계약 성사</h3>
+                        </a>
+                        <span class="media-meta">
+                            <span class="media-date text-small">
+                                
+                                    2021년 8월 12일
+                                
+                            </span>
+                        </span>
+                        <div class="media-content hide-xs font-nanumsquareround"><p>오늘은 현재 프리미어리그 토트넘 핫스퍼에서 활약 중인 손흥민 선수의 재계약 관련 기사를 가져왔습니다. 다음 시즌 누누감독이 이끌게 되는 토트넘, 쌉월클👍 손흥민선수와 함께 좋은 성적 거뒀으면 좋겠습니다.</p></div>
+                    </div>
+                    <div style="clear:both;"></div>
+                    <hr>
+                </div>
+                
+                <div class="media">
+                    <!--  -->
+                    <div class="media-body">
+                        <a class="link-unstyled" href="https://chelseafandev.github.io/2021/09/24/hyperscan-phase1/" aria-label=": 인텔 Hyperscan 레퍼런스 가이드 번역">
+                            <h3 class="media-heading">인텔 Hyperscan 레퍼런스 가이드 번역</h3>
+                        </a>
+                        <span class="media-meta">
+                            <span class="media-date text-small">
+                                
+                                    2021년 9월 24일
+                                
+                            </span>
+                        </span>
+                        <div class="media-content hide-xs font-nanumsquareround"><p>이번 포스팅에서는 인텔 Hyperscan의 <a target="_blank" rel="external nofollow noopener noreferrer" href="http://intel.github.io/hyperscan/dev-reference/index.html">공식 문서</a>를 통해 컴파일(compile)이나 스캔(scan)과 같은 Hyperscan의 기본적인 개념들에 대해 알아보도록 하겠습니다. 추후에는 Hyperscan API를 직접 사용하여 정규 표현식 패턴 매칭을 수행하는 샘플 코드도 업로드할 예정입니다.</p></div>
+                    </div>
+                    <div style="clear:both;"></div>
+                    <hr>
+                </div>
+                
+                <div class="media">
+                    <!--  -->
+                    <div class="media-body">
+                        <a class="link-unstyled" href="https://chelseafandev.github.io/2021/10/12/hyperscan-phase2/" aria-label=": 인텔 Hyperscan API 테스트 코드 작성">
+                            <h3 class="media-heading">인텔 Hyperscan API 테스트 코드 작성</h3>
+                        </a>
+                        <span class="media-meta">
+                            <span class="media-date text-small">
+                                
+                                    2021년 10월 12일
+                                
+                            </span>
+                        </span>
+                        <div class="media-content hide-xs font-nanumsquareround"><p>이번 포스팅에서는 <a href="https://chelseafandev.github.io/2021/09/24/hyperscan-phase1/">인텔 Hyperscan 레퍼런스 가이드 번역</a>에 이어서 Hyperscan API를 직접 사용하여 정규 표현식 패턴 매칭을 수행하는 샘플 코드를 작성하고 테스트 해보는 시간을 갖겠습니다.</p></div>
+                    </div>
+                    <div style="clear:both;"></div>
+                    <hr>
+                </div>
+                
+                <div class="media">
+                    <!--  -->
+                    <div class="media-body">
+                        <a class="link-unstyled" href="https://chelseafandev.github.io/2021/11/09/gdb-chapter4-program-crash/" aria-label=": Seg Fault는 왜 발생하는가?">
+                            <h3 class="media-heading">Seg Fault는 왜 발생하는가?</h3>
+                        </a>
+                        <span class="media-meta">
+                            <span class="media-date text-small">
+                                
+                                    2021년 11월 9일
+                                
+                            </span>
+                        </span>
+                        <div class="media-content hide-xs font-nanumsquareround"><p>이번 포스팅에서는 <a target="_blank" rel="external nofollow noopener noreferrer" href="https://nostarch.com/debugging.htm">The Art of Debugging with GDB, DDD and Eclipse</a>의 <strong>Chatper 4 WHEN A PROGRAM CRASHES</strong> 내용을 번역해보았습니다. 해당 챕터의 앞부분에서는 가상 주소 공간에서의 페이지(page)에 대한 개념을 소개하고 seg fault가 발생하는 원인을 페이지(page)와 연관지어 잘 설명해주고 있습니다.</p></div>
+                    </div>
+                    <div style="clear:both;"></div>
+                    <hr>
+                </div>
+                
+            </div>
+        </div>
+        <div class="modal-footer">
+            <p class="results-count text-medium" data-message-zero="포스트가 없습니다." data-message-one="1 개의 포스트가 있습니다." data-message-other="{n} 개의 포스트가 있습니다.">
+                14 개의 포스트가 있습니다.
+            </p>
+        </div>
+    </div>
+</div>
+
+        
+        
+<div id="cover" style="background-image:url('/assets/images/chelsea_cover.jpg');"></div>
+        <!--SCRIPTS-->
+
+<script src="/assets/js/jquery.js"></script>
+
+
+<script src="/assets/js/jquery.fancybox.js"></script>
+
+
+<script src="/assets/js/thumbs.js"></script>
+
+
+<script src="/assets/js/tranquilpeak.js"></script>
+
+<!--SCRIPTS END-->
+
+
+    
+
+
+
+    
+<script src="/assets/js/moment-with-locales.js"></script>
+
+    
+<script src="/assets/js/algoliasearch.js"></script>
+
+    <script>
+      var algoliaClient = algoliasearch('FDTOJ7KLS8', '935491408ac4c43d728c68858e4ea147');
+      var algoliaIndex = algoliaClient.initIndex('chelseafandev');
+    </script>
+
+
+    </body>
+</html>
