@@ -9,6 +9,14 @@
 
 
     <url>
+        <loc>https://chelseafandev.github.io/2022/09/06/translate-standard-package-layout-in-go/</loc>
+        <lastmod>2022-09-06T09:30:58.620Z</lastmod>
+        <changefreq>weekly</changefreq>
+        <priority>0.6</priority>
+
+    </url>
+
+    <url>
         <loc>https://chelseafandev.github.io/2022/03/05/cmake-tutorial/</loc>
         <lastmod>2022-03-14T00:33:25.600Z</lastmod>
         <changefreq>weekly</changefreq>
