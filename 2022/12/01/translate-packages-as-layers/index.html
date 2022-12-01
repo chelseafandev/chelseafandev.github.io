@@ -1,0 +1,926 @@
+
+<!DOCTYPE html>
+<html lang="ko">
+    
+<head>
+    <meta name="google-site-verification" content="Ojz5tvI9WuN6pn2n6i1E_mOkMyRiSSOp4KXuYSyaUjs">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="generator" content="첼시팬 개발자 작업 공간">
+    <title>그룹이 아닌 계층으로서의 Go 패키지 - 첼시팬 개발자 작업 공간</title>
+    <meta name="author" content="첼시팬개발자">
+    
+    
+        <link rel="icon" href="https://chelseafandev.github.io/assets/images/chelsea_favicon.png">
+    
+    
+        
+            <link rel="alternate" type="application/rss+xml" title="RSS" href="/rss2.xml">
+        
+    
+    <script type="application/ld+json">{"@context":"http://schema.org","@type":"BlogPosting","author":{"@type":"Person","name":"첼시팬개발자","sameAs":[],"image":"chelsea_logo.png"},"articleBody":"이번 포스팅은 지난번 어떠한 방식으로 Go코드를 구조화해야 하는가? 포스팅과 마찬가지로 Go 소스 코드의 구조화에 대한 고민의 연장선입니다.\n\n\n이번에 번역해 본 글도 지난번 포스팅과 동일한 저자가 작성한 글이며 Go 소스 코드의 구조화에 관련된 글을 4년이 지난 후에 다시 한번 게시해주셨더라고요. Go 어플리케이션을 제작할 때 패키지들 간의 관계를 어떻게 바라볼 것인가에 대해 한 번 더 고민할 수 있는 시간이었습니다.\n원문을 참고하실 분들은 해당 링크를 확인해주시기 바랍니다.\n\n\n\n\n\n\n그룹이 아닌 계층으로서의 Go 패키지숙련된 Go 개발자들에게도 가장 어려운 주제중 하나인 package layout에 대해 다루어보고자 4년전에 Standard Package Layout이라는 글을 게시했었습니다. 하지만 대부분의 Go 개발자들은 여전히 그들의 어플리케이션과 함께 방대해져갈 소스 코드를 디렉토리 구조로 정리하는것에 대해 어려움을 겪고 있습니다.\n\nFour years ago, I wrote an article called Standard Package Layout that tried to address one of the most difficult topics for even advanced Go developers: package layout. However, most developers still struggle with organizing their code into a directory structure that will grow gracefully with their application.\n\n거의 모든 프로그래밍 언어는 관련된 기능들을 함께 그룹화하는 메커니즘을 갖고 있습니다. Ruby는 gems, Java는 pacakages를 갖고 있습니다. 이러한 언어들은 코드를 그룹화 하는 일반적인 규약을 갖고 있지 않는데 솔직히 이것이 크게 중요하지 않기때문입니다. 코드를 그룹화하는 것은 전적으로 개인의 취향에 달려있습니다.\n\nNearly all programming languages have a mechanism for grouping related functionality together. Ruby has gems, Java has packages. Those languages don’t have a standard convention for grouping code because, honestly, it doesn’t matter. It all comes down to personal preference.\n\n하지만 Go언어로 전환하는 개발자들은 매우 빈번하게 그들의 패키지 구조화가 그들을 다시 괴롭히게 된다는 것에 놀라게 됩니다. Go의 패키지는 다른 언어의 패키지의 개념과 왜 이렇게 다른걸까요? 그것은 바로 Go에서 패키지 개념은 그룹이 아닌 계층이기 때문입니다.\n\nHowever, developers that transition to Go are surprised by how often their package organization comes back to bite them. Why are Go packages so different from other languages? It’s because they’re not groups—they’re layers.\n\n\n\n순환 참조 이해하기Go 언어의 패키지와 다른 언어들에서의 그룹화간의 주요한 차이는 Go 언어에서는 패키지간의 순환 의존을 허용하지 않는다는 것에 있습니다. 패키지 A가 패키지 B에 의존할 수 있지만 이와 동시에 패키지 B가 패키지 A에 의존적일 수는 없습니다.\n\nThe primary difference between Go packages and grouping in other languages is that Go doesn’t allow for circular dependencies. Package A can depend on package B, but then package B cannot depend back on package A.\n\nPackage dependencies can only go one way\n\n이러한 제약은 나중에 개발자들이 A와 B 패키지 모두에서 공통된 코드를 공유하게 하고자 할 때 문제를 야기하게 합니다. 이러한 문제에 대한 2가지 정도의 솔루션이 있습니다. 두 패키지를 단일 패키지로 합치거나 또 다른 세번째 패키지를 도입하는 것입니다.\n\nThis restriction causes issues for developers later on when they need to have both packages share common code. There are typically two solutions: either combine both packages into a single package or introduce a third package.\n\n\n\n하지만 더 많은 패키지들로 분할해가는 것은 문제를 더 키우는 꼴입니다. 결국엔 실제 구조가 존재하지 않는 거대한 패키지들의 집합으로 귀결될 것입니다.\n\nHowever, splitting out into more and more packages only pushes the problem down the road. Eventually, you end up with a large mess of packages and no real structure.\n\n\n\n스탠다드 라이브러리 차용하기Go 프로그래밍 시에 활용되는 가장 유용한 팁들 중에 하나는 여러분이 가이드가 필요할 때는 Go의 기본 라이브러리를 참고하라는 것입니다. 이 세상에 완벽한 코드라는 것은 없지만 Go의 기본 라이브러리는 해당 언어를 설계한 사람들이 이상적이라고 생각하는 내용들을 압축하고 있습니다.\n\nOne of the most useful tips when programming Go is to look to the standard library when you need guidance. No code is perfect, but the Go standard library encapsulates many of the ideals of the creators of the language.\n\n예를 들어, net/http 패키지는 아래 그림과 같이 net 패키지의 추상을 기반으로 만들어지며 net 패키지는 io 레이어의 추상을 기반으로 만들어집니다. net 패키지가 net/http 패키지에 의존적일 수 있다고 가정하는 것은 다소 무의미하기 때문에 이러한 패키지 구조는 꽤 잘 동작합니다.\n\nFor example, the net/http package builds on top of the abstractions of the net package, which, in turn, builds on the abstractions of the io layer below it. This package structure works well because it would be nonsensical to imagine the net package needing to somehow depend on net/http.\n\n\n\nGo의 기본 라이브러리에서 잘 동작하는 것과는 별개로 이것을 Go 어플리케이션 개발에 적용하는 것은 어려울 수 있습니다.\n\nWhile this works well in the standard library but can be difficult to translate to application development.\n\n\n\n어플리케이션 개발에 계층 개념 적용하기WTF Dial이라는 어플리케이션을 예로 들어 살펴볼 예정이므로 이 어플리케이션에 대해 좀 더 살펴보고자 하시는 분들은 해당 포스팅을 읽어 보시면 됩니다.\n\nWe’ll be looking at an example application called WTF Dial, so you can read the introductory post to understand more about it.\n\n이 어플리케이션은 2개의 논리적 계층을 가지고 있습니다:\n\nIn this application, we have two logical layers:\n\n\n\nAn SQLite database\nAn HTTP server\n\n\n우리는 sqlite와 http 패키지를 각각 생성합니다. 많은 사람들이 Go의 기본 라이브러리 패키지와 동일한 형태의 패키지 이름을 사용하는 것을 꺼려할 것 입니다. 이러한 우려는 유효한 지적이고 여러분은 http 대신에 wtfhttp라고 네이밍할 수도 있을겁니다. 하지만 우리의 HTTP 패키지는 net/http 패키지를 완전히 캡슐화하기 때문에 동일한 파일 내에서 우리의 HTTP 패키지와 net/http 패키지를 함께 사용하는 경우는 결코 발생하지 않습니다. 저는 모든 패키지 이름에 접두어를 붙이는 작업은 지루하고 보기싫다라고 생각하기 때문에 그 짓은 하지 않겠습니다.\n\nWe create a package for each of these — sqlite &amp; http. Many people will balk at naming a package the same name as a standard library package. That’s a valid criticism and you could name it wtfhttp instead, however, our HTTP package fully encapsulates the net/http package so we never use them both in the same file. I find that prefixing every package is tedious and ugly, so I don’t do it.\n\n\n\n단순한 접근우리의 어플리케이션을 구조화하는 한가지 방법은 데이터 타입(User나 Dial과 같은)과 함수(FindUser()나 CreateDial()과 같은)를 sqlite 패키지에 포함시키는 것입니다. http 패키지는 sqlite 패키지에 직접적으로 의존할 수 있습니다:\n\nOne way to structure our application would be to have our data types (e.g., User, Dial) and our functionality (e.g., FindUser(), CreateDial()) inside sqlite. Our http package could depend directly on it:\n\n\n\n이것은 그리 나쁜 접근 방식이 아니며 단순한 어플리케이션에서는 꽤 잘 동작합니다. 하지만 몇가지 문제들에 직면하게 될겁니다. 첫째로 데이터 타입은 sqlite.User와 sqlite.Dial로 네이밍되는데 데이터 타입이라는 것은 SQLite가 아니라 우리 어플리케이션에 속하는 것이므로 이러한 네이밍은 좀 이상해보입니다.\n\nThis is not a bad approach, and it works for simple applications. We end up with a few issues though. First, our data types are named sqlite.User and sqlite.Dial. That sounds odd as our data types belong to our application—not SQLite.\n\n둘째로 위 구조상 HTTP 계층에서는 오로지 SQLite에 대한 데이터만을 제공할 수 있습니다. 만약 이 두 계층 사이에 캐싱 계층을 하나 추가한다고 하면 어떤일이 벌어질까요? 또 SQLite가 아닌 PostgreSQL 혹은 디스크에 존재하는 JSON 형식의 데이터와 같은 다른 형태의 타입들은 어떻게 지원할까요?\n\nSecond, our HTTP layer can only serve data from SQLite now. What happens if we need to add a caching layer in between? Or how do we support other types of data storage such as Postgres or even storing as JSON on disk?\n\n마지막으로 SQLite를 추상화하는 계층이 존재하지 않기때문에 모든 HTTP 테스트에서 SQLite 데이터베이스를 구동해야만 합니다. \n\nFinally, we need to run an SQLite database for every HTTP test since there’s no abstraction layer to mock it out. I generally support doing end-to-end testing as much as you can, but there are valid use cases for introducing unit tests in your higher layers. This is especially true once you introduce cloud services that you wouldn’t want to run on every test invocation.\n\n\n\n비즈니스 도메인 고립시키기우리가 변경할 수 있는 첫번째 사항은 비즈니스 도메인을 그들 자체적인 패키지로 이동시키는 것입니다. 이러한 도메인을 “어플리케이션 도메인”이라고 칭할 수도 있습니다. 이것은 여러분의 어플리케이션에 특화된 데이터 타입입니다.\n\nThe first thing we can change is moving our business domain to its own package. This can also be called the “application domain”. It’s the data types specific to your application—e.g., User, Dial in the case of WTF Dial.\n\n저는 이러한 목적으로 root 패키지(wtf)를 사용하는데, 이는 이미 제 어플리케이션 이름에 따라 편리하게 네이밍되어있고, 새로운 개발자가 코드 베이스를 열어 볼 때 가장 먼저 보는 곳이기 때문입니다. 이제 데이터 타입의 이름은 wtf.User, wtf.Dial로 위에서 나온 이름보다는 더 적절해 보입니다.\n\nI use the root package (wtf) for this purpose as it’s already conveniently named after my application, and it’s the first place new developers look when they open the code base. Our types are now named more appropriately as wtf.User and wtf.Dial.\n\n\n\n여러분은 아래 예시에서 wtf.Dial 타입을 볼 수 있습니다:\n\nYou can see an example of this with the wtf.Dial type:\n\n1234567891011121314151617181920212223242526type Dial struct &#123;\tID int `json:&quot;id&quot;`\t// Owner of the dial. Only the owner may delete the dial.\tUserID int   `json:&quot;userID&quot;`\tUser   *User `json:&quot;user&quot;`\t// Human-readable name of the dial.\tName string `json:&quot;name&quot;`\t// Code used to share the dial with other users.\t// It allows the creation of a shareable link without\t// explicitly inviting users.\tInviteCode string `json:&quot;inviteCode,omitempty&quot;`\t// Aggregate WTF level for the dial.\tValue int `json:&quot;value&quot;`\t// Timestamps for dial creation &amp; last update.\tCreatedAt time.Time `json:&quot;createdAt&quot;`\tUpdatedAt time.Time `json:&quot;updatedAt&quot;`\t// List of associated members and their contributing WTF level.\t// This is only set when returning a single dial.\tMemberships []*DialMembership `json:&quot;memberships,omitempty&quot;`&#125;\n\n위 코드에서는 세부 구현에 대한 어떠한 참조도 존재하지 않습니다. 단지 Go의 내장 타입들과 time.Time만 존재합니다. JOSN 태그는 편의를 위해 추가했습니다.\n\nIn this code, there is no reference to any implementation details—just primitive types &amp; time.Time. JSON tags are added for convenience.\n\n\n\n추상화 서비스를 통한 의존성 제거어플리케이션의 구조가 조금은 더 나아진것 같아 보이지만 HTTP가 SQLite에 의존적이라는 것은 여전히 어색합니다. 우리의 HTTP 서버는 데이터 저장 공간이 SQLite인지 아닌지는 신경쓰지 않고 데이터를 전달하기를 원합니다.\n\nOur application structure is looking better, but it’s still odd that HTTP depends on SQLite. Our HTTP server wants to fetch data from an underlying data storage—it doesn’t specifically care if it’s SQLite or not.\n\n이 부분을 수정하기 위해, 비즈니스 도메인 내에 서비스들을 제공하기 위한 인터페이스를 생성할겁니다. 이 서비스들은 전형적인 CRUD 이지만 또 다른 동작을 수행하도록 확장할 수도 있습니다.\n\nTo fix this, we’ll create interfaces for the services in our business domain. These services are typically Create/Read/Update/Delete (CRUD) but can extend to other operations.\n\n1234567891011121314151617181920212223242526272829// DialService represents a service for managing dials.type DialService interface &#123;\t// Retrieves a single dial by ID along with associated memberships. Only\t// the dial owner &amp; members can see a dial. Returns ENOTFOUND if dial does\t// not exist or user does not have permission to view it.\tFindDialByID(ctx context.Context, id int) (*Dial, error)\t// Retrieves a list of dials based on a filter. Only returns dials that\t// the user owns or is a member of. Also returns a count of total matching\t// dials which may different from the number of returned dials if the\t// &quot;Limit&quot; field is set.\tFindDials(ctx context.Context, filter DialFilter) ([]*Dial, int, error)\t// Creates a new dial and assigns the current user as the owner.\t// The owner will automatically be added as a member of the new dial.\tCreateDial(ctx context.Context, dial *Dial) error\t// Updates an existing dial by ID. Only the dial owner can update a dial.\t// Returns the new dial state even if there was an error during update.\t//\t// Returns ENOTFOUND if dial does not exist. Returns EUNAUTHORIZED if user\t// is not the dial owner.\tUpdateDial(ctx context.Context, id int, upd DialUpdate) (*Dial, error)\t// Permanently removes a dial by ID. Only the dial owner may delete a dial.\t// Returns ENOTFOUND if dial does not exist. Returns EUNAUTHORIZED if user\t// is not the dial owner.\tDeleteDial(ctx context.Context, id int) error&#125;\n\n이제 우리의 도메인 패키지(wtf)는 데이터 구조뿐만 아니라 계층 간의 커뮤니케이션 방식을 정의한 인터페이스도 구체화되었습니다. 이것은 우리의 패키지 계층 구조를 수평적으로 만들어주었으며 이를 통해 이제 모든 패키지들은 도메인 패키지에 의존하게됩니다. 이것은 패키지간의 직접적인 의존 관계를 깰 수 있도록 해주며 mock 패키지와 같은 부가적인 구현들도 추가할 수 있게 해줍니다.\n\nNow our domain package (wtf) specifies not just the data structures but also the interface contracts for how our layers can communicate with one another. This flattens our package hierarchy so that all packages now depend on the domain package. This lets us break direct dependencies between packages and introduce alternate implementations such as a mock package.\n\n\n\n\n\n패키지의 재패키지화패키지간의 의존성을 깨는것은 우리가 작성한 코드를 유연하게 사용할 수 있도록 해줍니다. 우리의 어플리케이션 바이너리인 wtfd에 대해선 여전히 http 패키지가 sqlite에 의존적이지만 테스트를 위해 http 패키지가 새로운 mock 패키지에 의존하도록 변경할 수 있습니다.\n\nBreaking the dependency between packages allows us flexibility in how we use our code. For our application binary, wtfd, we still want http to depend on sqlite (see wtf/main.go) but for our tests we can change http to depend on our new mock package (see http/server_test.go):\n\n\n\n이것은 WTF Dial과 같은 작은 웹 어플리케이션에서는 조금 지나친 작업일 수 있으나 우리가 소스 코드를 늘려 나감에 있어서는 점차 중요한 문제가 될 겁니다.\n\nThis may be overkill for our small web application, WTF Dial, but it becomes increasingly important as we grow our codebase.\n\n\n\n결론패키지는 Go 언어에서 매우 강력한 도구입니다. 하지만 여러분이 패키지를 계층이 아닌 그룹으로 바라본다면 끝없는 혼란의 원천이기도 합니다. 여러분이 만든 어플리케이션의 논리적인 계층을 이해한 후에 데이터 타입과 비즈니스 도메인을 위한 인터페이스를 추출해낼 수 있으며 이것들을 나머지 모든 서브 패키지들이 참조할 수 있도록 하는 범용적인 도메인 언어를 제공하기 위한 루트 패키지로 옮길 수 있습니다. 도메인 언어를 정의하는 것은 시간이 지남에 따라 여러분의 어플리케이션 규모를 키워나가는데 필수적입니다.\n\nPackages are a powerful tool in Go but are the source of endless frustration if you view them as groups instead of layers. After understanding the logical layers of your application, you can extract data types &amp; interface contracts for your business domain and move them into your root package to serve as a common domain language for all subpackages. Defining this domain language is essential to growing your application over time.\n\n\n\n\n해당 게시글에서 발생한 오탈자나 잘못된 내용에 대한 정정 댓글 격하게 환영합니다😎\n\nreference\n\nhttps://www.gobeyond.dev/packages-as-layers/\n\n","dateCreated":"2022-12-01T14:43:31+09:00","dateModified":"2022-12-01T14:43:31+09:00","datePublished":"2022-12-01T14:43:31+09:00","description":"이번 포스팅은 지난번 어떠한 방식으로 Go코드를 구조화해야 하는가? 포스팅과 마찬가지로 Go 소스 코드의 구조화에 대한 고민의 연장선입니다.","headline":"그룹이 아닌 계층으로서의 Go 패키지","image":[],"mainEntityOfPage":{"@type":"WebPage","@id":"https://chelseafandev.github.io/2022/12/01/translate-packages-as-layers/"},"publisher":{"@type":"Organization","name":"첼시팬개발자","sameAs":[],"image":"chelsea_logo.png","logo":{"@type":"ImageObject","url":"chelsea_logo.png"}},"url":"https://chelseafandev.github.io/2022/12/01/translate-packages-as-layers/","keywords":"go, golang, go layout, organize go code, package layer"}</script>
+    <meta name="description" content="이번 포스팅은 지난번 어떠한 방식으로 Go코드를 구조화해야 하는가? 포스팅과 마찬가지로 Go 소스 코드의 구조화에 대한 고민의 연장선입니다.">
+<meta property="og:type" content="blog">
+<meta property="og:title" content="그룹이 아닌 계층으로서의 Go 패키지">
+<meta property="og:url" content="https://chelseafandev.github.io/2022/12/01/translate-packages-as-layers/index.html">
+<meta property="og:site_name" content="첼시팬 개발자 작업 공간">
+<meta property="og:description" content="이번 포스팅은 지난번 어떠한 방식으로 Go코드를 구조화해야 하는가? 포스팅과 마찬가지로 Go 소스 코드의 구조화에 대한 고민의 연장선입니다.">
+<meta property="og:locale" content="ko_KR">
+<meta property="og:image" content="https://chelseafandev.github.io/assets/images/figure1.png">
+<meta property="og:image" content="https://chelseafandev.github.io/assets/images/figure2.png">
+<meta property="og:image" content="https://chelseafandev.github.io/assets/images/figure3.png">
+<meta property="og:image" content="https://chelseafandev.github.io/assets/images/figure4.png">
+<meta property="og:image" content="https://chelseafandev.github.io/assets/images/figure5.png">
+<meta property="og:image" content="https://chelseafandev.github.io/assets/images/figure6.png">
+<meta property="og:image" content="https://chelseafandev.github.io/assets/images/figure7.png">
+<meta property="article:published_time" content="2022-12-01T05:43:31.000Z">
+<meta property="article:modified_time" content="2022-12-01T05:43:31.170Z">
+<meta property="article:author" content="첼시팬개발자">
+<meta property="article:tag" content="go">
+<meta property="article:tag" content="golang">
+<meta property="article:tag" content="go layout">
+<meta property="article:tag" content="organize go code">
+<meta property="article:tag" content="package layer">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://chelseafandev.github.io/assets/images/figure1.png">
+    
+    
+        
+    
+    
+        <meta property="og:image" content="https://chelseafandev.github.io/assets/images/chelsea_logo.png">
+    
+    
+    
+    
+    <!--STYLES-->
+    
+<link rel="stylesheet" href="/assets/css/all.css">
+
+    
+<link rel="stylesheet" href="/assets/css/jquery.fancybox.css">
+
+    
+<link rel="stylesheet" href="/assets/css/thumbs.css">
+
+    
+<link rel="stylesheet" href="/assets/css/tranquilpeak.css">
+
+    <!--STYLES END-->
+    
+
+    
+
+    
+        
+    
+    <link rel="canonical" href="https://chelseafandev.github.io/2022/12/01/translate-packages-as-layers/">
+</head>
+
+    <body>
+        <div id="blog">
+            <!-- Define author's picture -->
+
+
+    
+        
+            
+        
+    
+
+<header id="header" data-behavior="4">
+    <i id="btn-open-sidebar" class="fa fa-lg fa-bars"></i>
+    <div class="header-title">
+        <a class="header-title-link" href="/" aria-label>
+            첼시팬 개발자 작업 공간
+        </a>
+    </div>
+    
+        
+            <a class="header-right-picture " href="#about" aria-label="링크 열기: /#about">
+        
+        
+            <img class="header-picture" src="/assets/images/chelsea_logo.png" alt="저자 이미지">
+        
+        </a>
+    
+</header>
+
+            <!-- Define author's picture -->
+
+
+
+        
+    
+
+<nav id="sidebar" data-behavior="4" style="border-top-width: 100px;padding-top: 150px;">
+    <div class="sidebar-container">
+        
+            <div class="sidebar-profile">
+                <a href="/#about" aria-label="저자에 대해 더 알아보기">
+                    <img class="sidebar-profile-picture" src="/assets/images/chelsea_logo.png" alt="저자 이미지">
+                </a>
+                <h4 class="sidebar-profile-name">첼시팬개발자</h4>
+                
+                    <h5 class="sidebar-profile-bio"><p>조금 더디더라도 꾸준히</p>
+</h5>
+                
+            </div>
+        
+        
+            <ul class="sidebar-buttons">
+            
+                <li class="sidebar-button">
+                    
+                        <a class="sidebar-button-link " href="/" rel="noopener" title="전체글">
+                        <i class="sidebar-button-icon fas fa-list-ul" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">전체글</span>
+                    </a>
+            </li>
+            
+                <li class="sidebar-button">
+                    
+                        <a class="sidebar-button-link " href="/all-categories" rel="noopener" title="카테고리">
+                        <i class="sidebar-button-icon fa fa-bookmark" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">카테고리</span>
+                    </a>
+            </li>
+            
+                <li class="sidebar-button">
+                    
+                        <a class="sidebar-button-link " href="/all-tags" rel="noopener" title="태그">
+                        <i class="sidebar-button-icon fa fa-tags" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">태그</span>
+                    </a>
+            </li>
+            
+                <li class="sidebar-button">
+                    
+                        <a class="sidebar-button-link " href="/all-archives" rel="noopener" title="아카이브">
+                        <i class="sidebar-button-icon fa fa-archive" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">아카이브</span>
+                    </a>
+            </li>
+            
+                <li class="sidebar-button">
+                    
+                        <a class="sidebar-button-link " href="https://github.com/chelseafandev" target="_blank" rel="external nofollow noopener noreferrer" title="GitHub">
+                        <i class="sidebar-button-icon fab fa-github" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">GitHub</span>
+                    </a>
+            </li>
+            
+                <li class="sidebar-button">
+                    
+                        <a class="sidebar-button-link " href="/rss2.xml" rel="noopener" title="RSS">
+                        <i class="sidebar-button-icon fa fa-rss" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">RSS</span>
+                    </a>
+            </li>
+            
+        </ul>
+        
+    </div>
+</nav>
+
+            
+            <div id="main" data-behavior="4" class="
+                        hasCoverMetaIn
+                        ">
+                
+<article class="post">
+    
+    
+        <div class="post-header main-content-wrap text-left">
+    
+        <h1 class="post-title">
+            그룹이 아닌 계층으로서의 Go 패키지
+        </h1>
+    
+    
+        <div class="post-meta">
+    <time datetime="2022-12-01T14:43:31+09:00">
+	
+		    2022/12/01 14:43:31
+    	
+    </time>
+    
+        <span>카테고리 </span>
+        
+    <a class="category-link" href="/categories/%EA%B8%B0%EC%88%A0%EB%AC%B8%EC%84%9C-%EB%B2%88%EC%97%AD/">기술문서 번역</a>
+
+
+    
+    
+        -
+        <span class="reading-time">⏱</span>
+        
+            읽는데 14 분 정도 소요 예상
+        
+        
+    
+</div>
+
+    
+</div>
+
+    
+    <div class="post-content markdown">
+        <div class="main-content-wrap">
+            <p>이번 포스팅은 지난번 <a href="https://chelseafandev.github.io/2022/09/06/translate-standard-package-layout-in-go/">어떠한 방식으로 Go코드를 구조화해야 하는가?</a> 포스팅과 마찬가지로 Go 소스 코드의 구조화에 대한 고민의 연장선입니다.</p>
+<span id="more"></span>
+
+<p>이번에 번역해 본 글도 지난번 포스팅과 동일한 저자가 작성한 글이며 Go 소스 코드의 구조화에 관련된 글을 4년이 지난 후에 다시 한번 게시해주셨더라고요. Go 어플리케이션을 제작할 때 패키지들 간의 관계를 어떻게 바라볼 것인가에 대해 한 번 더 고민할 수 있는 시간이었습니다.</p>
+<p>원문을 참고하실 분들은 <a target="_blank" rel="external nofollow noopener noreferrer" href="https://www.gobeyond.dev/packages-as-layers/">해당 링크</a>를 확인해주시기 바랍니다.</p>
+<br>
+
+<h1 id="table-of-contents">목차</h1><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#%EA%B7%B8%EB%A3%B9%EC%9D%B4-%EC%95%84%EB%8B%8C-%EA%B3%84%EC%B8%B5%EC%9C%BC%EB%A1%9C%EC%84%9C%EC%9D%98-Go-%ED%8C%A8%ED%82%A4%EC%A7%80"><span class="toc-number">1.</span> <span class="toc-text">그룹이 아닌 계층으로서의 Go 패키지</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%EC%88%9C%ED%99%98-%EC%B0%B8%EC%A1%B0-%EC%9D%B4%ED%95%B4%ED%95%98%EA%B8%B0"><span class="toc-number">1.1.</span> <span class="toc-text">순환 참조 이해하기</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%EC%8A%A4%ED%83%A0%EB%8B%A4%EB%93%9C-%EB%9D%BC%EC%9D%B4%EB%B8%8C%EB%9F%AC%EB%A6%AC-%EC%B0%A8%EC%9A%A9%ED%95%98%EA%B8%B0"><span class="toc-number">1.2.</span> <span class="toc-text">스탠다드 라이브러리 차용하기</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%EC%96%B4%ED%94%8C%EB%A6%AC%EC%BC%80%EC%9D%B4%EC%85%98-%EA%B0%9C%EB%B0%9C%EC%97%90-%EA%B3%84%EC%B8%B5-%EA%B0%9C%EB%85%90-%EC%A0%81%EC%9A%A9%ED%95%98%EA%B8%B0"><span class="toc-number">1.3.</span> <span class="toc-text">어플리케이션 개발에 계층 개념 적용하기</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%EB%8B%A8%EC%88%9C%ED%95%9C-%EC%A0%91%EA%B7%BC"><span class="toc-number">1.3.1.</span> <span class="toc-text">단순한 접근</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%EB%B9%84%EC%A6%88%EB%8B%88%EC%8A%A4-%EB%8F%84%EB%A9%94%EC%9D%B8-%EA%B3%A0%EB%A6%BD%EC%8B%9C%ED%82%A4%EA%B8%B0"><span class="toc-number">1.3.2.</span> <span class="toc-text">비즈니스 도메인 고립시키기</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%EC%B6%94%EC%83%81%ED%99%94-%EC%84%9C%EB%B9%84%EC%8A%A4%EB%A5%BC-%ED%86%B5%ED%95%9C-%EC%9D%98%EC%A1%B4%EC%84%B1-%EC%A0%9C%EA%B1%B0"><span class="toc-number">1.3.3.</span> <span class="toc-text">추상화 서비스를 통한 의존성 제거</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%ED%8C%A8%ED%82%A4%EC%A7%80%EC%9D%98-%EC%9E%AC%ED%8C%A8%ED%82%A4%EC%A7%80%ED%99%94"><span class="toc-number">1.3.4.</span> <span class="toc-text">패키지의 재패키지화</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%EA%B2%B0%EB%A1%A0"><span class="toc-number">1.4.</span> <span class="toc-text">결론</span></a></li></ol></li></ol>
+
+<br>
+
+<h1 id="그룹이-아닌-계층으로서의-Go-패키지"><a href="#그룹이-아닌-계층으로서의-Go-패키지" class="headerlink" title="그룹이 아닌 계층으로서의 Go 패키지"></a>그룹이 아닌 계층으로서의 Go 패키지</h1><p>숙련된 Go 개발자들에게도 가장 어려운 주제중 하나인 <code>package layout</code>에 대해 다루어보고자 4년전에 <a target="_blank" rel="external nofollow noopener noreferrer" href="https://www.gobeyond.dev/standard-package-layout/">Standard Package Layout</a>이라는 글을 게시했었습니다. 하지만 대부분의 Go 개발자들은 여전히 그들의 어플리케이션과 함께 방대해져갈 소스 코드를 디렉토리 구조로 정리하는것에 대해 어려움을 겪고 있습니다.</p>
+<blockquote>
+<p>Four years ago, I wrote an article called <a target="_blank" rel="external nofollow noopener noreferrer" href="https://www.gobeyond.dev/standard-package-layout/">Standard Package Layout</a> that tried to address one of the most difficult topics for even advanced Go developers: package layout. However, most developers still struggle with organizing their code into a directory structure that will grow gracefully with their application.</p>
+</blockquote>
+<p>거의 모든 프로그래밍 언어는 관련된 기능들을 함께 그룹화하는 메커니즘을 갖고 있습니다. Ruby는 gems, Java는 pacakages를 갖고 있습니다. 이러한 언어들은 코드를 그룹화 하는 일반적인 규약을 갖고 있지 않는데 솔직히 이것이 크게 중요하지 않기때문입니다. 코드를 그룹화하는 것은 전적으로 개인의 취향에 달려있습니다.</p>
+<blockquote>
+<p>Nearly all programming languages have a mechanism for grouping related functionality together. Ruby has gems, Java has packages. Those languages don’t have a standard convention for grouping code because, honestly, it doesn’t matter. It all comes down to personal preference.</p>
+</blockquote>
+<p>하지만 Go언어로 전환하는 개발자들은 매우 빈번하게 그들의 패키지 구조화가 그들을 다시 괴롭히게 된다는 것에 놀라게 됩니다. Go의 패키지는 다른 언어의 패키지의 개념과 왜 이렇게 다른걸까요? 그것은 바로 Go에서 패키지 개념은 그룹이 아닌 계층이기 때문입니다.</p>
+<blockquote>
+<p>However, developers that transition to Go are surprised by how often their package organization comes back to bite them. Why are Go packages so different from other languages? It’s because they’re not groups—they’re layers.</p>
+</blockquote>
+<br>
+
+<h2 id="순환-참조-이해하기"><a href="#순환-참조-이해하기" class="headerlink" title="순환 참조 이해하기"></a>순환 참조 이해하기</h2><p>Go 언어의 패키지와 다른 언어들에서의 그룹화간의 주요한 차이는 Go 언어에서는 패키지간의 순환 의존을 허용하지 않는다는 것에 있습니다. 패키지 A가 패키지 B에 의존할 수 있지만 이와 동시에 패키지 B가 패키지 A에 의존적일 수는 없습니다.</p>
+<blockquote>
+<p>The primary difference between Go packages and grouping in other languages is that Go doesn’t allow for circular dependencies. Package A can depend on package B, but then package B cannot depend back on package A.</p>
+</blockquote>
+<div class="figure center" style="width:;"><img class="fig-img" src="/assets/images/figure1.png" alt="Package dependencies can only go one way"><span class="caption">Package dependencies can only go one way</span></div>
+
+<p>이러한 제약은 나중에 개발자들이 A와 B 패키지 모두에서 공통된 코드를 공유하게 하고자 할 때 문제를 야기하게 합니다. 이러한 문제에 대한 2가지 정도의 솔루션이 있습니다. 두 패키지를 단일 패키지로 합치거나 또 다른 세번째 패키지를 도입하는 것입니다.</p>
+<blockquote>
+<p>This restriction causes issues for developers later on when they need to have both packages share common code. There are typically two solutions: either combine both packages into a single package or introduce a third package.</p>
+</blockquote>
+<div class="figure center" style="width:;"><img class="fig-img" src="/assets/images/figure2.png" alt></div>
+
+<p>하지만 더 많은 패키지들로 분할해가는 것은 문제를 더 키우는 꼴입니다. 결국엔 실제 구조가 존재하지 않는 거대한 패키지들의 집합으로 귀결될 것입니다.</p>
+<blockquote>
+<p>However, splitting out into more and more packages only pushes the problem down the road. Eventually, you end up with a large mess of packages and no real structure.</p>
+</blockquote>
+<br>
+
+<h2 id="스탠다드-라이브러리-차용하기"><a href="#스탠다드-라이브러리-차용하기" class="headerlink" title="스탠다드 라이브러리 차용하기"></a>스탠다드 라이브러리 차용하기</h2><p>Go 프로그래밍 시에 활용되는 가장 유용한 팁들 중에 하나는 여러분이 가이드가 필요할 때는 Go의 기본 라이브러리를 참고하라는 것입니다. 이 세상에 완벽한 코드라는 것은 없지만 Go의 기본 라이브러리는 해당 언어를 설계한 사람들이 이상적이라고 생각하는 내용들을 압축하고 있습니다.</p>
+<blockquote>
+<p>One of the most useful tips when programming Go is to look to the standard library when you need guidance. No code is perfect, but the Go standard library encapsulates many of the ideals of the creators of the language.</p>
+</blockquote>
+<p>예를 들어, net/http 패키지는 아래 그림과 같이 net 패키지의 추상을 기반으로 만들어지며 net 패키지는 io 레이어의 추상을 기반으로 만들어집니다. net 패키지가 net/http 패키지에 의존적일 수 있다고 가정하는 것은 다소 무의미하기 때문에 이러한 패키지 구조는 꽤 잘 동작합니다.</p>
+<blockquote>
+<p>For example, the net/http package builds on top of the abstractions of the net package, which, in turn, builds on the abstractions of the io layer below it. This package structure works well because it would be nonsensical to imagine the net package needing to somehow depend on net/http.</p>
+</blockquote>
+<div class="figure center" style="width:;"><img class="fig-img" src="/assets/images/figure3.png" alt></div>
+
+<p>Go의 기본 라이브러리에서 잘 동작하는 것과는 별개로 이것을 Go 어플리케이션 개발에 적용하는 것은 어려울 수 있습니다.</p>
+<blockquote>
+<p>While this works well in the standard library but can be difficult to translate to application development.</p>
+</blockquote>
+<br>
+
+<h2 id="어플리케이션-개발에-계층-개념-적용하기"><a href="#어플리케이션-개발에-계층-개념-적용하기" class="headerlink" title="어플리케이션 개발에 계층 개념 적용하기"></a>어플리케이션 개발에 계층 개념 적용하기</h2><p><code>WTF Dial</code>이라는 어플리케이션을 예로 들어 살펴볼 예정이므로 이 어플리케이션에 대해 좀 더 살펴보고자 하시는 분들은 <a target="_blank" rel="external nofollow noopener noreferrer" href="https://www.gobeyond.dev/wtf-dial/">해당 포스팅</a>을 읽어 보시면 됩니다.</p>
+<blockquote>
+<p>We’ll be looking at an example application called WTF Dial, so you can read the <a target="_blank" rel="external nofollow noopener noreferrer" href="https://www.gobeyond.dev/wtf-dial/">introductory post</a> to understand more about it.</p>
+</blockquote>
+<p>이 어플리케이션은 2개의 논리적 계층을 가지고 있습니다:</p>
+<blockquote>
+<p>In this application, we have two logical layers:</p>
+</blockquote>
+<blockquote>
+<ol>
+<li>An SQLite database</li>
+<li>An HTTP server</li>
+</ol>
+</blockquote>
+<p>우리는 sqlite와 http 패키지를 각각 생성합니다. 많은 사람들이 Go의 기본 라이브러리 패키지와 동일한 형태의 패키지 이름을 사용하는 것을 꺼려할 것 입니다. 이러한 우려는 유효한 지적이고 여러분은 http 대신에 wtfhttp라고 네이밍할 수도 있을겁니다. 하지만 우리의 HTTP 패키지는 net/http 패키지를 완전히 캡슐화하기 때문에 동일한 파일 내에서 우리의 HTTP 패키지와 net/http 패키지를 함께 사용하는 경우는 결코 발생하지 않습니다. 저는 모든 패키지 이름에 접두어를 붙이는 작업은 지루하고 보기싫다라고 생각하기 때문에 그 짓은 하지 않겠습니다.</p>
+<blockquote>
+<p>We create a package for each of these — sqlite &amp; http. Many people will balk at naming a package the same name as a standard library package. That’s a valid criticism and you could name it wtfhttp instead, however, our HTTP package fully encapsulates the net/http package so we never use them both in the same file. I find that prefixing every package is tedious and ugly, so I don’t do it.</p>
+</blockquote>
+<br>
+
+<h3 id="단순한-접근"><a href="#단순한-접근" class="headerlink" title="단순한 접근"></a>단순한 접근</h3><p>우리의 어플리케이션을 구조화하는 한가지 방법은 데이터 타입(User나 Dial과 같은)과 함수(FindUser()나 CreateDial()과 같은)를 sqlite 패키지에 포함시키는 것입니다. http 패키지는 sqlite 패키지에 직접적으로 의존할 수 있습니다:</p>
+<blockquote>
+<p>One way to structure our application would be to have our data types (e.g., User, Dial) and our functionality (e.g., FindUser(), CreateDial()) inside sqlite. Our http package could depend directly on it:</p>
+</blockquote>
+<div class="figure center" style="width:;"><img class="fig-img" src="/assets/images/figure4.png" alt></div>
+
+<p>이것은 그리 나쁜 접근 방식이 아니며 단순한 어플리케이션에서는 꽤 잘 동작합니다. 하지만 몇가지 문제들에 직면하게 될겁니다. 첫째로 데이터 타입은 sqlite.User와 sqlite.Dial로 네이밍되는데 데이터 타입이라는 것은 SQLite가 아니라 우리 어플리케이션에 속하는 것이므로 이러한 네이밍은 좀 이상해보입니다.</p>
+<blockquote>
+<p>This is not a bad approach, and it works for simple applications. We end up with a few issues though. First, our data types are named sqlite.User and sqlite.Dial. That sounds odd as our data types belong to our application—not SQLite.</p>
+</blockquote>
+<p>둘째로 위 구조상 HTTP 계층에서는 오로지 SQLite에 대한 데이터만을 제공할 수 있습니다. 만약 이 두 계층 사이에 캐싱 계층을 하나 추가한다고 하면 어떤일이 벌어질까요? 또 SQLite가 아닌 PostgreSQL 혹은 디스크에 존재하는 JSON 형식의 데이터와 같은 다른 형태의 타입들은 어떻게 지원할까요?</p>
+<blockquote>
+<p>Second, our HTTP layer can only serve data from SQLite now. What happens if we need to add a caching layer in between? Or how do we support other types of data storage such as Postgres or even storing as JSON on disk?</p>
+</blockquote>
+<p>마지막으로 SQLite를 추상화하는 계층이 존재하지 않기때문에 모든 HTTP 테스트에서 SQLite 데이터베이스를 구동해야만 합니다. </p>
+<blockquote>
+<p>Finally, we need to run an SQLite database for every HTTP test since there’s no abstraction layer to mock it out. I generally support doing end-to-end testing as much as you can, but there are valid use cases for introducing unit tests in your higher layers. This is especially true once you introduce cloud services that you wouldn’t want to run on every test invocation.</p>
+</blockquote>
+<br>
+
+<h3 id="비즈니스-도메인-고립시키기"><a href="#비즈니스-도메인-고립시키기" class="headerlink" title="비즈니스 도메인 고립시키기"></a>비즈니스 도메인 고립시키기</h3><p>우리가 변경할 수 있는 첫번째 사항은 비즈니스 도메인을 그들 자체적인 패키지로 이동시키는 것입니다. 이러한 도메인을 “어플리케이션 도메인”이라고 칭할 수도 있습니다. 이것은 여러분의 어플리케이션에 특화된 데이터 타입입니다.</p>
+<blockquote>
+<p>The first thing we can change is moving our business domain to its own package. This can also be called the “application domain”. It’s the data types specific to your application—e.g., User, Dial in the case of WTF Dial.</p>
+</blockquote>
+<p>저는 이러한 목적으로 root 패키지(wtf)를 사용하는데, 이는 이미 제 어플리케이션 이름에 따라 편리하게 네이밍되어있고, 새로운 개발자가 코드 베이스를 열어 볼 때 가장 먼저 보는 곳이기 때문입니다. 이제 데이터 타입의 이름은 wtf.User, wtf.Dial로 위에서 나온 이름보다는 더 적절해 보입니다.</p>
+<blockquote>
+<p>I use the root package (wtf) for this purpose as it’s already conveniently named after my application, and it’s the first place new developers look when they open the code base. Our types are now named more appropriately as wtf.User and wtf.Dial.</p>
+</blockquote>
+<div class="figure center" style="width:;"><img class="fig-img" src="/assets/images/figure5.png" alt></div>
+
+<p>여러분은 아래 예시에서 wtf.Dial 타입을 볼 수 있습니다:</p>
+<blockquote>
+<p>You can see an example of this with the wtf.Dial type:</p>
+</blockquote>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">type</span> Dial <span class="keyword">struct</span> &#123;</span><br><span class="line">	ID <span class="keyword">int</span> <span class="string">`json:&quot;id&quot;`</span></span><br><span class="line"></span><br><span class="line">	<span class="comment">// Owner of the dial. Only the owner may delete the dial.</span></span><br><span class="line">	UserID <span class="keyword">int</span>   <span class="string">`json:&quot;userID&quot;`</span></span><br><span class="line">	User   *User <span class="string">`json:&quot;user&quot;`</span></span><br><span class="line"></span><br><span class="line">	<span class="comment">// Human-readable name of the dial.</span></span><br><span class="line">	Name <span class="keyword">string</span> <span class="string">`json:&quot;name&quot;`</span></span><br><span class="line"></span><br><span class="line">	<span class="comment">// Code used to share the dial with other users.</span></span><br><span class="line">	<span class="comment">// It allows the creation of a shareable link without</span></span><br><span class="line">	<span class="comment">// explicitly inviting users.</span></span><br><span class="line">	InviteCode <span class="keyword">string</span> <span class="string">`json:&quot;inviteCode,omitempty&quot;`</span></span><br><span class="line"></span><br><span class="line">	<span class="comment">// Aggregate WTF level for the dial.</span></span><br><span class="line">	Value <span class="keyword">int</span> <span class="string">`json:&quot;value&quot;`</span></span><br><span class="line"></span><br><span class="line">	<span class="comment">// Timestamps for dial creation &amp; last update.</span></span><br><span class="line">	CreatedAt time.Time <span class="string">`json:&quot;createdAt&quot;`</span></span><br><span class="line">	UpdatedAt time.Time <span class="string">`json:&quot;updatedAt&quot;`</span></span><br><span class="line"></span><br><span class="line">	<span class="comment">// List of associated members and their contributing WTF level.</span></span><br><span class="line">	<span class="comment">// This is only set when returning a single dial.</span></span><br><span class="line">	Memberships []*DialMembership <span class="string">`json:&quot;memberships,omitempty&quot;`</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>위 코드에서는 세부 구현에 대한 어떠한 참조도 존재하지 않습니다. 단지 Go의 내장 타입들과 time.Time만 존재합니다. JOSN 태그는 편의를 위해 추가했습니다.</p>
+<blockquote>
+<p>In this code, there is no reference to any implementation details—just primitive types &amp; time.Time. JSON tags are added for convenience.</p>
+</blockquote>
+<br>
+
+<h3 id="추상화-서비스를-통한-의존성-제거"><a href="#추상화-서비스를-통한-의존성-제거" class="headerlink" title="추상화 서비스를 통한 의존성 제거"></a>추상화 서비스를 통한 의존성 제거</h3><p>어플리케이션의 구조가 조금은 더 나아진것 같아 보이지만 HTTP가 SQLite에 의존적이라는 것은 여전히 어색합니다. 우리의 HTTP 서버는 데이터 저장 공간이 SQLite인지 아닌지는 신경쓰지 않고 데이터를 전달하기를 원합니다.</p>
+<blockquote>
+<p>Our application structure is looking better, but it’s still odd that HTTP depends on SQLite. Our HTTP server wants to fetch data from an underlying data storage—it doesn’t specifically care if it’s SQLite or not.</p>
+</blockquote>
+<p>이 부분을 수정하기 위해, 비즈니스 도메인 내에 서비스들을 제공하기 위한 인터페이스를 생성할겁니다. 이 서비스들은 전형적인 CRUD 이지만 또 다른 동작을 수행하도록 확장할 수도 있습니다.</p>
+<blockquote>
+<p>To fix this, we’ll create interfaces for the services in our business domain. These services are typically Create/Read/Update/Delete (CRUD) but can extend to other operations.</p>
+</blockquote>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// DialService represents a service for managing dials.</span></span><br><span class="line"><span class="keyword">type</span> DialService <span class="keyword">interface</span> &#123;</span><br><span class="line">	<span class="comment">// Retrieves a single dial by ID along with associated memberships. Only</span></span><br><span class="line">	<span class="comment">// the dial owner &amp; members can see a dial. Returns ENOTFOUND if dial does</span></span><br><span class="line">	<span class="comment">// not exist or user does not have permission to view it.</span></span><br><span class="line">	FindDialByID(ctx context.Context, id <span class="keyword">int</span>) (*Dial, error)</span><br><span class="line"></span><br><span class="line">	<span class="comment">// Retrieves a list of dials based on a filter. Only returns dials that</span></span><br><span class="line">	<span class="comment">// the user owns or is a member of. Also returns a count of total matching</span></span><br><span class="line">	<span class="comment">// dials which may different from the number of returned dials if the</span></span><br><span class="line">	<span class="comment">// &quot;Limit&quot; field is set.</span></span><br><span class="line">	FindDials(ctx context.Context, filter DialFilter) ([]*Dial, <span class="keyword">int</span>, error)</span><br><span class="line"></span><br><span class="line">	<span class="comment">// Creates a new dial and assigns the current user as the owner.</span></span><br><span class="line">	<span class="comment">// The owner will automatically be added as a member of the new dial.</span></span><br><span class="line">	CreateDial(ctx context.Context, dial *Dial) error</span><br><span class="line"></span><br><span class="line">	<span class="comment">// Updates an existing dial by ID. Only the dial owner can update a dial.</span></span><br><span class="line">	<span class="comment">// Returns the new dial state even if there was an error during update.</span></span><br><span class="line">	<span class="comment">//</span></span><br><span class="line">	<span class="comment">// Returns ENOTFOUND if dial does not exist. Returns EUNAUTHORIZED if user</span></span><br><span class="line">	<span class="comment">// is not the dial owner.</span></span><br><span class="line">	UpdateDial(ctx context.Context, id <span class="keyword">int</span>, upd DialUpdate) (*Dial, error)</span><br><span class="line"></span><br><span class="line">	<span class="comment">// Permanently removes a dial by ID. Only the dial owner may delete a dial.</span></span><br><span class="line">	<span class="comment">// Returns ENOTFOUND if dial does not exist. Returns EUNAUTHORIZED if user</span></span><br><span class="line">	<span class="comment">// is not the dial owner.</span></span><br><span class="line">	DeleteDial(ctx context.Context, id <span class="keyword">int</span>) error</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>이제 우리의 도메인 패키지(wtf)는 데이터 구조뿐만 아니라 계층 간의 커뮤니케이션 방식을 정의한 인터페이스도 구체화되었습니다. 이것은 우리의 패키지 계층 구조를 수평적으로 만들어주었으며 이를 통해 이제 모든 패키지들은 도메인 패키지에 의존하게됩니다. 이것은 패키지간의 직접적인 의존 관계를 깰 수 있도록 해주며 mock 패키지와 같은 부가적인 구현들도 추가할 수 있게 해줍니다.</p>
+<blockquote>
+<p>Now our domain package (wtf) specifies not just the data structures but also the interface contracts for how our layers can communicate with one another. This flattens our package hierarchy so that all packages now depend on the domain package. This lets us break direct dependencies between packages and introduce alternate implementations such as a mock package.</p>
+</blockquote>
+<div class="figure center" style="width:;"><img class="fig-img" src="/assets/images/figure6.png" alt></div>
+
+<br>
+
+<h3 id="패키지의-재패키지화"><a href="#패키지의-재패키지화" class="headerlink" title="패키지의 재패키지화"></a>패키지의 재패키지화</h3><p>패키지간의 의존성을 깨는것은 우리가 작성한 코드를 유연하게 사용할 수 있도록 해줍니다. 우리의 어플리케이션 바이너리인 wtfd에 대해선 여전히 http 패키지가 sqlite에 의존적이지만 테스트를 위해 http 패키지가 새로운 mock 패키지에 의존하도록 변경할 수 있습니다.</p>
+<blockquote>
+<p>Breaking the dependency between packages allows us flexibility in how we use our code. For our application binary, wtfd, we still want http to depend on sqlite (see wtf/main.go) but for our tests we can change http to depend on our new mock package (see http/server_test.go):</p>
+</blockquote>
+<div class="figure center" style="width:;"><img class="fig-img" src="/assets/images/figure7.png" alt></div>
+
+<p>이것은 WTF Dial과 같은 작은 웹 어플리케이션에서는 조금 지나친 작업일 수 있으나 우리가 소스 코드를 늘려 나감에 있어서는 점차 중요한 문제가 될 겁니다.</p>
+<blockquote>
+<p>This may be overkill for our small web application, WTF Dial, but it becomes increasingly important as we grow our codebase.</p>
+</blockquote>
+<br>
+
+<h2 id="결론"><a href="#결론" class="headerlink" title="결론"></a>결론</h2><p>패키지는 Go 언어에서 매우 강력한 도구입니다. 하지만 여러분이 패키지를 계층이 아닌 그룹으로 바라본다면 끝없는 혼란의 원천이기도 합니다. 여러분이 만든 어플리케이션의 논리적인 계층을 이해한 후에 데이터 타입과 비즈니스 도메인을 위한 인터페이스를 추출해낼 수 있으며 이것들을 나머지 모든 서브 패키지들이 참조할 수 있도록 하는 범용적인 도메인 언어를 제공하기 위한 루트 패키지로 옮길 수 있습니다. 도메인 언어를 정의하는 것은 시간이 지남에 따라 여러분의 어플리케이션 규모를 키워나가는데 필수적입니다.</p>
+<blockquote>
+<p>Packages are a powerful tool in Go but are the source of endless frustration if you view them as groups instead of layers. After understanding the logical layers of your application, you can extract data types &amp; interface contracts for your business domain and move them into your root package to serve as a common domain language for all subpackages. Defining this domain language is essential to growing your application over time.</p>
+</blockquote>
+<br>
+<br>
+
+<span class="highlight-text yellow">해당 게시글에서 발생한 오탈자나 잘못된 내용에 대한 정정 댓글 격하게 환영합니다</span>😎
+
+<p><strong>reference</strong></p>
+<ul>
+<li><a target="_blank" rel="external nofollow noopener noreferrer" href="https://www.gobeyond.dev/packages-as-layers/">https://www.gobeyond.dev/packages-as-layers/</a></li>
+</ul>
+
+            
+
+
+        </div>
+    </div>
+    <div id="post-footer" class="post-footer main-content-wrap">
+        
+            <div class="post-footer-tags">
+                <span class="text-color-light text-small">태그</span><br>
+                
+    <a class="tag tag--primary tag--small t-none-link" href="/tags/go/" rel="tag">go</a> <a class="tag tag--primary tag--small t-none-link" href="/tags/go-layout/" rel="tag">go layout</a> <a class="tag tag--primary tag--small t-none-link" href="/tags/golang/" rel="tag">golang</a> <a class="tag tag--primary tag--small t-none-link" href="/tags/organize-go-code/" rel="tag">organize go code</a> <a class="tag tag--primary tag--small t-none-link" href="/tags/package-layer/" rel="tag">package layer</a>
+
+            </div>
+        
+        
+            <div class="post-actions-wrap">
+    <nav>
+        <ul class="post-actions post-action-nav">
+            <li class="post-action">
+                
+                    <a class="post-action-btn btn btn--disabled" aria-hidden="true">
+                        
+                        <i class="fa fa-angle-left" aria-hidden="true"></i>
+                        <span class="hide-xs hide-sm text-small icon-ml">이전</span>
+                    </a>
+            </li>
+            <li class="post-action">
+                
+                    
+                <a class="post-action-btn btn btn--default tooltip--top" href="/2022/09/06/translate-standard-package-layout-in-go/" data-tooltip="어떠한 방식으로 Go 코드를 구조화해야 하는가?" aria-label="다음: 어떠한 방식으로 Go 코드를 구조화해야 하는가?">
+                    
+                        <span class="hide-xs hide-sm text-small icon-mr">다음</span>
+                        <i class="fa fa-angle-right" aria-hidden="true"></i>
+                    </a>
+            </li>
+        </ul>
+    </nav>
+    <ul class="post-actions post-action-share">
+        <li class="post-action hide-lg hide-md hide-sm">
+            <a class="post-action-btn btn btn--default btn-open-shareoptions" href="#btn-open-shareoptions" aria-label="이 포스트 공유하기">
+                <i class="fa fa-share-alt" aria-hidden="true"></i>
+            </a>
+        </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a class="post-action-btn btn btn--default" target="_blank" href="https://www.facebook.com/sharer/sharer.php?u=https://chelseafandev.github.io/2022/12/01/translate-packages-as-layers/" title="Facebook에 공유하기" aria-label="Facebook에 공유하기" rel="external nofollow noopener noreferrer">
+                    <i class="fab fa-facebook" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a class="post-action-btn btn btn--default" target="_blank" href="https://twitter.com/intent/tweet?text=https://chelseafandev.github.io/2022/12/01/translate-packages-as-layers/" title="Twitter에 공유하기" aria-label="Twitter에 공유하기" rel="external nofollow noopener noreferrer">
+                    <i class="fab fa-twitter" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a class="post-action-btn btn btn--default" target="_blank" href="https://plus.google.com/share?url=https://chelseafandev.github.io/2022/12/01/translate-packages-as-layers/" title="Google+에 공유하기" aria-label="Google+에 공유하기" rel="external nofollow noopener noreferrer">
+                    <i class="fab fa-google-plus" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+        
+            
+        
+        <li class="post-action">
+            
+                <a class="post-action-btn btn btn--default" href="#table-of-contents" aria-label="목차">
+            
+                <i class="fa fa-list" aria-hidden="true"></i>
+            </a>
+        </li>
+    </ul>
+</div>
+
+
+        
+        
+            
+        
+    </div>
+</article>
+
+
+
+<!-- Comment -->
+<!--  utteranc comment -->
+
+<script src="https://utteranc.es/client.js" repo="chelseafandev/blog-comment" issue-term="title" label="Comment" theme="github-light" crossorigin="anonymous" async>
+</script>
+
+                <footer id="footer" class="main-content-wrap">
+    <span class="copyrights">
+        Copyrights &copy; 2022 첼시팬개발자. All Rights Reserved.
+    </span>
+</footer>
+
+            </div>
+            
+                <div id="bottom-bar" class="post-bottom-bar" data-behavior="4">
+                    <div class="post-actions-wrap">
+    <nav>
+        <ul class="post-actions post-action-nav">
+            <li class="post-action">
+                
+                    <a class="post-action-btn btn btn--disabled" aria-hidden="true">
+                        
+                        <i class="fa fa-angle-left" aria-hidden="true"></i>
+                        <span class="hide-xs hide-sm text-small icon-ml">이전</span>
+                    </a>
+            </li>
+            <li class="post-action">
+                
+                    
+                <a class="post-action-btn btn btn--default tooltip--top" href="/2022/09/06/translate-standard-package-layout-in-go/" data-tooltip="어떠한 방식으로 Go 코드를 구조화해야 하는가?" aria-label="다음: 어떠한 방식으로 Go 코드를 구조화해야 하는가?">
+                    
+                        <span class="hide-xs hide-sm text-small icon-mr">다음</span>
+                        <i class="fa fa-angle-right" aria-hidden="true"></i>
+                    </a>
+            </li>
+        </ul>
+    </nav>
+    <ul class="post-actions post-action-share">
+        <li class="post-action hide-lg hide-md hide-sm">
+            <a class="post-action-btn btn btn--default btn-open-shareoptions" href="#btn-open-shareoptions" aria-label="이 포스트 공유하기">
+                <i class="fa fa-share-alt" aria-hidden="true"></i>
+            </a>
+        </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a class="post-action-btn btn btn--default" target="_blank" href="https://www.facebook.com/sharer/sharer.php?u=https://chelseafandev.github.io/2022/12/01/translate-packages-as-layers/" title="Facebook에 공유하기" aria-label="Facebook에 공유하기" rel="external nofollow noopener noreferrer">
+                    <i class="fab fa-facebook" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a class="post-action-btn btn btn--default" target="_blank" href="https://twitter.com/intent/tweet?text=https://chelseafandev.github.io/2022/12/01/translate-packages-as-layers/" title="Twitter에 공유하기" aria-label="Twitter에 공유하기" rel="external nofollow noopener noreferrer">
+                    <i class="fab fa-twitter" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a class="post-action-btn btn btn--default" target="_blank" href="https://plus.google.com/share?url=https://chelseafandev.github.io/2022/12/01/translate-packages-as-layers/" title="Google+에 공유하기" aria-label="Google+에 공유하기" rel="external nofollow noopener noreferrer">
+                    <i class="fab fa-google-plus" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+        
+            
+        
+        <li class="post-action">
+            
+                <a class="post-action-btn btn btn--default" href="#table-of-contents" aria-label="목차">
+            
+                <i class="fa fa-list" aria-hidden="true"></i>
+            </a>
+        </li>
+    </ul>
+</div>
+
+
+                </div>
+                
+    <div id="share-options-bar" class="share-options-bar" data-behavior="4">
+        <i id="btn-close-shareoptions" class="fa fa-times"></i>
+        <ul class="share-options">
+            
+                
+                
+                <li class="share-option">
+                    <a class="share-option-btn" target="_blank" href="https://www.facebook.com/sharer/sharer.php?u=https://chelseafandev.github.io/2022/12/01/translate-packages-as-layers/" aria-label="Facebook에 공유하기" rel="external nofollow noopener noreferrer">
+                        <i class="fab fa-facebook" aria-hidden="true"></i><span>Facebook에 공유하기</span>
+                    </a>
+                </li>
+            
+                
+                
+                <li class="share-option">
+                    <a class="share-option-btn" target="_blank" href="https://twitter.com/intent/tweet?text=https://chelseafandev.github.io/2022/12/01/translate-packages-as-layers/" aria-label="Twitter에 공유하기" rel="external nofollow noopener noreferrer">
+                        <i class="fab fa-twitter" aria-hidden="true"></i><span>Twitter에 공유하기</span>
+                    </a>
+                </li>
+            
+                
+                
+                <li class="share-option">
+                    <a class="share-option-btn" target="_blank" href="https://plus.google.com/share?url=https://chelseafandev.github.io/2022/12/01/translate-packages-as-layers/" aria-label="Google+에 공유하기" rel="external nofollow noopener noreferrer">
+                        <i class="fab fa-google-plus" aria-hidden="true"></i><span>Google+에 공유하기</span>
+                    </a>
+                </li>
+            
+        </ul>
+    </div>
+
+
+            
+        </div>
+        
+
+
+    
+        
+    
+
+<div id="about">
+    <div id="about-card">
+        <div id="about-btn-close">
+            <i class="fa fa-times"></i>
+        </div>
+        
+            <img id="about-card-picture" src="/assets/images/chelsea_logo.png" alt="저자 이미지">
+        
+            <h4 id="about-card-name">첼시팬개발자</h4>
+        
+            <div id="about-card-bio"><p>조금 더디더라도 꾸준히</p>
+</div>
+        
+        
+            <div id="about-card-job">
+                <i class="fa fa-briefcase"></i>
+                <br>
+                <p>개발자</p>
+
+            </div>
+        
+        
+            <div id="about-card-location">
+                <i class="fa fa-map-marker-alt"></i>
+                <br>
+                서울, 대한민국
+            </div>
+        
+    </div>
+</div>
+
+        
+            <div id="algolia-search-modal" class="modal-container">
+    <div class="modal">
+        <div class="modal-header">
+            <span class="close-button"><i class="fa fa-times"></i></span>
+            <a href="https://algolia.com" target="_blank" rel="external nofollow noopener noreferrer" class="searchby-algolia text-color-light link-unstyled">
+                <span class="searchby-algolia-text text-color-light text-small">by</span>
+                <img class="searchby-algolia-logo" src="/assets/images/logo-algolia-nebula-blue-full.svg">
+            </a>
+            <i class="search-icon fa fa-search"></i>
+            <form id="algolia-search-form">
+                <input type="text" id="algolia-search-input" name="search" class="form-control input--large search-input" placeholder="Search ">
+            </form>
+        </div>
+        <div class="modal-body">
+            <div class="no-result text-color-light text-center">포스트가 없습니다.</div>
+            <div class="results">
+                
+                <div class="media">
+                    <!--  -->
+                    <div class="media-body">
+                        <a class="link-unstyled" href="https://chelseafandev.github.io/2021/07/08/hello-hexo/" aria-label=": Hexo Tranquilpeak 테마의 Markdown syntax">
+                            <h3 class="media-heading">Hexo Tranquilpeak 테마의 Markdown syntax</h3>
+                        </a>
+                        <span class="media-meta">
+                            <span class="media-date text-small">
+                                
+                                    2021년 7월 8일
+                                
+                            </span>
+                        </span>
+                        <div class="media-content hide-xs font-nanumsquareround"><p>Hexo 테마 중 하나인 <a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/LouisBarranqueiro/hexo-theme-tranquilpeak/blob/master/DOCUMENTATION.md">Tranquilpeak의 공식 문서</a>를 참조하여 Post시에 활용할 수 있는 다양한 Markdown syntax들을 사용해보았습니다.</p></div>
+                    </div>
+                    <div style="clear:both;"></div>
+                    <hr>
+                </div>
+                
+                <div class="media">
+                    <!-- 
+                    <div class="media-left">
+                        <a
+                            class="link-unstyled"
+                            href="https://chelseafandev.github.io/2021/07/10/tr-ruud-gullit/"
+                            aria-label=": (BBC 스포츠) 첼시 루드 굴리트 25년이 지난 지금 그의 프리미어그리 진출을 애정어린 시선으로 되돌아 보다"
+                        >
+                            <img class="media-image" src="https://chelseafandev.github.io/2021/07/10/tr-ruud-gullit/tr_ruud_gullit_picture_1.png" width="90" height="90"/>
+                        </a>
+                    </div>
+                     -->
+                    <div class="media-body">
+                        <a class="link-unstyled" href="https://chelseafandev.github.io/2021/07/10/tr-ruud-gullit/" aria-label=": (BBC 스포츠) 첼시 루드 굴리트 25년이 지난 지금 그의 프리미어그리 진출을 애정어린 시선으로 되돌아 보다">
+                            <h3 class="media-heading">(BBC 스포츠) 첼시 루드 굴리트 25년이 지난 지금 그의 프리미어그리 진출을 애정어린 시선으로 되돌아 보다</h3>
+                        </a>
+                        <span class="media-meta">
+                            <span class="media-date text-small">
+                                
+                                    2021년 7월 10일
+                                
+                            </span>
+                        </span>
+                        <div class="media-content hide-xs font-nanumsquareround"><p>피파 좀 한다는 사람이라면 모두가 다 알만한 그 분, X사기캐 굴리트😬<br>커리어 막바지에 첼시에서도 잠깐 활약했었네요.<br><a target="_blank" rel="external nofollow noopener noreferrer" href="https://www.bbc.com/sport/football/52904670">BBC Sport에 굴리트가 직접 기고한 회고록 느낌의 글</a>을 한번 번역해보았습니다.</p></div>
+                    </div>
+                    <div style="clear:both;"></div>
+                    <hr>
+                </div>
+                
+                <div class="media">
+                    <!--  -->
+                    <div class="media-body">
+                        <a class="link-unstyled" href="https://chelseafandev.github.io/2021/07/13/os-io-system/" aria-label=": I/O는 어떻게 처리될까?">
+                            <h3 class="media-heading">I/O는 어떻게 처리될까?</h3>
+                        </a>
+                        <span class="media-meta">
+                            <span class="media-date text-small">
+                                
+                                    2021년 7월 13일
+                                
+                            </span>
+                        </span>
+                        <div class="media-content hide-xs font-nanumsquareround"><p>운영 체제의 바이블 <a target="_blank" rel="external nofollow noopener noreferrer" href="https://www.wiley.com/en-us/Operating+System+Concepts%2C+10th+Edition-p-9781119320913">Operating System Concepts</a>(흔히 공룡책🦕이라고들 하죠)을 바탕으로 I/O 시스템에 대해 정리해보았습니다.</p></div>
+                    </div>
+                    <div style="clear:both;"></div>
+                    <hr>
+                </div>
+                
+                <div class="media">
+                    <!--  -->
+                    <div class="media-body">
+                        <a class="link-unstyled" href="https://chelseafandev.github.io/2021/07/22/tip-how-to-use-tmux-md/" aria-label=": 강력한 터미널 멀티플렉서 tmux를 활용해보자">
+                            <h3 class="media-heading">강력한 터미널 멀티플렉서 tmux를 활용해보자</h3>
+                        </a>
+                        <span class="media-meta">
+                            <span class="media-date text-small">
+                                
+                                    2021년 7월 22일
+                                
+                            </span>
+                        </span>
+                        <div class="media-content hide-xs font-nanumsquareround"><p>이번엔 익숙해지면 정말 강력한 터미널 멀티플렉서인 tmux에 대해 소개해보려고 합니다.</p></div>
+                    </div>
+                    <div style="clear:both;"></div>
+                    <hr>
+                </div>
+                
+                <div class="media">
+                    <!--  -->
+                    <div class="media-body">
+                        <a class="link-unstyled" href="https://chelseafandev.github.io/2021/08/02/os-sync-async-block-nonblock/" aria-label=": Blocking, Nonblocking, Sync, Async">
+                            <h3 class="media-heading">Blocking, Nonblocking, Sync, Async</h3>
+                        </a>
+                        <span class="media-meta">
+                            <span class="media-date text-small">
+                                
+                                    2021년 8월 2일
+                                
+                            </span>
+                        </span>
+                        <div class="media-content hide-xs font-nanumsquareround"><p>오늘은 공룡책🦕에 언급된 Blocking과 Nonblocking, Synchronous와 Asynchronous에 대해서 정리해보고자 합니다. Synchronous와 Asynchronous의 개념은 <strong>쓰레드</strong>와 <strong>I/O</strong>에서 등장하게 되는데요, 각각이 어떠한 의미로 사용되는지도 구분해서 살펴보도록 하겠습니다.</p></div>
+                    </div>
+                    <div style="clear:both;"></div>
+                    <hr>
+                </div>
+                
+                <div class="media">
+                    <!-- 
+                    <div class="media-left">
+                        <a
+                            class="link-unstyled"
+                            href="https://chelseafandev.github.io/2021/08/05/tr-lukaku-want-to-chelsea/"
+                            aria-label=": (BBC 스포츠) 첼시의 물망에 오른 루카쿠 적절한 오퍼가 온다면 인터 밀란을 떠나기 원해"
+                        >
+                            <img class="media-image" src="https://chelseafandev.github.io/2021/08/05/tr-lukaku-want-to-chelsea/tr-lukaku-want-to-chelsea.jpg" width="90" height="90"/>
+                        </a>
+                    </div>
+                     -->
+                    <div class="media-body">
+                        <a class="link-unstyled" href="https://chelseafandev.github.io/2021/08/05/tr-lukaku-want-to-chelsea/" aria-label=": (BBC 스포츠) 첼시의 물망에 오른 루카쿠 적절한 오퍼가 온다면 인터 밀란을 떠나기 원해">
+                            <h3 class="media-heading">(BBC 스포츠) 첼시의 물망에 오른 루카쿠 적절한 오퍼가 온다면 인터 밀란을 떠나기 원해</h3>
+                        </a>
+                        <span class="media-meta">
+                            <span class="media-date text-small">
+                                
+                                    2021년 8월 5일
+                                
+                            </span>
+                        </span>
+                        <div class="media-content hide-xs font-nanumsquareround"><p>오늘은 첼시 이적설이 가까워져가고 있는 루카쿠 관련 기사를 가져왔습니다. 베르너의 결정력이 너무나도 아쉬웠던 지난 시즌 첼시를 생각하면 꼭 필요한 영입이라고 생각되네요😁</p></div>
+                    </div>
+                    <div style="clear:both;"></div>
+                    <hr>
+                </div>
+                
+                <div class="media">
+                    <!-- 
+                    <div class="media-left">
+                        <a
+                            class="link-unstyled"
+                            href="https://chelseafandev.github.io/2021/08/12/tr-son-new-contract/"
+                            aria-label=": (BBC 스포츠) 토트넘 공격수 손흥민 4년 재계약 성사"
+                        >
+                            <img class="media-image" src="https://chelseafandev.github.io/2021/08/12/tr-son-new-contract/tr-son-new-contract-figure1.jpg" width="90" height="90"/>
+                        </a>
+                    </div>
+                     -->
+                    <div class="media-body">
+                        <a class="link-unstyled" href="https://chelseafandev.github.io/2021/08/12/tr-son-new-contract/" aria-label=": (BBC 스포츠) 토트넘 공격수 손흥민 4년 재계약 성사">
+                            <h3 class="media-heading">(BBC 스포츠) 토트넘 공격수 손흥민 4년 재계약 성사</h3>
+                        </a>
+                        <span class="media-meta">
+                            <span class="media-date text-small">
+                                
+                                    2021년 8월 12일
+                                
+                            </span>
+                        </span>
+                        <div class="media-content hide-xs font-nanumsquareround"><p>오늘은 현재 프리미어리그 토트넘 핫스퍼에서 활약 중인 손흥민 선수의 재계약 관련 기사를 가져왔습니다. 다음 시즌 누누감독이 이끌게 되는 토트넘, 쌉월클👍 손흥민선수와 함께 좋은 성적 거뒀으면 좋겠습니다.</p></div>
+                    </div>
+                    <div style="clear:both;"></div>
+                    <hr>
+                </div>
+                
+                <div class="media">
+                    <!--  -->
+                    <div class="media-body">
+                        <a class="link-unstyled" href="https://chelseafandev.github.io/2021/09/24/hyperscan-phase1/" aria-label=": 인텔 Hyperscan 레퍼런스 가이드 번역">
+                            <h3 class="media-heading">인텔 Hyperscan 레퍼런스 가이드 번역</h3>
+                        </a>
+                        <span class="media-meta">
+                            <span class="media-date text-small">
+                                
+                                    2021년 9월 24일
+                                
+                            </span>
+                        </span>
+                        <div class="media-content hide-xs font-nanumsquareround"><p>이번 포스팅에서는 인텔 Hyperscan의 <a target="_blank" rel="external nofollow noopener noreferrer" href="http://intel.github.io/hyperscan/dev-reference/index.html">공식 문서</a>를 통해 컴파일(compile)이나 스캔(scan)과 같은 Hyperscan의 기본적인 개념들에 대해 알아보도록 하겠습니다. 추후에는 Hyperscan API를 직접 사용하여 정규 표현식 패턴 매칭을 수행하는 샘플 코드도 업로드할 예정입니다.</p></div>
+                    </div>
+                    <div style="clear:both;"></div>
+                    <hr>
+                </div>
+                
+                <div class="media">
+                    <!--  -->
+                    <div class="media-body">
+                        <a class="link-unstyled" href="https://chelseafandev.github.io/2021/10/12/hyperscan-phase2/" aria-label=": 인텔 Hyperscan API 테스트 코드 작성">
+                            <h3 class="media-heading">인텔 Hyperscan API 테스트 코드 작성</h3>
+                        </a>
+                        <span class="media-meta">
+                            <span class="media-date text-small">
+                                
+                                    2021년 10월 12일
+                                
+                            </span>
+                        </span>
+                        <div class="media-content hide-xs font-nanumsquareround"><p>이번 포스팅에서는 <a href="https://chelseafandev.github.io/2021/09/24/hyperscan-phase1/">인텔 Hyperscan 레퍼런스 가이드 번역</a>에 이어서 Hyperscan API를 직접 사용하여 정규 표현식 패턴 매칭을 수행하는 샘플 코드를 작성하고 테스트 해보는 시간을 갖겠습니다.</p></div>
+                    </div>
+                    <div style="clear:both;"></div>
+                    <hr>
+                </div>
+                
+                <div class="media">
+                    <!--  -->
+                    <div class="media-body">
+                        <a class="link-unstyled" href="https://chelseafandev.github.io/2021/11/09/gdb-chapter4-program-crash/" aria-label=": Seg Fault는 왜 발생하는가?">
+                            <h3 class="media-heading">Seg Fault는 왜 발생하는가?</h3>
+                        </a>
+                        <span class="media-meta">
+                            <span class="media-date text-small">
+                                
+                                    2021년 11월 9일
+                                
+                            </span>
+                        </span>
+                        <div class="media-content hide-xs font-nanumsquareround"><p>이번 포스팅에서는 <a target="_blank" rel="external nofollow noopener noreferrer" href="https://nostarch.com/debugging.htm">The Art of Debugging with GDB, DDD and Eclipse</a>의 <strong>Chatper 4 WHEN A PROGRAM CRASHES</strong> 내용을 번역해보았습니다. 해당 챕터의 앞부분에서는 가상 주소 공간에서의 페이지(page)에 대한 개념을 소개하고 seg fault가 발생하는 원인을 페이지(page)와 연관지어 잘 설명해주고 있습니다.</p></div>
+                    </div>
+                    <div style="clear:both;"></div>
+                    <hr>
+                </div>
+                
+            </div>
+        </div>
+        <div class="modal-footer">
+            <p class="results-count text-medium" data-message-zero="포스트가 없습니다." data-message-one="1 개의 포스트가 있습니다." data-message-other="{n} 개의 포스트가 있습니다.">
+                17 개의 포스트가 있습니다.
+            </p>
+        </div>
+    </div>
+</div>
+
+        
+        
+<div id="cover" style="background-image:url('/assets/images/chelsea_cover.jpg');"></div>
+        <!--SCRIPTS-->
+
+<script src="/assets/js/jquery.js"></script>
+
+
+<script src="/assets/js/jquery.fancybox.js"></script>
+
+
+<script src="/assets/js/thumbs.js"></script>
+
+
+<script src="/assets/js/tranquilpeak.js"></script>
+
+<!--SCRIPTS END-->
+
+
+    
+
+
+
+    
+<script src="/assets/js/moment-with-locales.js"></script>
+
+    
+<script src="/assets/js/algoliasearch.js"></script>
+
+    <script>
+      var algoliaClient = algoliasearch('FDTOJ7KLS8', '935491408ac4c43d728c68858e4ea147');
+      var algoliaIndex = algoliaClient.initIndex('chelseafandev');
+    </script>
+
+
+    </body>
+</html>
