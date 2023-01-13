@@ -9,8 +9,60 @@
     <atom:link href="https://chelseafandev.github.io/rss2.xml" rel="self" type="application/rss+xml"/>
     
     <description>더디더라도 꾸준히</description>
-    <pubDate>Thu, 01 Dec 2022 05:43:31 GMT</pubDate>
+    <pubDate>Fri, 13 Jan 2023 01:04:37 GMT</pubDate>
     <generator>http://hexo.io/</generator>
+    
+    <item>
+      <title>[Go] SELECT 쿼리 결과 동적으로 받아오는 방법</title>
+      <link>https://chelseafandev.github.io/2023/01/13/how-to-get-query-result-dynamically/</link>
+      <guid>https://chelseafandev.github.io/2023/01/13/how-to-get-query-result-dynamically/</guid>
+      <pubDate>Thu, 12 Jan 2023 15:39:17 GMT</pubDate>
+      
+      <description>&lt;p&gt;&lt;escape&gt;</description>
+      
+      
+      
+      <content:encoded><![CDATA[<p><escape><span id="more"></span></escape></p><p><code>SelectQueryResultType</code>은 쿼리 조회 결과로 나온 칼럼 이름을 key값으로 하고 해당 칼럼의 타입에 관계 없이 그 값을 저장하기 위한 빈 인터페이스 타입의 value를 갖는 map 슬라이스이고 조회된 row 개수 만큼 해당 슬라이스에 append 작업을 수행한다.</p><p><code>pointers</code>라는 빈(empty) 인터페이스 슬라이스를 추가한 이유는 pq 라이브러리의 Scan() 함수는 조회된 칼럼 값을 저장하기 위한 <strong>변수의 주소 값</strong>을 인자로 받기 때문에 <code>values</code> 라는 빈(empty) 인터페이스 슬라이스(조회된 칼럼 값을 저장할 공간)의 요소 별 주소 값을 저장하기 위한 슬라이스를 추가적으로 생성한다. <img src="/assets/images/how-to-get-query-result-dynamically-figure1.jpeg" class="" width="200" height="200"></p><br><figure class="highlight go"><figcaption><span>postgres.go</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">package</span> postgres</span><br><span class="line"></span><br><span class="line"><span class="keyword">import</span> (</span><br><span class="line"><span class="string">&quot;database/sql&quot;</span></span><br><span class="line"><span class="string">&quot;fmt&quot;</span></span><br><span class="line"><span class="string">&quot;strings&quot;</span></span><br><span class="line"></span><br><span class="line">_ <span class="string">&quot;github.com/lib/pq&quot;</span></span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"><span class="keyword">type</span> SelectQueryResultType []<span class="keyword">map</span>[<span class="keyword">string</span>]<span class="keyword">interface</span>&#123;&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(db *DB)</span> <span class="title">SelectQuery</span><span class="params">(query <span class="keyword">string</span>)</span> <span class="params">(SelectQueryResultType, error)</span></span> &#123;</span><br><span class="line">rows, err := db.db.Query(query)</span><br><span class="line"><span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line"><span class="keyword">return</span> <span class="literal">nil</span>, err</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">cols, err := rows.Columns()</span><br><span class="line"><span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">fmt.Printf(<span class="string">&quot;db columns fail: %s\n&quot;</span>, err)</span><br><span class="line"><span class="keyword">return</span> <span class="literal">nil</span>, err</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">var</span> result SelectQueryResultType</span><br><span class="line"></span><br><span class="line"><span class="keyword">for</span> rows.Next() &#123;</span><br><span class="line">values := <span class="built_in">make</span>([]<span class="keyword">interface</span>&#123;&#125;, <span class="built_in">len</span>(cols))</span><br><span class="line">pointers := <span class="built_in">make</span>([]<span class="keyword">interface</span>&#123;&#125;, <span class="built_in">len</span>(cols))</span><br><span class="line"></span><br><span class="line"><span class="keyword">for</span> i := <span class="keyword">range</span> values &#123;</span><br><span class="line">pointers[i] = &amp;values[i]</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">if</span> err = rows.Scan(pointers...); err != <span class="literal">nil</span> &#123;</span><br><span class="line">fmt.Printf(<span class="string">&quot;db scan fail: %s\n&quot;</span>, err)</span><br><span class="line"><span class="keyword">return</span> <span class="literal">nil</span>, err</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">row := <span class="built_in">make</span>(<span class="keyword">map</span>[<span class="keyword">string</span>]<span class="keyword">interface</span>&#123;&#125;)</span><br><span class="line"><span class="keyword">for</span> i, val := <span class="keyword">range</span> values &#123;</span><br><span class="line">row[strings.ToLower(cols[i])] = val</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">result = <span class="built_in">append</span>(result, row)</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">return</span> result, <span class="literal">nil</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure><br><p><strong>Reference</strong></p><ul><li><a href="https://stackoverflow.com/questions/53435455/handling-dynamic-queries-cant-scan-into-struct">https://stackoverflow.com/questions/53435455/handling-dynamic-queries-cant-scan-into-struct</a></li></ul>]]></content:encoded>
+      
+      
+      <category domain="https://chelseafandev.github.io/categories/%EC%9C%A0%EC%9A%A9%ED%95%9C-%ED%8C%81/">유용한 팁</category>
+      
+      
+      <category domain="https://chelseafandev.github.io/tags/lib-pq/">lib/pq</category>
+      
+      <category domain="https://chelseafandev.github.io/tags/Scan/">Scan()</category>
+      
+      <category domain="https://chelseafandev.github.io/tags/Golang-query/">Golang query</category>
+      
+      
+      <comments>https://chelseafandev.github.io/2023/01/13/how-to-get-query-result-dynamically/#disqus_thread</comments>
+      
+    </item>
+    
+    <item>
+      <title>[C++] 템플릿 클래스를 정의할 때 선언부와 구현부를 서로 다른 파일로 분리하는 방법</title>
+      <link>https://chelseafandev.github.io/2023/01/12/seperate-header-and-impl-in-template-class/</link>
+      <guid>https://chelseafandev.github.io/2023/01/12/seperate-header-and-impl-in-template-class/</guid>
+      <pubDate>Wed, 11 Jan 2023 16:40:45 GMT</pubDate>
+      
+      <description>&lt;p&gt;&lt;escape&gt;</description>
+      
+      
+      
+      <content:encoded><![CDATA[<p><escape><span id="more"></span></escape></p><p>헤더 파일의 맨 하단에 템플릿 클래스를 구현한 파일을 include 시켜주면 된다. (<strong>#include</strong> 는 대상이 되는 파일을 단순히 붙여 넣어주는 역할을 하므로)</p><figure class="highlight cpp"><figcaption><span>mytemplateclass.h</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">ifndef</span> MYTEMPLATECLASS_H</span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">define</span> MYTEMPLATECLASS_H</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">namespace</span> ggultip</span><br><span class="line">&#123;</span><br><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">typename</span> T&gt;</span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">mytemplateclass</span></span></span><br><span class="line"><span class="class">&#123;</span></span><br><span class="line"><span class="keyword">public</span>:</span><br><span class="line"><span class="built_in">mytemplateclass</span>();</span><br><span class="line">~<span class="built_in">mytemplateclass</span>();</span><br><span class="line"></span><br><span class="line">...</span><br><span class="line">&#125;;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="meta">#<span class="meta-keyword">endif</span></span></span><br><span class="line"></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&quot;mytemplateclass.impl.h&quot;</span></span></span><br></pre></td></tr></table></figure><figure class="highlight cpp"><figcaption><span>mytemplateclass.impl.h</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">pragma</span> once</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">namespace</span> ggultip</span><br><span class="line">&#123;</span><br><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">typename</span> T&gt;</span><br><span class="line">mytemplateclass&lt;T&gt;::<span class="built_in">mytemplateclass</span>()</span><br><span class="line">&#123;</span><br><span class="line">...</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">typename</span> T&gt;</span><br><span class="line">mytemplateclass&lt;T&gt;::~<span class="built_in">mytemplateclass</span>()</span><br><span class="line">&#123;</span><br><span class="line">...</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">...</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure><br><p><strong>Reference</strong></p><ul><li>Michael Main, Walter Savitch. (2010). Data Structures &amp; Other Objects Using C++, 4th Edition. Pearson</li></ul>]]></content:encoded>
+      
+      
+      <category domain="https://chelseafandev.github.io/categories/%EC%9C%A0%EC%9A%A9%ED%95%9C-%ED%8C%81/">유용한 팁</category>
+      
+      
+      <category domain="https://chelseafandev.github.io/tags/template-class/">template class</category>
+      
+      <category domain="https://chelseafandev.github.io/tags/%ED%85%9C%ED%94%8C%EB%A6%BF-%ED%81%B4%EB%9E%98%EC%8A%A4-%EA%B5%AC%ED%98%84%EB%B6%80-%EB%B6%84%EB%A6%AC/">템플릿 클래스 구현부 분리</category>
+      
+      
+      <comments>https://chelseafandev.github.io/2023/01/12/seperate-header-and-impl-in-template-class/#disqus_thread</comments>
+      
+    </item>
     
     <item>
       <title>그룹이 아닌 계층으로서의 Go 패키지</title>
@@ -32,11 +84,11 @@
       
       <category domain="https://chelseafandev.github.io/tags/golang/">golang</category>
       
+      <category domain="https://chelseafandev.github.io/tags/package-layer/">package layer</category>
+      
       <category domain="https://chelseafandev.github.io/tags/go-layout/">go layout</category>
       
       <category domain="https://chelseafandev.github.io/tags/organize-go-code/">organize go code</category>
-      
-      <category domain="https://chelseafandev.github.io/tags/package-layer/">package layer</category>
       
       
       <comments>https://chelseafandev.github.io/2022/12/01/translate-packages-as-layers/#disqus_thread</comments>
@@ -63,11 +115,11 @@
       
       <category domain="https://chelseafandev.github.io/tags/golang/">golang</category>
       
-      <category domain="https://chelseafandev.github.io/tags/package-layout/">package layout</category>
-      
       <category domain="https://chelseafandev.github.io/tags/go-layout/">go layout</category>
       
       <category domain="https://chelseafandev.github.io/tags/organize-go-code/">organize go code</category>
+      
+      <category domain="https://chelseafandev.github.io/tags/package-layout/">package layout</category>
       
       
       <comments>https://chelseafandev.github.io/2022/09/06/translate-standard-package-layout-in-go/#disqus_thread</comments>

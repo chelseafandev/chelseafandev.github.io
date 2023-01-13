@@ -9,6 +9,22 @@
 
 
     <url>
+        <loc>https://chelseafandev.github.io/2023/01/13/how-to-get-query-result-dynamically/</loc>
+        <lastmod>2023-01-13T01:04:37.070Z</lastmod>
+        <changefreq>weekly</changefreq>
+        <priority>0.6</priority>
+
+    </url>
+
+    <url>
+        <loc>https://chelseafandev.github.io/2023/01/12/seperate-header-and-impl-in-template-class/</loc>
+        <lastmod>2023-01-12T00:22:49.620Z</lastmod>
+        <changefreq>weekly</changefreq>
+        <priority>0.6</priority>
+
+    </url>
+
+    <url>
         <loc>https://chelseafandev.github.io/2022/12/01/translate-packages-as-layers/</loc>
         <lastmod>2022-12-01T05:43:31.170Z</lastmod>
         <changefreq>weekly</changefreq>
