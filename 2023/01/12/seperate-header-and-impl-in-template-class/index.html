@@ -18,14 +18,14 @@
             <link rel="alternate" type="application/rss+xml" title="RSS" href="/rss2.xml">
         
     
-    <script type="application/ld+json">{"@context":"http://schema.org","@type":"BlogPosting","author":{"@type":"Person","name":"첼시팬개발자","sameAs":[],"image":"chelsea_logo.png"},"articleBody":"\n헤더 파일의 맨 하단에 템플릿 클래스를 구현한 파일을 include 시켜주면 된다. (#include 는 대상이 되는 파일을 단순히 붙여 넣어주는 역할을 하므로)\nmytemplateclass.h12345678910111213141516171819#ifndef MYTEMPLATECLASS_H#define MYTEMPLATECLASS_Hnamespace ggultip&#123;\ttemplate &lt;typename T&gt;\tclass mytemplateclass\t&#123;\tpublic:\t\tmytemplateclass();\t\t~mytemplateclass();\t\t\t\t...\t&#125;;&#125;#endif#include &quot;mytemplateclass.impl.h&quot;\n\nmytemplateclass.impl.h123456789101112131415161718#pragma oncenamespace ggultip&#123;\ttemplate &lt;typename T&gt;\tmytemplateclass&lt;T&gt;::mytemplateclass()\t&#123;\t\t...\t&#125;\t\ttemplate &lt;typename T&gt;\tmytemplateclass&lt;T&gt;::~mytemplateclass()\t&#123;\t\t...\t&#125;\t\t...&#125;\n\n\n\nReference\n\nMichael Main, Walter Savitch. (2010). Data Structures &amp; Other Objects Using C++, 4th Edition. Pearson\n\n","dateCreated":"2023-01-12T01:40:45+09:00","dateModified":"2023-01-12T09:22:49+09:00","datePublished":"2023-01-12T01:40:45+09:00","description":"","headline":"[C++] 템플릿 클래스를 정의할 때 선언부와 구현부를 서로 다른 파일로 분리하는 방법","image":[],"mainEntityOfPage":{"@type":"WebPage","@id":"https://chelseafandev.github.io/2023/01/12/seperate-header-and-impl-in-template-class/"},"publisher":{"@type":"Organization","name":"첼시팬개발자","sameAs":[],"image":"chelsea_logo.png","logo":{"@type":"ImageObject","url":"chelsea_logo.png"}},"url":"https://chelseafandev.github.io/2023/01/12/seperate-header-and-impl-in-template-class/","keywords":"template class, 템플릿 클래스 구현부 분리"}</script>
+    <script type="application/ld+json">{"@context":"http://schema.org","@type":"BlogPosting","author":{"@type":"Person","name":"첼시팬개발자","sameAs":[],"image":"chelsea_logo.png"},"articleBody":"\n헤더 파일의 맨 하단에 템플릿 클래스를 구현한 파일을 include 시켜주면 된다. (#include 는 대상이 되는 파일을 단순히 붙여 넣어주는 역할을 하므로)\nmytemplateclass.h12345678910111213141516171819#ifndef MYTEMPLATECLASS_H#define MYTEMPLATECLASS_Hnamespace ggultip&#123;\ttemplate &lt;typename T&gt;\tclass mytemplateclass\t&#123;\tpublic:\t\tmytemplateclass();\t\t~mytemplateclass();\t\t\t\t...\t&#125;;&#125;#endif#include &quot;mytemplateclass.impl.h&quot;\n\nmytemplateclass.impl.h123456789101112131415161718#pragma oncenamespace ggultip&#123;\ttemplate &lt;typename T&gt;\tmytemplateclass&lt;T&gt;::mytemplateclass()\t&#123;\t\t...\t&#125;\t\ttemplate &lt;typename T&gt;\tmytemplateclass&lt;T&gt;::~mytemplateclass()\t&#123;\t\t...\t&#125;\t\t...&#125;\n\n\n\nReference\n\nMichael Main, Walter Savitch. (2010). Data Structures &amp; Other Objects Using C++, 4th Edition. Pearson\n\n","dateCreated":"2023-01-12T01:40:45+09:00","dateModified":"2023-01-16T09:51:23+09:00","datePublished":"2023-01-12T01:40:45+09:00","description":"","headline":"[C++] 템플릿 클래스를 정의할 때 선언부와 구현부를 서로 다른 파일로 분리하는 방법","image":[],"mainEntityOfPage":{"@type":"WebPage","@id":"https://chelseafandev.github.io/2023/01/12/seperate-header-and-impl-in-template-class/"},"publisher":{"@type":"Organization","name":"첼시팬개발자","sameAs":[],"image":"chelsea_logo.png","logo":{"@type":"ImageObject","url":"chelsea_logo.png"}},"url":"https://chelseafandev.github.io/2023/01/12/seperate-header-and-impl-in-template-class/","keywords":"template class, 템플릿 클래스 구현부 분리"}</script>
     <meta property="og:type" content="blog">
 <meta property="og:title" content="[C++] 템플릿 클래스를 정의할 때 선언부와 구현부를 서로 다른 파일로 분리하는 방법">
 <meta property="og:url" content="https://chelseafandev.github.io/2023/01/12/seperate-header-and-impl-in-template-class/index.html">
 <meta property="og:site_name" content="첼시팬 개발자 작업 공간">
 <meta property="og:locale" content="ko_KR">
 <meta property="article:published_time" content="2023-01-11T16:40:45.000Z">
-<meta property="article:modified_time" content="2023-01-12T00:22:49.620Z">
+<meta property="article:modified_time" content="2023-01-16T00:51:23.330Z">
 <meta property="article:author" content="첼시팬개발자">
 <meta property="article:tag" content="template class">
 <meta property="article:tag" content="템플릿 클래스 구현부 분리">
@@ -194,7 +194,7 @@
     
         <span>카테고리 </span>
         
-    <a class="category-link" href="/categories/%EC%9C%A0%EC%9A%A9%ED%95%9C-%ED%8C%81/">유용한 팁</a>
+    <a class="category-link" href="/categories/C/">C++</a>
 
 
     
@@ -718,7 +718,7 @@
         </div>
         <div class="modal-footer">
             <p class="results-count text-medium" data-message-zero="포스트가 없습니다." data-message-one="1 개의 포스트가 있습니다." data-message-other="{n} 개의 포스트가 있습니다.">
-                19 개의 포스트가 있습니다.
+                20 개의 포스트가 있습니다.
             </p>
         </div>
     </div>
