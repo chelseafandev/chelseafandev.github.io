@@ -40,7 +40,7 @@
     </item>
     
     <item>
-      <title>[C++] boost::asio::post 함수의 인자로 클래스의 인스턴스를 전달할 때 주의 사항</title>
+      <title>boost::asio::post 함수의 인자로 클래스의 인스턴스를 전달할 때 주의 사항</title>
       <link>https://chelseafandev.github.io/2023/01/26/caution-when-passing-instance-to-post/</link>
       <guid>https://chelseafandev.github.io/2023/01/26/caution-when-passing-instance-to-post/</guid>
       <pubDate>Thu, 26 Jan 2023 02:43:57 GMT</pubDate>
