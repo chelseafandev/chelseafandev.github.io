@@ -9,14 +9,14 @@
     <atom:link href="https://chelseafandev.github.io/rss2.xml" rel="self" type="application/rss+xml"/>
     
     <description>더디더라도 꾸준히</description>
-    <pubDate>Thu, 26 Jan 2023 02:46:45 GMT</pubDate>
+    <pubDate>Thu, 26 Jan 2023 02:48:13 GMT</pubDate>
     <generator>http://hexo.io/</generator>
     
     <item>
       <title>SELECT 쿼리 결과 동적으로 받아오는 방법</title>
       <link>https://chelseafandev.github.io/2023/01/26/how-to-get-query-result-dynamically/</link>
       <guid>https://chelseafandev.github.io/2023/01/26/how-to-get-query-result-dynamically/</guid>
-      <pubDate>Thu, 26 Jan 2023 02:46:25 GMT</pubDate>
+      <pubDate>Thu, 26 Jan 2023 02:48:13 GMT</pubDate>
       
       <description>&lt;p&gt;&lt;escape&gt;</description>
       
