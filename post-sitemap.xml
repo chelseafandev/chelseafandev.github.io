@@ -9,6 +9,30 @@
 
 
     <url>
+        <loc>https://chelseafandev.github.io/2023/01/26/caution-when-passing-instance-to-post/</loc>
+        <lastmod>2023-01-26T02:44:06.760Z</lastmod>
+        <changefreq>weekly</changefreq>
+        <priority>0.6</priority>
+
+    </url>
+
+    <url>
+        <loc>https://chelseafandev.github.io/2023/01/26/how-to-get-query-result-dynamically/</loc>
+        <lastmod>2023-01-26T02:43:27.680Z</lastmod>
+        <changefreq>weekly</changefreq>
+        <priority>0.6</priority>
+
+    </url>
+
+    <url>
+        <loc>https://chelseafandev.github.io/2023/01/26/seperate-header-and-impl-in-template-class/</loc>
+        <lastmod>2023-01-26T02:43:21.340Z</lastmod>
+        <changefreq>weekly</changefreq>
+        <priority>0.6</priority>
+
+    </url>
+
+    <url>
         <loc>https://chelseafandev.github.io/2022/09/06/translate-standard-package-layout-in-go/</loc>
         <lastmod>2023-01-16T00:51:47.740Z</lastmod>
         <changefreq>weekly</changefreq>
@@ -19,14 +43,6 @@
     <url>
         <loc>https://chelseafandev.github.io/2022/12/01/translate-packages-as-layers/</loc>
         <lastmod>2023-01-16T00:51:38.300Z</lastmod>
-        <changefreq>weekly</changefreq>
-        <priority>0.6</priority>
-
-    </url>
-
-    <url>
-        <loc>https://chelseafandev.github.io/2023/01/12/seperate-header-and-impl-in-template-class/</loc>
-        <lastmod>2023-01-16T00:51:23.330Z</lastmod>
         <changefreq>weekly</changefreq>
         <priority>0.6</priority>
 
@@ -49,24 +65,8 @@
     </url>
 
     <url>
-        <loc>https://chelseafandev.github.io/2023/01/13/how-to-get-query-result-dynamically/</loc>
-        <lastmod>2023-01-16T00:50:30.400Z</lastmod>
-        <changefreq>weekly</changefreq>
-        <priority>0.6</priority>
-
-    </url>
-
-    <url>
         <loc>https://chelseafandev.github.io/2022/03/05/cmake-tutorial/</loc>
         <lastmod>2023-01-16T00:49:04.090Z</lastmod>
-        <changefreq>weekly</changefreq>
-        <priority>0.6</priority>
-
-    </url>
-
-    <url>
-        <loc>https://chelseafandev.github.io/2023/01/15/caution-when-passing-instance-to-post/</loc>
-        <lastmod>2023-01-16T00:48:55.220Z</lastmod>
         <changefreq>weekly</changefreq>
         <priority>0.6</priority>
 
