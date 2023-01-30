@@ -9,8 +9,8 @@
 
 
     <url>
-        <loc>https://chelseafandev.github.io/2023/01/26/caution-when-passing-instance-to-post/</loc>
-        <lastmod>2023-01-26T02:51:14.390Z</lastmod>
+        <loc>https://chelseafandev.github.io/2023/01/30/unicode-encoding-utf8/</loc>
+        <lastmod>2023-01-30T07:06:33.280Z</lastmod>
         <changefreq>weekly</changefreq>
         <priority>0.6</priority>
 
@@ -18,7 +18,15 @@
 
     <url>
         <loc>https://chelseafandev.github.io/2023/01/26/how-to-get-query-result-dynamically/</loc>
-        <lastmod>2023-01-26T02:48:13.830Z</lastmod>
+        <lastmod>2023-01-26T02:53:19.610Z</lastmod>
+        <changefreq>weekly</changefreq>
+        <priority>0.6</priority>
+
+    </url>
+
+    <url>
+        <loc>https://chelseafandev.github.io/2023/01/26/caution-when-passing-instance-to-post/</loc>
+        <lastmod>2023-01-26T02:51:14.390Z</lastmod>
         <changefreq>weekly</changefreq>
         <priority>0.6</priority>
 
