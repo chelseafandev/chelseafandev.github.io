@@ -9,8 +9,8 @@
 
 
     <url>
-        <loc>https://chelseafandev.github.io/2023/01/30/unicode-encoding-utf8/</loc>
-        <lastmod>2023-01-30T07:06:33.280Z</lastmod>
+        <loc>https://chelseafandev.github.io/2023/02/10/tip-for-gdb-debugging/</loc>
+        <lastmod>2023-02-10T04:18:57.460Z</lastmod>
         <changefreq>weekly</changefreq>
         <priority>0.6</priority>
 
@@ -18,7 +18,15 @@
 
     <url>
         <loc>https://chelseafandev.github.io/2023/01/26/how-to-get-query-result-dynamically/</loc>
-        <lastmod>2023-01-26T02:53:19.610Z</lastmod>
+        <lastmod>2023-02-01T07:36:10.910Z</lastmod>
+        <changefreq>weekly</changefreq>
+        <priority>0.6</priority>
+
+    </url>
+
+    <url>
+        <loc>https://chelseafandev.github.io/2023/01/30/unicode-encoding-utf8/</loc>
+        <lastmod>2023-01-30T07:06:33.280Z</lastmod>
         <changefreq>weekly</changefreq>
         <priority>0.6</priority>
 
