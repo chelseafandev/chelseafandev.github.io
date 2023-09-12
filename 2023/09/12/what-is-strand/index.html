@@ -1,0 +1,881 @@
+
+<!DOCTYPE html>
+<html lang="ko">
+    
+<head>
+    <meta name="google-site-verification" content="Ojz5tvI9WuN6pn2n6i1E_mOkMyRiSSOp4KXuYSyaUjs">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="generator" content="첼시팬 개발자 작업 공간">
+    <title>boost strand를 사용하는 이유 - 첼시팬 개발자 작업 공간</title>
+    <meta name="author" content="첼시팬개발자">
+    
+    
+        <link rel="icon" href="https://chelseafandev.github.io/assets/images/chelsea_favicon.png">
+    
+    
+        
+            <link rel="alternate" type="application/rss+xml" title="RSS" href="/rss2.xml">
+        
+    
+    <script type="application/ld+json">{"@context":"http://schema.org","@type":"BlogPosting","author":{"@type":"Person","name":"첼시팬개발자","sameAs":[],"image":"chelsea_logo.png"},"articleBody":"이번 포스팅에서는 boost에서 제공하는 strand에 대해 알아보는 시간을 갖도록 하겠습니다.\n\n\nstrand에 대한 설명은 How strands work and why you should use them 내용을 바탕으로 작성되었으니 참고부탁드리며, 글 하단에는 strand 동작을 검증하기 위한 예제 코드를 첨부하였으니 직접 테스트 해보시며 strand의 사용법과 필요성에 대해 다시 한번 정리하는 시간을 갖으면 좋을것같네요😁\n\n\n\n\n\n\nHow strands work and why you should use them만약 여러분이 Boost Asio를 사용해본적이 있다면, 틀림없이 strands 라는 것을 사용해봤거나 최소한 마주치기라도 해봤을 것입니다.\n\nIf you ever used Boost Asio, certainly you used or at least looked at strands.\n\nstrands 사용을 통해 얻을 수 있는 주요한 이점은 여러분의 소스 코드를 단순화해준다는 것입니다. 이러한 단순화는 strand를 통해 실행되는 핸들러에 대해서는 명시적인 동기화가 필요하지 않기때문에 가능합니다. strand는 2개의 핸들러가 동시에 실행되지않음을 보장합니다.\n\nThe main benefit of using strands is to simplify your code, since handlers that go through a strand don’t need explicit synchronization. A strand guarantees that no two handlers execute concurrently.\n\n만약 여러분이 단지 하나의 I/O 쓰레드(boost 라이브러리 측면에서 설명하자면 io_context::run()을 호출하는 쓰레드가 오직 하나인 경우를 의미함)를 사용한다면, 동기화를 걱정할 필요가 전혀 없습니다. 그것이 이미 암묵적인 strand입니다. 하지만 여러분이 더 많은 I/O 쓰레드를 사용해야하는 순간이 온다면 I/O 쓰레드에서 실행되는 핸들러에 대해 명시적인 동기화 처리를 하거나 strands를 사용해야합니다.\n\nIf you use just one I/O thread (or in Boost terms, just one thread calling io_context::run), then you don’t need synchronization anyway. That is already an implicit strand. But the moment you want to ramp up and have more I/O threads, you need to either deal with explicit synchronization for your handlers, or use strands.\n\n여러분이 정의한 핸들러를 명시적으로 동기화하는 것은 명백히 가능한 일이지만 이것은 불필요하게 여러분의 소스 코드에 복잡성을 부여하여 버그를 발생시킬 수도 있습니다. 핸들러의 명시적 동기화가 갖는 또 다른 영향도 중 하나는 여러분이 정말 신중하게 고려하지 않는 이상 불필요한 블록 구간의 발생이 불가피하다는 점입니다.\n\nExplicitly synchronizing your handlers is certainly possible, but you will be unnecessarily introducing complexity to your code which will certainly lead to bugs. One other effect of explicit handler synchronization is that unless you think really hard, you’ll very likely introduce unnecessary blocking.\n\nstrands는 여러분의 소스 코드와 핸들러의 실행 사이에 또 다른 계층을 하나 둠으로써 동작합니다. 여러분의 핸들러를 직접적으로 실행하는 worker 쓰레드들을 갖는 대신에, 이러한 핸들러들이 strand 내의 큐에 저장됩니다. 그리고나서 strand는 모든 조건이 충족되었을 때에만 핸들러를 실행하도록 하는 제어 권한을 갖게됩니다.\n\nStrands work by introducing another layer between your application code and the handler execution. Instead of having the worker threads directly execute your handlers, those handlers are queued in a strand. The strand then has control over when executing the handlers so that all guarantees can be met.\n\n이것에 대해 생각해볼 수 있는 한가지 방법은 아래 그림과 같습니다.\n\nOne way you can think about is like this:\n\n\n\nPossible scenarioI/O 쓰레드와 핸들러에 어떤 일이 발생하는지를 시각적으로 보여주기 위해 Remotry를 사용했습니다.\n\nTo visually demonstrate what happens with the I/O threads and handlers, I’ve used Remotery.\n\n사용되는 코드는 4개의 worker 쓰레드와 8개의 connection을 에뮬레이트합니다. 5ms ~ 15ms 사이의 임의의 작업량을 갖는 핸들러(일종의 작업 항목)는 worker 큐에 놓이게됩니다. 실제로 여러분이 이러한 커넥션별 쓰레드비율 또는 핸들러 작업량을 갖지않더라도 해당 수치들은 문제를 보여주기에 용이합니다. 또한 저는 Boost Asio 라이브러리를 사용하지 않았고, 해당 글의 주제를 논의해나가기 위해 자체적으로 strand를 구현해보았습니다.\n\nThe code used emulates 4 worker threads, and 8 connections. Handlers (aka work items) with a random workload of [5ms,15ms] for a random connection are placed in the worker queue. In practice, you would not have this threads/connections ratio or handler workload, but it makes it easier to demonstrate the problem. Also, I’m not using Boost Asio at all. It’s a custom strand implementation to explore the topic.\n\n아래 그림은 worker 쓰레드들의 상태를 보여줍니다:\n\nSo, a view into the worker threads:\n\n\n\nConn N은 커넥션 객체를 의미합니다(또는 worker 쓰레드 상에서 작업을 수행하는 어떠한 객체). 각각의 커넥션 객체는 서로 다른 색상을 갖고있습니다. 보시다시피 겉보기에는 괜찮아 보입니다. 이제 각각의 Conn 객체의 실직적인 상태를 시분할 단위로 살펴보도록 하겠습니다.\n\nConn N are our connection objects (or any object doing work in our worker threads for that matter). Each has a distinct colour. All good on the surface as you can see. Now lets look at what each Conn object is actually doing with its time slice.\n\n\n\nworker 큐와 쓰레드는 핸들러가 수행하는 작업을 인지하지 못하기때문에서 worker 쓰레드는 처리할 커넥션 객체가 들어오는 순간 기꺼이 큐에서 꺼내려 할 것입니다. 하나의 쓰레드에서 또 다른 worker 쓰레드에서 이미 사용되고 있는 커넥션 객체를 실행하려고 할 때, 그것은 block 상태에 놓이게될 것입니다. 현재의 시나리오에서는 전체 시간의 약 19% 정도가 block 상태 또는 또 다른 오버 헤드로 인해 낭비되고 있습니다. 다시 말해, 실질적으로 worker 쓰레드가 작업에 할당하는 시간이 전체의 약 81% 뿐이라는 것입니다:\n\nWhat is happening is the worker queue and worker threads are oblivious to what its handlers do (as expected), so the worker threads will happily dequeue work as it comes. One thread tries to execute work for a given Conn object which is already being used in another worker thread, so it has to block. In this scenario, ~19% of total time is wasted with blocking or other overhead. In other words, only ~81% of the worker thread’s time is spent doing actual work:\n\n\n\n오버 헤드는 worker 쓰레드 전체 시간에서 실제 작업 시간을 뺀 값으로 측정됩니다. 그렇기 때문에 핸들러 내의 명시적인 동기화 그리고 worker 큐/쓰레드 내부적으로 수행된 모든 동기화 작업들이 이 오버 헤드에 포함됩니다.\n\nNOTE: The overhead was measured by subtracting actual work time from the total worker thread’s time. So it accounts for explicit synchronization in the handlers and any work/synchronization done internally by the worker queue/threads.\n\n이제 커넥션 객체의 작업을 동기화하기 위해 strands를 사용하는 경우의 상태 값을 살펴봅시다.\n\nLets see how it looks like if we use strands to serialize work for our Conn objects:\n\n\n\n\n\n내부 작업 또는 동기화에 낭비되는 시간이 매우 작다는것을 알 수 있습니다.\n\nVery little time is wasted with internal work or synchronization.\n\n\n\nCache localitystrands를 사용하는 경우에 얻을 수 있는 또 하나의 작은 이점은 더 나은 CPU 캐시 활용입니다. worker 쓰레드는 또 다른 커넥션 객체를 가지고 오기 전에 현재 주어진 커넥션 객체의 핸들러를 더 많이 실행하려는 경향이 있습니다.\n\nAnother possible small benefit with this scenario is better CPU cache utilization. Worker threads will tend to execute a few handlers for a given Conn object before grabbing another Conn object.\n\nZoomed out, without strands(각각의 쓰레드에 따라 동일한 번호의 커넥션 객체의 작업 수행이 밀집되어 있는 것을 볼 수 있음)\n\n\nZoomed out, with strands\n\n\n\n\n예제 코드실제 예제 코드를 통해서 strand의 사용법을 알아보도록 하겠습니다. 아래 예제는 N개(1, 2, 4, 8, 16)의 쓰레드에서 각각 전역 변수인 sum에 2씩 더하는 연산을 수행하며, sum의 누적 합이 1억이 출력되는지를 확인하고자 하는 코드입니다.쓰레드가 1개(N=1)인 상황에서 sum이 1억이 되기위해서는 2씩 더하는 연산이 총 50000000번 반복돼야하며 쓰레드를 16개(N=16)까지 늘린다면 해당 연산은 3125000번 반복되면 됩니다.\n12345678910111213141516171819202122232425262728293031323334353637383940414243444546474849505152535455565758596061626364656667686970717273747576777879808182838485#include &lt;iostream&gt;#include &lt;boost/asio.hpp&gt;#include &lt;boost/thread.hpp&gt;#include &lt;boost/thread/detail/thread_group.hpp&gt;int sum = 0;class thread_func&#123;public:    thread_func(int idx, boost::asio::io_context&amp; ctx) : idx_(idx), ctx_(ctx)    &#123;    &#125;    void operator()()    &#123;        std::ostringstream oss;        oss &lt;&lt; std::this_thread::get_id();        printf(&quot;io_context::run #%d thread [%s]\\n&quot;, idx_, oss.str().c_str());        ctx_.run();    &#125;private:    int idx_;    boost::asio::io_context&amp; ctx_;&#125;;void make_sum_to_100_million_without_strand(int thread_count)&#123;    boost::asio::io_context ctx;    int loop_count = 0;    switch (thread_count)    &#123;    case 1:        loop_count = 50000000;        break;    case 2:        loop_count = 25000000;        break;    case 4:        loop_count = 12500000;        break;    case 8:        loop_count = 6250000;        break;    case 16:        loop_count = 3125000;        break;    default:        break;    &#125;    // no strand    for (int i = 0; i &lt; thread_count; i++)    &#123;        boost::asio::post(ctx, [&amp;]()&#123;            std::ostringstream oss;            oss &lt;&lt; std::this_thread::get_id();            printf(&quot;hello boost::asio::post in io_context [%s]\\n&quot;, oss.str().c_str());            for (int i = 0; i &lt; loop_count; i++)            &#123;                sum += 2;            &#125;        &#125;);    &#125;        boost::thread_group tg;    for (int i = 0; i &lt; thread_count; i++)    &#123;        tg.create_thread(thread_func(i+1, ctx));    &#125;    tg.join_all();    printf(&quot;[make_sum_to_100_million_without_strand, %d thread] sum : %d\\n&quot;, thread_count, sum);&#125;int main()&#123;    int thread_count = 2;    make_sum_to_100_million_without_strand(thread_count)    return 0;&#125;\n\n실행결과\n1[make_sum_to_100_million_without_strand, 2 thread] sum : 50614948\n(위 예시의 경우에는 2개의 쓰레드에서)핸들러 동기화를 수행하지 않는 경우에는 1억이 정상적으로 출력되지 않음을 볼 수 있습니다. 여러 쓰레드에서 동시에 접근하는 변수에 대한 명시적인 동기화 처리를 해주지 않았기 때문에 당연한 결과입니다.\n1234567891011121314151617181920212223242526272829303132333435363738394041424344454647484950515253545556575859606162636465666768697071727374757677787980818283848586#include &lt;iostream&gt;#include &lt;boost/asio.hpp&gt;#include &lt;boost/thread.hpp&gt;#include &lt;boost/thread/detail/thread_group.hpp&gt;int sum = 0;class thread_func&#123;public:    thread_func(int idx, boost::asio::io_context&amp; ctx) : idx_(idx), ctx_(ctx)    &#123;    &#125;    void operator()()    &#123;        std::ostringstream oss;        oss &lt;&lt; std::this_thread::get_id();        printf(&quot;io_context::run #%d thread [%s]\\n&quot;, idx_, oss.str().c_str());        ctx_.run();    &#125;private:    int idx_;    boost::asio::io_context&amp; ctx_;&#125;;void make_sum_to_100_million_with_strand(int thread_count)&#123;    boost::asio::io_context ctx;    boost::asio::io_context::strand strand(ctx);    int loop_count = 0;    switch (thread_count)    &#123;    case 1:        loop_count = 50000000;        break;    case 2:        loop_count = 25000000;        break;    case 4:        loop_count = 12500000;        break;    case 8:        loop_count = 6250000;        break;    case 16:        loop_count = 3125000;        break;    default:        break;    &#125;    // strand    for (int i = 0; i &lt; thread_count; i++)    &#123;        boost::asio::post(strand.wrap([&amp;]()&#123;            std::ostringstream oss;            oss &lt;&lt; std::this_thread::get_id();            printf(&quot;hello boost::asio::post in io_context [%s]\\n&quot;, oss.str().c_str());            for (int i = 0; i &lt; loop_count; i++)            &#123;                sum += 2;            &#125;        &#125;));    &#125;        boost::thread_group tg;    for (int i = 0; i &lt; thread_count; i++)    &#123;        tg.create_thread(thread_func(i+1, ctx));    &#125;    tg.join_all();    printf(&quot;[make_sum_to_100_million_with_strand, %d thread] sum : %d\\n&quot;, thread_count, sum);&#125;int main()&#123;    int thread_count = 16;    make_sum_to_100_million_with_strand(thread_count);    return 0;&#125;\n\n실행결과\n1[make_sum_to_100_million_with_strand, 16 thread] sum : 100000000\n(위 예시의 경우에는 16개의 쓰레드에서) boost strand를 사용하여 핸들러 동기화를 수행(전역 변수인 sum에 접근하는 핸들러가 동시에 실행되지 않음을 보장)하였기때문에 1억이 정상적으로 출력됨을 확인할 수 있다.\n\n\n마치며\nI/O thread가 1개인 경우(즉, io_context::run() 함수가 호출되는 쓰레드가 1개인 경우)에는 오직 하나의 쓰레드에서만 핸들러가 호출되므로 동기화라는게 필요없음.\n2개 이상의 I/O thread(즉, io_context::run() 함수가 호출되는 쓰레드가 2개 이상인 경우)를 사용하는 경우에는 핸들러를 동기화하기 위해 명시적인 Lock이 필요함.\n이때 사용할 수 있는게 boost::asio::strand! 핸들러 내부에서 동기화를 위한 작업을 따로 해줄필요가 없다!\n\n\n\n\n해당 게시글에서 발생한 오탈자나 잘못된 내용에 대한 정정 댓글 격하게 환영합니다😎\n\nReference\n\nhttps://www.crazygaze.com/blog/2016/03/17/how-strands-work-and-why-you-should-use-them/\n\n","dateCreated":"2023-09-12T17:03:48+09:00","dateModified":"2023-09-12T17:03:48+09:00","datePublished":"2023-09-12T17:03:48+09:00","description":"이번 포스팅에서는 boost에서 제공하는 strand에 대해 알아보는 시간을 갖도록 하겠습니다.","headline":"boost strand를 사용하는 이유","image":[],"mainEntityOfPage":{"@type":"WebPage","@id":"https://chelseafandev.github.io/2023/09/12/what-is-strand/"},"publisher":{"@type":"Organization","name":"첼시팬개발자","sameAs":[],"image":"chelsea_logo.png","logo":{"@type":"ImageObject","url":"chelsea_logo.png"}},"url":"https://chelseafandev.github.io/2023/09/12/what-is-strand/","keywords":"strands, boost strand, synchronization, handler sync"}</script>
+    <meta name="description" content="이번 포스팅에서는 boost에서 제공하는 strand에 대해 알아보는 시간을 갖도록 하겠습니다.">
+<meta property="og:type" content="blog">
+<meta property="og:title" content="boost strand를 사용하는 이유">
+<meta property="og:url" content="https://chelseafandev.github.io/2023/09/12/what-is-strand/index.html">
+<meta property="og:site_name" content="첼시팬 개발자 작업 공간">
+<meta property="og:description" content="이번 포스팅에서는 boost에서 제공하는 strand에 대해 알아보는 시간을 갖도록 하겠습니다.">
+<meta property="og:locale" content="ko_KR">
+<meta property="og:image" content="https://chelseafandev.github.io/assets/images/what-is-strand-figure-1">
+<meta property="og:image" content="https://chelseafandev.github.io/assets/images/what-is-strand-figure-2">
+<meta property="og:image" content="https://chelseafandev.github.io/assets/images/what-is-strand-figure-3">
+<meta property="og:image" content="https://chelseafandev.github.io/assets/images/what-is-strand-figure-4">
+<meta property="og:image" content="https://chelseafandev.github.io/assets/images/what-is-strand-figure-5">
+<meta property="og:image" content="https://chelseafandev.github.io/assets/images/what-is-strand-figure-6">
+<meta property="og:image" content="https://chelseafandev.github.io/assets/images/what-is-strand-figure-7">
+<meta property="og:image" content="https://chelseafandev.github.io/assets/images/what-is-strand-figure-8">
+<meta property="article:published_time" content="2023-09-12T08:03:48.000Z">
+<meta property="article:modified_time" content="2023-09-12T08:03:48.741Z">
+<meta property="article:author" content="첼시팬개발자">
+<meta property="article:tag" content="strands">
+<meta property="article:tag" content="boost strand">
+<meta property="article:tag" content="synchronization">
+<meta property="article:tag" content="handler sync">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://chelseafandev.github.io/assets/images/what-is-strand-figure-1">
+    
+    
+        
+    
+    
+        <meta property="og:image" content="https://chelseafandev.github.io/assets/images/chelsea_logo.png">
+    
+    
+    
+    
+    <!--STYLES-->
+    
+<link rel="stylesheet" href="/assets/css/all.css">
+
+    
+<link rel="stylesheet" href="/assets/css/jquery.fancybox.css">
+
+    
+<link rel="stylesheet" href="/assets/css/thumbs.css">
+
+    
+<link rel="stylesheet" href="/assets/css/tranquilpeak.css">
+
+    <!--STYLES END-->
+    
+
+    
+
+    
+        
+    
+    <link rel="canonical" href="https://chelseafandev.github.io/2023/09/12/what-is-strand/">
+</head>
+
+    <body>
+        <div id="blog">
+            <!-- Define author's picture -->
+
+
+    
+        
+            
+        
+    
+
+<header id="header" data-behavior="4">
+    <i id="btn-open-sidebar" class="fa fa-lg fa-bars"></i>
+    <div class="header-title">
+        <a class="header-title-link" href="/" aria-label>
+            첼시팬 개발자 작업 공간
+        </a>
+    </div>
+    
+        
+            <a class="header-right-picture " href="#about" aria-label="링크 열기: /#about">
+        
+        
+            <img class="header-picture" src="/assets/images/chelsea_logo.png" alt="저자 이미지">
+        
+        </a>
+    
+</header>
+
+            <!-- Define author's picture -->
+
+
+
+        
+    
+
+<nav id="sidebar" data-behavior="4" style="border-top-width: 100px;padding-top: 150px;">
+    <div class="sidebar-container">
+        
+            <div class="sidebar-profile">
+                <a href="/#about" aria-label="저자에 대해 더 알아보기">
+                    <img class="sidebar-profile-picture" src="/assets/images/chelsea_logo.png" alt="저자 이미지">
+                </a>
+                <h4 class="sidebar-profile-name">첼시팬개발자</h4>
+                
+                    <h5 class="sidebar-profile-bio"><p>조금 더디더라도 꾸준히</p>
+</h5>
+                
+            </div>
+        
+        
+            <ul class="sidebar-buttons">
+            
+                <li class="sidebar-button">
+                    
+                        <a class="sidebar-button-link " href="/" rel="noopener" title="전체글">
+                        <i class="sidebar-button-icon fas fa-list-ul" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">전체글</span>
+                    </a>
+            </li>
+            
+                <li class="sidebar-button">
+                    
+                        <a class="sidebar-button-link " href="/all-categories" rel="noopener" title="카테고리">
+                        <i class="sidebar-button-icon fa fa-bookmark" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">카테고리</span>
+                    </a>
+            </li>
+            
+                <li class="sidebar-button">
+                    
+                        <a class="sidebar-button-link " href="/all-tags" rel="noopener" title="태그">
+                        <i class="sidebar-button-icon fa fa-tags" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">태그</span>
+                    </a>
+            </li>
+            
+                <li class="sidebar-button">
+                    
+                        <a class="sidebar-button-link " href="/all-archives" rel="noopener" title="아카이브">
+                        <i class="sidebar-button-icon fa fa-archive" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">아카이브</span>
+                    </a>
+            </li>
+            
+                <li class="sidebar-button">
+                    
+                        <a class="sidebar-button-link " href="https://github.com/chelseafandev" target="_blank" rel="external nofollow noopener noreferrer" title="GitHub">
+                        <i class="sidebar-button-icon fab fa-github" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">GitHub</span>
+                    </a>
+            </li>
+            
+                <li class="sidebar-button">
+                    
+                        <a class="sidebar-button-link " href="/rss2.xml" rel="noopener" title="RSS">
+                        <i class="sidebar-button-icon fa fa-rss" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">RSS</span>
+                    </a>
+            </li>
+            
+        </ul>
+        
+    </div>
+</nav>
+
+            
+            <div id="main" data-behavior="4" class="
+                        hasCoverMetaIn
+                        ">
+                
+<article class="post">
+    
+    
+        <div class="post-header main-content-wrap text-left">
+    
+        <h1 class="post-title">
+            boost strand를 사용하는 이유
+        </h1>
+    
+    
+        <div class="post-meta">
+    <time datetime="2023-09-12T17:03:48+09:00">
+	
+		    2023/09/12 17:03:48
+    	
+    </time>
+    
+        <span>카테고리 </span>
+        
+    <a class="category-link" href="/categories/C/">C++</a>
+
+
+    
+    
+        -
+        <span class="reading-time">⏱</span>
+        
+            읽는데 11 분 정도 소요 예상
+        
+        
+    
+</div>
+
+    
+</div>
+
+    
+    <div class="post-content markdown">
+        <div class="main-content-wrap">
+            <p>이번 포스팅에서는 boost에서 제공하는 strand에 대해 알아보는 시간을 갖도록 하겠습니다.</p>
+<span id="more"></span>
+
+<p>strand에 대한 설명은 <a target="_blank" rel="external nofollow noopener noreferrer" href="https://www.crazygaze.com/blog/2016/03/17/how-strands-work-and-why-you-should-use-them/">How strands work and why you should use them</a> 내용을 바탕으로 작성되었으니 참고부탁드리며, 글 하단에는 strand 동작을 검증하기 위한 예제 코드를 첨부하였으니 직접 테스트 해보시며 strand의 사용법과 필요성에 대해 다시 한번 정리하는 시간을 갖으면 좋을것같네요😁</p>
+<br>
+
+<h1 id="table-of-contents">목차</h1><ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#How-strands-work-and-why-you-should-use-them"><span class="toc-number">1.</span> <span class="toc-text">How strands work and why you should use them</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#Possible-scenario"><span class="toc-number">1.1.</span> <span class="toc-text">Possible scenario</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#Cache-locality"><span class="toc-number">1.2.</span> <span class="toc-text">Cache locality</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%EC%98%88%EC%A0%9C-%EC%BD%94%EB%93%9C"><span class="toc-number">1.3.</span> <span class="toc-text">예제 코드</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%EB%A7%88%EC%B9%98%EB%A9%B0"><span class="toc-number">1.4.</span> <span class="toc-text">마치며</span></a></li></ol></li></ol>
+
+<br>
+
+<h2 id="How-strands-work-and-why-you-should-use-them"><a href="#How-strands-work-and-why-you-should-use-them" class="headerlink" title="How strands work and why you should use them"></a>How strands work and why you should use them</h2><p>만약 여러분이 Boost Asio를 사용해본적이 있다면, 틀림없이 <a target="_blank" rel="external nofollow noopener noreferrer" href="https://www.boost.org/doc/libs/1_83_0/doc/html/boost_asio/overview/core/strands.html">strands</a> 라는 것을 사용해봤거나 최소한 마주치기라도 해봤을 것입니다.</p>
+<blockquote>
+<p>If you ever used Boost Asio, certainly you used or at least looked at <a target="_blank" rel="external nofollow noopener noreferrer" href="https://www.boost.org/doc/libs/1_83_0/doc/html/boost_asio/overview/core/strands.html">strands</a>.</p>
+</blockquote>
+<p>strands 사용을 통해 얻을 수 있는 주요한 이점은 여러분의 소스 코드를 단순화해준다는 것입니다. 이러한 단순화는 strand를 통해 실행되는 핸들러에 대해서는 명시적인 동기화가 필요하지 않기때문에 가능합니다. strand는 2개의 핸들러가 동시에 실행되지않음을 보장합니다.</p>
+<blockquote>
+<p>The main benefit of using strands is to simplify your code, since handlers that go through a strand don’t need explicit synchronization. A strand guarantees that no two handlers execute concurrently.</p>
+</blockquote>
+<p>만약 여러분이 단지 하나의 I/O 쓰레드(boost 라이브러리 측면에서 설명하자면 io_context::run()을 호출하는 쓰레드가 오직 하나인 경우를 의미함)를 사용한다면, 동기화를 걱정할 필요가 전혀 없습니다. 그것이 이미 암묵적인 strand입니다. 하지만 여러분이 더 많은 I/O 쓰레드를 사용해야하는 순간이 온다면 I/O 쓰레드에서 실행되는 핸들러에 대해 명시적인 동기화 처리를 하거나 strands를 사용해야합니다.</p>
+<blockquote>
+<p>If you use just one I/O thread (or in Boost terms, just one thread calling io_context::run), then you don’t need synchronization anyway. That is already an implicit strand. But the moment you want to ramp up and have more I/O threads, you need to either deal with explicit synchronization for your handlers, or use strands.</p>
+</blockquote>
+<p>여러분이 정의한 핸들러를 명시적으로 동기화하는 것은 명백히 가능한 일이지만 이것은 불필요하게 여러분의 소스 코드에 복잡성을 부여하여 버그를 발생시킬 수도 있습니다. 핸들러의 명시적 동기화가 갖는 또 다른 영향도 중 하나는 여러분이 정말 신중하게 고려하지 않는 이상 불필요한 블록 구간의 발생이 불가피하다는 점입니다.</p>
+<blockquote>
+<p>Explicitly synchronizing your handlers is certainly possible, but you will be unnecessarily introducing complexity to your code which will certainly lead to bugs. One other effect of explicit handler synchronization is that unless you think really hard, you’ll very likely introduce unnecessary blocking.</p>
+</blockquote>
+<p>strands는 여러분의 소스 코드와 핸들러의 실행 사이에 또 다른 계층을 하나 둠으로써 동작합니다. 여러분의 핸들러를 직접적으로 실행하는 worker 쓰레드들을 갖는 대신에, 이러한 핸들러들이 strand 내의 큐에 저장됩니다. 그리고나서 strand는 모든 조건이 충족되었을 때에만 핸들러를 실행하도록 하는 제어 권한을 갖게됩니다.</p>
+<blockquote>
+<p>Strands work by introducing another layer between your application code and the handler execution. Instead of having the worker threads directly execute your handlers, those handlers are queued in a strand. The strand then has control over when executing the handlers so that all guarantees can be met.</p>
+</blockquote>
+<p>이것에 대해 생각해볼 수 있는 한가지 방법은 아래 그림과 같습니다.</p>
+<blockquote>
+<p>One way you can think about is like this:</p>
+</blockquote>
+<div class="figure " style="width:;"><img class="fig-img" src="/assets/images/what-is-strand-figure-1" alt></div>
+
+<h3 id="Possible-scenario"><a href="#Possible-scenario" class="headerlink" title="Possible scenario"></a>Possible scenario</h3><p>I/O 쓰레드와 핸들러에 어떤 일이 발생하는지를 시각적으로 보여주기 위해 <a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/Celtoys/Remotery">Remotry</a>를 사용했습니다.</p>
+<blockquote>
+<p>To visually demonstrate what happens with the I/O threads and handlers, I’ve used <a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/Celtoys/Remotery">Remotery</a>.</p>
+</blockquote>
+<p>사용되는 코드는 4개의 worker 쓰레드와 8개의 connection을 에뮬레이트합니다. 5ms ~ 15ms 사이의 임의의 작업량을 갖는 핸들러(일종의 작업 항목)는 worker 큐에 놓이게됩니다. 실제로 여러분이 이러한 커넥션별 쓰레드비율 또는 핸들러 작업량을 갖지않더라도 해당 수치들은 문제를 보여주기에 용이합니다. 또한 저는 Boost Asio 라이브러리를 사용하지 않았고, 해당 글의 주제를 논의해나가기 위해 자체적으로 strand를 구현해보았습니다.</p>
+<blockquote>
+<p>The code used emulates 4 worker threads, and 8 connections. Handlers (aka work items) with a random workload of [5ms,15ms] for a random connection are placed in the worker queue. In practice, you would not have this threads/connections ratio or handler workload, but it makes it easier to demonstrate the problem. Also, I’m not using Boost Asio at all. It’s a custom strand implementation to explore the topic.</p>
+</blockquote>
+<p>아래 그림은 worker 쓰레드들의 상태를 보여줍니다:</p>
+<blockquote>
+<p>So, a view into the worker threads:</p>
+</blockquote>
+<div class="figure " style="width:;"><img class="fig-img" src="/assets/images/what-is-strand-figure-2" alt></div>
+
+<p><code>Conn N</code>은 커넥션 객체를 의미합니다(또는 worker 쓰레드 상에서 작업을 수행하는 어떠한 객체). 각각의 커넥션 객체는 서로 다른 색상을 갖고있습니다. 보시다시피 겉보기에는 괜찮아 보입니다. 이제 각각의 Conn 객체의 실직적인 상태를 시분할 단위로 살펴보도록 하겠습니다.</p>
+<blockquote>
+<p>Conn N are our connection objects (or any object doing work in our worker threads for that matter). Each has a distinct colour. All good on the surface as you can see. Now lets look at what each Conn object is actually doing with its time slice.</p>
+</blockquote>
+<div class="figure " style="width:;"><img class="fig-img" src="/assets/images/what-is-strand-figure-3" alt></div>
+
+<p>worker 큐와 쓰레드는 핸들러가 수행하는 작업을 인지하지 못하기때문에서 worker 쓰레드는 처리할 커넥션 객체가 들어오는 순간 기꺼이 큐에서 꺼내려 할 것입니다. 하나의 쓰레드에서 또 다른 worker 쓰레드에서 이미 사용되고 있는 커넥션 객체를 실행하려고 할 때, 그것은 block 상태에 놓이게될 것입니다. 현재의 시나리오에서는 전체 시간의 약 19% 정도가 block 상태 또는 또 다른 오버 헤드로 인해 낭비되고 있습니다. 다시 말해, 실질적으로 worker 쓰레드가 작업에 할당하는 시간이 전체의 약 81% 뿐이라는 것입니다:</p>
+<blockquote>
+<p>What is happening is the worker queue and worker threads are oblivious to what its handlers do (as expected), so the worker threads will happily dequeue work as it comes. One thread tries to execute work for a given Conn object which is already being used in another worker thread, so it has to block. In this scenario, ~19% of total time is wasted with blocking or other overhead. In other words, only ~81% of the worker thread’s time is spent doing actual work:</p>
+</blockquote>
+<div class="figure " style="width:;"><img class="fig-img" src="/assets/images/what-is-strand-figure-4" alt></div>
+
+<p>오버 헤드는 worker 쓰레드 전체 시간에서 실제 작업 시간을 뺀 값으로 측정됩니다. 그렇기 때문에 핸들러 내의 명시적인 동기화 그리고 worker 큐/쓰레드 내부적으로 수행된 모든 동기화 작업들이 이 오버 헤드에 포함됩니다.</p>
+<blockquote>
+<p>NOTE: The overhead was measured by subtracting actual work time from the total worker thread’s time. So it accounts for explicit synchronization in the handlers and any work/synchronization done internally by the worker queue/threads.</p>
+</blockquote>
+<p>이제 커넥션 객체의 작업을 동기화하기 위해 strands를 사용하는 경우의 상태 값을 살펴봅시다.</p>
+<blockquote>
+<p>Lets see how it looks like if we use strands to serialize work for our Conn objects:</p>
+</blockquote>
+<div class="figure " style="width:;"><img class="fig-img" src="/assets/images/what-is-strand-figure-5" alt></div>
+
+<div class="figure " style="width:;"><img class="fig-img" src="/assets/images/what-is-strand-figure-6" alt></div>
+
+<p>내부 작업 또는 동기화에 낭비되는 시간이 매우 작다는것을 알 수 있습니다.</p>
+<blockquote>
+<p>Very little time is wasted with internal work or synchronization.</p>
+</blockquote>
+<br>
+
+<h3 id="Cache-locality"><a href="#Cache-locality" class="headerlink" title="Cache locality"></a>Cache locality</h3><p>strands를 사용하는 경우에 얻을 수 있는 또 하나의 작은 이점은 더 나은 CPU 캐시 활용입니다. worker 쓰레드는 또 다른 커넥션 객체를 가지고 오기 전에 현재 주어진 커넥션 객체의 핸들러를 더 많이 실행하려는 경향이 있습니다.</p>
+<blockquote>
+<p>Another possible small benefit with this scenario is better CPU cache utilization. Worker threads will tend to execute a few handlers for a given Conn object before grabbing another Conn object.</p>
+</blockquote>
+<p>Zoomed out, without strands<br>(각각의 쓰레드에 따라 동일한 번호의 커넥션 객체의 작업 수행이 밀집되어 있는 것을 볼 수 있음)</p>
+<div class="figure " style="width:;"><img class="fig-img" src="/assets/images/what-is-strand-figure-7" alt></div>
+
+<p>Zoomed out, with strands</p>
+<div class="figure " style="width:;"><img class="fig-img" src="/assets/images/what-is-strand-figure-8" alt></div>
+
+<br>
+
+<h3 id="예제-코드"><a href="#예제-코드" class="headerlink" title="예제 코드"></a>예제 코드</h3><p>실제 예제 코드를 통해서 strand의 사용법을 알아보도록 하겠습니다. 아래 예제는 N개(1, 2, 4, 8, 16)의 쓰레드에서 각각 전역 변수인 sum에 2씩 더하는 연산을 수행하며, sum의 누적 합이 1억이 출력되는지를 확인하고자 하는 코드입니다.<br>쓰레드가 1개(N=1)인 상황에서 sum이 1억이 되기위해서는 2씩 더하는 연산이 총 50000000번 반복돼야하며 쓰레드를 16개(N=16)까지 늘린다면 해당 연산은 3125000번 반복되면 됩니다.</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;iostream&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;boost/asio.hpp&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;boost/thread.hpp&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;boost/thread/detail/thread_group.hpp&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="keyword">int</span> sum = <span class="number">0</span>;</span><br><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">thread_func</span></span></span><br><span class="line"><span class="class">&#123;</span></span><br><span class="line"><span class="keyword">public</span>:</span><br><span class="line">    <span class="built_in">thread_func</span>(<span class="keyword">int</span> idx, boost::asio::io_context&amp; ctx) : <span class="built_in">idx_</span>(idx), <span class="built_in">ctx_</span>(ctx)</span><br><span class="line">    &#123;</span><br><span class="line"></span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">void</span> <span class="title">operator</span><span class="params">()</span><span class="params">()</span></span></span><br><span class="line"><span class="function">    </span>&#123;</span><br><span class="line">        std::ostringstream oss;</span><br><span class="line">        oss &lt;&lt; std::this_thread::<span class="built_in">get_id</span>();</span><br><span class="line">        <span class="built_in">printf</span>(<span class="string">&quot;io_context::run #%d thread [%s]\n&quot;</span>, idx_, oss.<span class="built_in">str</span>().<span class="built_in">c_str</span>());</span><br><span class="line">        ctx_.<span class="built_in">run</span>();</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">private</span>:</span><br><span class="line">    <span class="keyword">int</span> idx_;</span><br><span class="line">    boost::asio::io_context&amp; ctx_;</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">make_sum_to_100_million_without_strand</span><span class="params">(<span class="keyword">int</span> thread_count)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    boost::asio::io_context ctx;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">int</span> loop_count = <span class="number">0</span>;</span><br><span class="line">    <span class="built_in"><span class="keyword">switch</span></span> (thread_count)</span><br><span class="line">    &#123;</span><br><span class="line">    <span class="keyword">case</span> <span class="number">1</span>:</span><br><span class="line">        loop_count = <span class="number">50000000</span>;</span><br><span class="line">        <span class="keyword">break</span>;</span><br><span class="line">    <span class="keyword">case</span> <span class="number">2</span>:</span><br><span class="line">        loop_count = <span class="number">25000000</span>;</span><br><span class="line">        <span class="keyword">break</span>;</span><br><span class="line">    <span class="keyword">case</span> <span class="number">4</span>:</span><br><span class="line">        loop_count = <span class="number">12500000</span>;</span><br><span class="line">        <span class="keyword">break</span>;</span><br><span class="line">    <span class="keyword">case</span> <span class="number">8</span>:</span><br><span class="line">        loop_count = <span class="number">6250000</span>;</span><br><span class="line">        <span class="keyword">break</span>;</span><br><span class="line">    <span class="keyword">case</span> <span class="number">16</span>:</span><br><span class="line">        loop_count = <span class="number">3125000</span>;</span><br><span class="line">        <span class="keyword">break</span>;</span><br><span class="line">    <span class="keyword">default</span>:</span><br><span class="line">        <span class="keyword">break</span>;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// no strand</span></span><br><span class="line">    <span class="keyword">for</span> (<span class="keyword">int</span> i = <span class="number">0</span>; i &lt; thread_count; i++)</span><br><span class="line">    &#123;</span><br><span class="line">        boost::asio::<span class="built_in">post</span>(ctx, [&amp;]()&#123;</span><br><span class="line">            std::ostringstream oss;</span><br><span class="line">            oss &lt;&lt; std::this_thread::<span class="built_in">get_id</span>();</span><br><span class="line">            <span class="built_in">printf</span>(<span class="string">&quot;hello boost::asio::post in io_context [%s]\n&quot;</span>, oss.<span class="built_in">str</span>().<span class="built_in">c_str</span>());</span><br><span class="line">            <span class="keyword">for</span> (<span class="keyword">int</span> i = <span class="number">0</span>; i &lt; loop_count; i++)</span><br><span class="line">            &#123;</span><br><span class="line">                sum += <span class="number">2</span>;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;);</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    boost::thread_group tg;</span><br><span class="line">    <span class="keyword">for</span> (<span class="keyword">int</span> i = <span class="number">0</span>; i &lt; thread_count; i++)</span><br><span class="line">    &#123;</span><br><span class="line">        tg.<span class="built_in">create_thread</span>(<span class="built_in">thread_func</span>(i+<span class="number">1</span>, ctx));</span><br><span class="line">    &#125;</span><br><span class="line">    tg.<span class="built_in">join_all</span>();</span><br><span class="line"></span><br><span class="line">    <span class="built_in">printf</span>(<span class="string">&quot;[make_sum_to_100_million_without_strand, %d thread] sum : %d\n&quot;</span>, thread_count, sum);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">main</span><span class="params">()</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="keyword">int</span> thread_count = <span class="number">2</span>;</span><br><span class="line">    <span class="built_in">make_sum_to_100_million_without_strand</span>(thread_count)</span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>실행결과</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">[make_sum_to_100_million_without_strand, 2 thread] sum : 50614948</span><br></pre></td></tr></table></figure>
+<p>(위 예시의 경우에는 2개의 쓰레드에서)핸들러 동기화를 수행하지 않는 경우에는 1억이 정상적으로 출력되지 않음을 볼 수 있습니다. 여러 쓰레드에서 동시에 접근하는 변수에 대한 명시적인 동기화 처리를 해주지 않았기 때문에 당연한 결과입니다.</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;iostream&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;boost/asio.hpp&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;boost/thread.hpp&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;boost/thread/detail/thread_group.hpp&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="keyword">int</span> sum = <span class="number">0</span>;</span><br><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">thread_func</span></span></span><br><span class="line"><span class="class">&#123;</span></span><br><span class="line"><span class="keyword">public</span>:</span><br><span class="line">    <span class="built_in">thread_func</span>(<span class="keyword">int</span> idx, boost::asio::io_context&amp; ctx) : <span class="built_in">idx_</span>(idx), <span class="built_in">ctx_</span>(ctx)</span><br><span class="line">    &#123;</span><br><span class="line"></span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">void</span> <span class="title">operator</span><span class="params">()</span><span class="params">()</span></span></span><br><span class="line"><span class="function">    </span>&#123;</span><br><span class="line">        std::ostringstream oss;</span><br><span class="line">        oss &lt;&lt; std::this_thread::<span class="built_in">get_id</span>();</span><br><span class="line">        <span class="built_in">printf</span>(<span class="string">&quot;io_context::run #%d thread [%s]\n&quot;</span>, idx_, oss.<span class="built_in">str</span>().<span class="built_in">c_str</span>());</span><br><span class="line">        ctx_.<span class="built_in">run</span>();</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">private</span>:</span><br><span class="line">    <span class="keyword">int</span> idx_;</span><br><span class="line">    boost::asio::io_context&amp; ctx_;</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">make_sum_to_100_million_with_strand</span><span class="params">(<span class="keyword">int</span> thread_count)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    boost::asio::io_context ctx;</span><br><span class="line">    boost::asio::<span class="function">io_context::strand <span class="title">strand</span><span class="params">(ctx)</span></span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">int</span> loop_count = <span class="number">0</span>;</span><br><span class="line">    <span class="built_in"><span class="keyword">switch</span></span> (thread_count)</span><br><span class="line">    &#123;</span><br><span class="line">    <span class="keyword">case</span> <span class="number">1</span>:</span><br><span class="line">        loop_count = <span class="number">50000000</span>;</span><br><span class="line">        <span class="keyword">break</span>;</span><br><span class="line">    <span class="keyword">case</span> <span class="number">2</span>:</span><br><span class="line">        loop_count = <span class="number">25000000</span>;</span><br><span class="line">        <span class="keyword">break</span>;</span><br><span class="line">    <span class="keyword">case</span> <span class="number">4</span>:</span><br><span class="line">        loop_count = <span class="number">12500000</span>;</span><br><span class="line">        <span class="keyword">break</span>;</span><br><span class="line">    <span class="keyword">case</span> <span class="number">8</span>:</span><br><span class="line">        loop_count = <span class="number">6250000</span>;</span><br><span class="line">        <span class="keyword">break</span>;</span><br><span class="line">    <span class="keyword">case</span> <span class="number">16</span>:</span><br><span class="line">        loop_count = <span class="number">3125000</span>;</span><br><span class="line">        <span class="keyword">break</span>;</span><br><span class="line">    <span class="keyword">default</span>:</span><br><span class="line">        <span class="keyword">break</span>;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// strand</span></span><br><span class="line">    <span class="keyword">for</span> (<span class="keyword">int</span> i = <span class="number">0</span>; i &lt; thread_count; i++)</span><br><span class="line">    &#123;</span><br><span class="line">        boost::asio::<span class="built_in">post</span>(strand.<span class="built_in">wrap</span>([&amp;]()&#123;</span><br><span class="line">            std::ostringstream oss;</span><br><span class="line">            oss &lt;&lt; std::this_thread::<span class="built_in">get_id</span>();</span><br><span class="line">            <span class="built_in">printf</span>(<span class="string">&quot;hello boost::asio::post in io_context [%s]\n&quot;</span>, oss.<span class="built_in">str</span>().<span class="built_in">c_str</span>());</span><br><span class="line">            <span class="keyword">for</span> (<span class="keyword">int</span> i = <span class="number">0</span>; i &lt; loop_count; i++)</span><br><span class="line">            &#123;</span><br><span class="line">                sum += <span class="number">2</span>;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;));</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    boost::thread_group tg;</span><br><span class="line">    <span class="keyword">for</span> (<span class="keyword">int</span> i = <span class="number">0</span>; i &lt; thread_count; i++)</span><br><span class="line">    &#123;</span><br><span class="line">        tg.<span class="built_in">create_thread</span>(<span class="built_in">thread_func</span>(i+<span class="number">1</span>, ctx));</span><br><span class="line">    &#125;</span><br><span class="line">    tg.<span class="built_in">join_all</span>();</span><br><span class="line"></span><br><span class="line">    <span class="built_in">printf</span>(<span class="string">&quot;[make_sum_to_100_million_with_strand, %d thread] sum : %d\n&quot;</span>, thread_count, sum);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">main</span><span class="params">()</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="keyword">int</span> thread_count = <span class="number">16</span>;</span><br><span class="line">    <span class="built_in">make_sum_to_100_million_with_strand</span>(thread_count);</span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>실행결과</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">[make_sum_to_100_million_with_strand, 16 thread] sum : 100000000</span><br></pre></td></tr></table></figure>
+<p>(위 예시의 경우에는 16개의 쓰레드에서) boost strand를 사용하여 핸들러 동기화를 수행(전역 변수인 sum에 접근하는 핸들러가 동시에 실행되지 않음을 보장)하였기때문에 1억이 정상적으로 출력됨을 확인할 수 있다.</p>
+<br>
+
+<h3 id="마치며"><a href="#마치며" class="headerlink" title="마치며"></a>마치며</h3><ul>
+<li>I/O thread가 1개인 경우(즉, io_context::run() 함수가 호출되는 쓰레드가 1개인 경우)에는 오직 하나의 쓰레드에서만 핸들러가 호출되므로 동기화라는게 필요없음.</li>
+<li>2개 이상의 I/O thread(즉, io_context::run() 함수가 호출되는 쓰레드가 2개 이상인 경우)를 사용하는 경우에는 핸들러를 동기화하기 위해 명시적인 Lock이 필요함.</li>
+<li>이때 사용할 수 있는게 boost::asio::strand! 핸들러 내부에서 동기화를 위한 작업을 따로 해줄필요가 없다!</li>
+</ul>
+<br>
+<br>
+
+<span class="highlight-text yellow">해당 게시글에서 발생한 오탈자나 잘못된 내용에 대한 정정 댓글 격하게 환영합니다</span>😎
+
+<p><strong>Reference</strong></p>
+<ul>
+<li><a target="_blank" rel="external nofollow noopener noreferrer" href="https://www.crazygaze.com/blog/2016/03/17/how-strands-work-and-why-you-should-use-them/">https://www.crazygaze.com/blog/2016/03/17/how-strands-work-and-why-you-should-use-them/</a></li>
+</ul>
+
+            
+
+
+        </div>
+    </div>
+    <div id="post-footer" class="post-footer main-content-wrap">
+        
+            <div class="post-footer-tags">
+                <span class="text-color-light text-small">태그</span><br>
+                
+    <a class="tag tag--primary tag--small t-none-link" href="/tags/boost-strand/" rel="tag">boost strand</a> <a class="tag tag--primary tag--small t-none-link" href="/tags/handler-sync/" rel="tag">handler sync</a> <a class="tag tag--primary tag--small t-none-link" href="/tags/strands/" rel="tag">strands</a> <a class="tag tag--primary tag--small t-none-link" href="/tags/synchronization/" rel="tag">synchronization</a>
+
+            </div>
+        
+        
+            <div class="post-actions-wrap">
+    <nav>
+        <ul class="post-actions post-action-nav">
+            <li class="post-action">
+                
+                    <a class="post-action-btn btn btn--disabled" aria-hidden="true">
+                        
+                        <i class="fa fa-angle-left" aria-hidden="true"></i>
+                        <span class="hide-xs hide-sm text-small icon-ml">이전</span>
+                    </a>
+            </li>
+            <li class="post-action">
+                
+                    
+                <a class="post-action-btn btn btn--default tooltip--top" href="/2023/05/19/multithreaded-execution/" data-tooltip="boost::io_context 실행 모델에 대해 알아보자" aria-label="다음: boost::io_context 실행 모델에 대해 알아보자">
+                    
+                        <span class="hide-xs hide-sm text-small icon-mr">다음</span>
+                        <i class="fa fa-angle-right" aria-hidden="true"></i>
+                    </a>
+            </li>
+        </ul>
+    </nav>
+    <ul class="post-actions post-action-share">
+        <li class="post-action hide-lg hide-md hide-sm">
+            <a class="post-action-btn btn btn--default btn-open-shareoptions" href="#btn-open-shareoptions" aria-label="이 포스트 공유하기">
+                <i class="fa fa-share-alt" aria-hidden="true"></i>
+            </a>
+        </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a class="post-action-btn btn btn--default" target="_blank" href="https://www.facebook.com/sharer/sharer.php?u=https://chelseafandev.github.io/2023/09/12/what-is-strand/" title="Facebook에 공유하기" aria-label="Facebook에 공유하기" rel="external nofollow noopener noreferrer">
+                    <i class="fab fa-facebook" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a class="post-action-btn btn btn--default" target="_blank" href="https://twitter.com/intent/tweet?text=https://chelseafandev.github.io/2023/09/12/what-is-strand/" title="Twitter에 공유하기" aria-label="Twitter에 공유하기" rel="external nofollow noopener noreferrer">
+                    <i class="fab fa-twitter" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a class="post-action-btn btn btn--default" target="_blank" href="https://plus.google.com/share?url=https://chelseafandev.github.io/2023/09/12/what-is-strand/" title="Google+에 공유하기" aria-label="Google+에 공유하기" rel="external nofollow noopener noreferrer">
+                    <i class="fab fa-google-plus" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+        
+            
+        
+        <li class="post-action">
+            
+                <a class="post-action-btn btn btn--default" href="#table-of-contents" aria-label="목차">
+            
+                <i class="fa fa-list" aria-hidden="true"></i>
+            </a>
+        </li>
+    </ul>
+</div>
+
+
+        
+        
+            
+        
+    </div>
+</article>
+
+
+
+<!-- Comment -->
+<!--  utteranc comment -->
+
+<script src="https://utteranc.es/client.js" repo="chelseafandev/blog-comment" issue-term="title" label="Comment" theme="github-light" crossorigin="anonymous" async>
+</script>
+
+                <footer id="footer" class="main-content-wrap">
+    <span class="copyrights">
+        Copyrights &copy; 2023 첼시팬개발자. All Rights Reserved.
+    </span>
+</footer>
+
+            </div>
+            
+                <div id="bottom-bar" class="post-bottom-bar" data-behavior="4">
+                    <div class="post-actions-wrap">
+    <nav>
+        <ul class="post-actions post-action-nav">
+            <li class="post-action">
+                
+                    <a class="post-action-btn btn btn--disabled" aria-hidden="true">
+                        
+                        <i class="fa fa-angle-left" aria-hidden="true"></i>
+                        <span class="hide-xs hide-sm text-small icon-ml">이전</span>
+                    </a>
+            </li>
+            <li class="post-action">
+                
+                    
+                <a class="post-action-btn btn btn--default tooltip--top" href="/2023/05/19/multithreaded-execution/" data-tooltip="boost::io_context 실행 모델에 대해 알아보자" aria-label="다음: boost::io_context 실행 모델에 대해 알아보자">
+                    
+                        <span class="hide-xs hide-sm text-small icon-mr">다음</span>
+                        <i class="fa fa-angle-right" aria-hidden="true"></i>
+                    </a>
+            </li>
+        </ul>
+    </nav>
+    <ul class="post-actions post-action-share">
+        <li class="post-action hide-lg hide-md hide-sm">
+            <a class="post-action-btn btn btn--default btn-open-shareoptions" href="#btn-open-shareoptions" aria-label="이 포스트 공유하기">
+                <i class="fa fa-share-alt" aria-hidden="true"></i>
+            </a>
+        </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a class="post-action-btn btn btn--default" target="_blank" href="https://www.facebook.com/sharer/sharer.php?u=https://chelseafandev.github.io/2023/09/12/what-is-strand/" title="Facebook에 공유하기" aria-label="Facebook에 공유하기" rel="external nofollow noopener noreferrer">
+                    <i class="fab fa-facebook" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a class="post-action-btn btn btn--default" target="_blank" href="https://twitter.com/intent/tweet?text=https://chelseafandev.github.io/2023/09/12/what-is-strand/" title="Twitter에 공유하기" aria-label="Twitter에 공유하기" rel="external nofollow noopener noreferrer">
+                    <i class="fab fa-twitter" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a class="post-action-btn btn btn--default" target="_blank" href="https://plus.google.com/share?url=https://chelseafandev.github.io/2023/09/12/what-is-strand/" title="Google+에 공유하기" aria-label="Google+에 공유하기" rel="external nofollow noopener noreferrer">
+                    <i class="fab fa-google-plus" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+        
+            
+        
+        <li class="post-action">
+            
+                <a class="post-action-btn btn btn--default" href="#table-of-contents" aria-label="목차">
+            
+                <i class="fa fa-list" aria-hidden="true"></i>
+            </a>
+        </li>
+    </ul>
+</div>
+
+
+                </div>
+                
+    <div id="share-options-bar" class="share-options-bar" data-behavior="4">
+        <i id="btn-close-shareoptions" class="fa fa-times"></i>
+        <ul class="share-options">
+            
+                
+                
+                <li class="share-option">
+                    <a class="share-option-btn" target="_blank" href="https://www.facebook.com/sharer/sharer.php?u=https://chelseafandev.github.io/2023/09/12/what-is-strand/" aria-label="Facebook에 공유하기" rel="external nofollow noopener noreferrer">
+                        <i class="fab fa-facebook" aria-hidden="true"></i><span>Facebook에 공유하기</span>
+                    </a>
+                </li>
+            
+                
+                
+                <li class="share-option">
+                    <a class="share-option-btn" target="_blank" href="https://twitter.com/intent/tweet?text=https://chelseafandev.github.io/2023/09/12/what-is-strand/" aria-label="Twitter에 공유하기" rel="external nofollow noopener noreferrer">
+                        <i class="fab fa-twitter" aria-hidden="true"></i><span>Twitter에 공유하기</span>
+                    </a>
+                </li>
+            
+                
+                
+                <li class="share-option">
+                    <a class="share-option-btn" target="_blank" href="https://plus.google.com/share?url=https://chelseafandev.github.io/2023/09/12/what-is-strand/" aria-label="Google+에 공유하기" rel="external nofollow noopener noreferrer">
+                        <i class="fab fa-google-plus" aria-hidden="true"></i><span>Google+에 공유하기</span>
+                    </a>
+                </li>
+            
+        </ul>
+    </div>
+
+
+            
+        </div>
+        
+
+
+    
+        
+    
+
+<div id="about">
+    <div id="about-card">
+        <div id="about-btn-close">
+            <i class="fa fa-times"></i>
+        </div>
+        
+            <img id="about-card-picture" src="/assets/images/chelsea_logo.png" alt="저자 이미지">
+        
+            <h4 id="about-card-name">첼시팬개발자</h4>
+        
+            <div id="about-card-bio"><p>조금 더디더라도 꾸준히</p>
+</div>
+        
+        
+            <div id="about-card-job">
+                <i class="fa fa-briefcase"></i>
+                <br>
+                <p>개발자</p>
+
+            </div>
+        
+        
+            <div id="about-card-location">
+                <i class="fa fa-map-marker-alt"></i>
+                <br>
+                서울, 대한민국
+            </div>
+        
+    </div>
+</div>
+
+        
+            <div id="algolia-search-modal" class="modal-container">
+    <div class="modal">
+        <div class="modal-header">
+            <span class="close-button"><i class="fa fa-times"></i></span>
+            <a href="https://algolia.com" target="_blank" rel="external nofollow noopener noreferrer" class="searchby-algolia text-color-light link-unstyled">
+                <span class="searchby-algolia-text text-color-light text-small">by</span>
+                <img class="searchby-algolia-logo" src="/assets/images/logo-algolia-nebula-blue-full.svg">
+            </a>
+            <i class="search-icon fa fa-search"></i>
+            <form id="algolia-search-form">
+                <input type="text" id="algolia-search-input" name="search" class="form-control input--large search-input" placeholder="Search ">
+            </form>
+        </div>
+        <div class="modal-body">
+            <div class="no-result text-color-light text-center">포스트가 없습니다.</div>
+            <div class="results">
+                
+                <div class="media">
+                    <!--  -->
+                    <div class="media-body">
+                        <a class="link-unstyled" href="https://chelseafandev.github.io/2021/07/08/hello-hexo/" aria-label=": Hexo Tranquilpeak 테마의 Markdown syntax">
+                            <h3 class="media-heading">Hexo Tranquilpeak 테마의 Markdown syntax</h3>
+                        </a>
+                        <span class="media-meta">
+                            <span class="media-date text-small">
+                                
+                                    2021년 7월 8일
+                                
+                            </span>
+                        </span>
+                        <div class="media-content hide-xs font-nanumsquareround"><p>Hexo 테마 중 하나인 <a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/LouisBarranqueiro/hexo-theme-tranquilpeak/blob/master/DOCUMENTATION.md">Tranquilpeak의 공식 문서</a>를 참조하여 Post시에 활용할 수 있는 다양한 Markdown syntax들을 사용해보았습니다.</p></div>
+                    </div>
+                    <div style="clear:both;"></div>
+                    <hr>
+                </div>
+                
+                <div class="media">
+                    <!-- 
+                    <div class="media-left">
+                        <a
+                            class="link-unstyled"
+                            href="https://chelseafandev.github.io/2021/07/10/tr-ruud-gullit/"
+                            aria-label=": (BBC 스포츠) 첼시 루드 굴리트 25년이 지난 지금 그의 프리미어그리 진출을 애정어린 시선으로 되돌아 보다"
+                        >
+                            <img class="media-image" src="https://chelseafandev.github.io/2021/07/10/tr-ruud-gullit/tr_ruud_gullit_picture_1.png" width="90" height="90"/>
+                        </a>
+                    </div>
+                     -->
+                    <div class="media-body">
+                        <a class="link-unstyled" href="https://chelseafandev.github.io/2021/07/10/tr-ruud-gullit/" aria-label=": (BBC 스포츠) 첼시 루드 굴리트 25년이 지난 지금 그의 프리미어그리 진출을 애정어린 시선으로 되돌아 보다">
+                            <h3 class="media-heading">(BBC 스포츠) 첼시 루드 굴리트 25년이 지난 지금 그의 프리미어그리 진출을 애정어린 시선으로 되돌아 보다</h3>
+                        </a>
+                        <span class="media-meta">
+                            <span class="media-date text-small">
+                                
+                                    2021년 7월 10일
+                                
+                            </span>
+                        </span>
+                        <div class="media-content hide-xs font-nanumsquareround"><p>피파 좀 한다는 사람이라면 모두가 다 알만한 그 분, X사기캐 굴리트😬<br>커리어 막바지에 첼시에서도 잠깐 활약했었네요.<br><a target="_blank" rel="external nofollow noopener noreferrer" href="https://www.bbc.com/sport/football/52904670">BBC Sport에 굴리트가 직접 기고한 회고록 느낌의 글</a>을 한번 번역해보았습니다.</p></div>
+                    </div>
+                    <div style="clear:both;"></div>
+                    <hr>
+                </div>
+                
+                <div class="media">
+                    <!--  -->
+                    <div class="media-body">
+                        <a class="link-unstyled" href="https://chelseafandev.github.io/2021/07/13/os-io-system/" aria-label=": I/O는 어떻게 처리될까?">
+                            <h3 class="media-heading">I/O는 어떻게 처리될까?</h3>
+                        </a>
+                        <span class="media-meta">
+                            <span class="media-date text-small">
+                                
+                                    2021년 7월 13일
+                                
+                            </span>
+                        </span>
+                        <div class="media-content hide-xs font-nanumsquareround"><p>운영 체제의 바이블 <a target="_blank" rel="external nofollow noopener noreferrer" href="https://www.wiley.com/en-us/Operating+System+Concepts%2C+10th+Edition-p-9781119320913">Operating System Concepts</a>(흔히 공룡책🦕이라고들 하죠)을 바탕으로 I/O 시스템에 대해 정리해보았습니다.</p></div>
+                    </div>
+                    <div style="clear:both;"></div>
+                    <hr>
+                </div>
+                
+                <div class="media">
+                    <!--  -->
+                    <div class="media-body">
+                        <a class="link-unstyled" href="https://chelseafandev.github.io/2021/07/22/tip-how-to-use-tmux-md/" aria-label=": 강력한 터미널 멀티플렉서 tmux를 활용해보자">
+                            <h3 class="media-heading">강력한 터미널 멀티플렉서 tmux를 활용해보자</h3>
+                        </a>
+                        <span class="media-meta">
+                            <span class="media-date text-small">
+                                
+                                    2021년 7월 22일
+                                
+                            </span>
+                        </span>
+                        <div class="media-content hide-xs font-nanumsquareround"><p>이번엔 익숙해지면 정말 강력한 터미널 멀티플렉서인 tmux에 대해 소개해보려고 합니다.</p></div>
+                    </div>
+                    <div style="clear:both;"></div>
+                    <hr>
+                </div>
+                
+                <div class="media">
+                    <!--  -->
+                    <div class="media-body">
+                        <a class="link-unstyled" href="https://chelseafandev.github.io/2021/08/02/os-sync-async-block-nonblock/" aria-label=": Blocking, Nonblocking, Sync, Async">
+                            <h3 class="media-heading">Blocking, Nonblocking, Sync, Async</h3>
+                        </a>
+                        <span class="media-meta">
+                            <span class="media-date text-small">
+                                
+                                    2021년 8월 2일
+                                
+                            </span>
+                        </span>
+                        <div class="media-content hide-xs font-nanumsquareround"><p>오늘은 공룡책🦕에 언급된 Blocking과 Nonblocking, Synchronous와 Asynchronous에 대해서 정리해보고자 합니다. Synchronous와 Asynchronous의 개념은 <strong>쓰레드</strong>와 <strong>I/O</strong>에서 등장하게 되는데요, 각각이 어떠한 의미로 사용되는지도 구분해서 살펴보도록 하겠습니다.</p></div>
+                    </div>
+                    <div style="clear:both;"></div>
+                    <hr>
+                </div>
+                
+                <div class="media">
+                    <!-- 
+                    <div class="media-left">
+                        <a
+                            class="link-unstyled"
+                            href="https://chelseafandev.github.io/2021/08/05/tr-lukaku-want-to-chelsea/"
+                            aria-label=": (BBC 스포츠) 첼시의 물망에 오른 루카쿠 적절한 오퍼가 온다면 인터 밀란을 떠나기 원해"
+                        >
+                            <img class="media-image" src="https://chelseafandev.github.io/2021/08/05/tr-lukaku-want-to-chelsea/tr-lukaku-want-to-chelsea.jpg" width="90" height="90"/>
+                        </a>
+                    </div>
+                     -->
+                    <div class="media-body">
+                        <a class="link-unstyled" href="https://chelseafandev.github.io/2021/08/05/tr-lukaku-want-to-chelsea/" aria-label=": (BBC 스포츠) 첼시의 물망에 오른 루카쿠 적절한 오퍼가 온다면 인터 밀란을 떠나기 원해">
+                            <h3 class="media-heading">(BBC 스포츠) 첼시의 물망에 오른 루카쿠 적절한 오퍼가 온다면 인터 밀란을 떠나기 원해</h3>
+                        </a>
+                        <span class="media-meta">
+                            <span class="media-date text-small">
+                                
+                                    2021년 8월 5일
+                                
+                            </span>
+                        </span>
+                        <div class="media-content hide-xs font-nanumsquareround"><p>오늘은 첼시 이적설이 가까워져가고 있는 루카쿠 관련 기사를 가져왔습니다. 베르너의 결정력이 너무나도 아쉬웠던 지난 시즌 첼시를 생각하면 꼭 필요한 영입이라고 생각되네요😁</p></div>
+                    </div>
+                    <div style="clear:both;"></div>
+                    <hr>
+                </div>
+                
+                <div class="media">
+                    <!-- 
+                    <div class="media-left">
+                        <a
+                            class="link-unstyled"
+                            href="https://chelseafandev.github.io/2021/08/12/tr-son-new-contract/"
+                            aria-label=": (BBC 스포츠) 토트넘 공격수 손흥민 4년 재계약 성사"
+                        >
+                            <img class="media-image" src="https://chelseafandev.github.io/2021/08/12/tr-son-new-contract/tr-son-new-contract-figure1.jpg" width="90" height="90"/>
+                        </a>
+                    </div>
+                     -->
+                    <div class="media-body">
+                        <a class="link-unstyled" href="https://chelseafandev.github.io/2021/08/12/tr-son-new-contract/" aria-label=": (BBC 스포츠) 토트넘 공격수 손흥민 4년 재계약 성사">
+                            <h3 class="media-heading">(BBC 스포츠) 토트넘 공격수 손흥민 4년 재계약 성사</h3>
+                        </a>
+                        <span class="media-meta">
+                            <span class="media-date text-small">
+                                
+                                    2021년 8월 12일
+                                
+                            </span>
+                        </span>
+                        <div class="media-content hide-xs font-nanumsquareround"><p>오늘은 현재 프리미어리그 토트넘 핫스퍼에서 활약 중인 손흥민 선수의 재계약 관련 기사를 가져왔습니다. 다음 시즌 누누감독이 이끌게 되는 토트넘, 쌉월클👍 손흥민선수와 함께 좋은 성적 거뒀으면 좋겠습니다.</p></div>
+                    </div>
+                    <div style="clear:both;"></div>
+                    <hr>
+                </div>
+                
+                <div class="media">
+                    <!--  -->
+                    <div class="media-body">
+                        <a class="link-unstyled" href="https://chelseafandev.github.io/2021/09/24/hyperscan-phase1/" aria-label=": 인텔 Hyperscan 레퍼런스 가이드 번역">
+                            <h3 class="media-heading">인텔 Hyperscan 레퍼런스 가이드 번역</h3>
+                        </a>
+                        <span class="media-meta">
+                            <span class="media-date text-small">
+                                
+                                    2021년 9월 24일
+                                
+                            </span>
+                        </span>
+                        <div class="media-content hide-xs font-nanumsquareround"><p>이번 포스팅에서는 인텔 Hyperscan의 <a target="_blank" rel="external nofollow noopener noreferrer" href="http://intel.github.io/hyperscan/dev-reference/index.html">공식 문서</a>를 통해 컴파일(compile)이나 스캔(scan)과 같은 Hyperscan의 기본적인 개념들에 대해 알아보도록 하겠습니다. 추후에는 Hyperscan API를 직접 사용하여 정규 표현식 패턴 매칭을 수행하는 샘플 코드도 업로드할 예정입니다.</p></div>
+                    </div>
+                    <div style="clear:both;"></div>
+                    <hr>
+                </div>
+                
+                <div class="media">
+                    <!--  -->
+                    <div class="media-body">
+                        <a class="link-unstyled" href="https://chelseafandev.github.io/2021/10/12/hyperscan-phase2/" aria-label=": 인텔 Hyperscan API 테스트 코드 작성">
+                            <h3 class="media-heading">인텔 Hyperscan API 테스트 코드 작성</h3>
+                        </a>
+                        <span class="media-meta">
+                            <span class="media-date text-small">
+                                
+                                    2021년 10월 12일
+                                
+                            </span>
+                        </span>
+                        <div class="media-content hide-xs font-nanumsquareround"><p>이번 포스팅에서는 <a href="https://chelseafandev.github.io/2021/09/24/hyperscan-phase1/">인텔 Hyperscan 레퍼런스 가이드 번역</a>에 이어서 Hyperscan API를 직접 사용하여 정규 표현식 패턴 매칭을 수행하는 샘플 코드를 작성하고 테스트 해보는 시간을 갖겠습니다.</p></div>
+                    </div>
+                    <div style="clear:both;"></div>
+                    <hr>
+                </div>
+                
+                <div class="media">
+                    <!--  -->
+                    <div class="media-body">
+                        <a class="link-unstyled" href="https://chelseafandev.github.io/2021/11/09/gdb-chapter4-program-crash/" aria-label=": Seg Fault는 왜 발생하는가?">
+                            <h3 class="media-heading">Seg Fault는 왜 발생하는가?</h3>
+                        </a>
+                        <span class="media-meta">
+                            <span class="media-date text-small">
+                                
+                                    2021년 11월 9일
+                                
+                            </span>
+                        </span>
+                        <div class="media-content hide-xs font-nanumsquareround"><p>이번 포스팅에서는 <a target="_blank" rel="external nofollow noopener noreferrer" href="https://nostarch.com/debugging.htm">The Art of Debugging with GDB, DDD and Eclipse</a>의 <strong>Chatper 4 WHEN A PROGRAM CRASHES</strong> 내용을 번역해보았습니다. 해당 챕터의 앞부분에서는 가상 주소 공간에서의 페이지(page)에 대한 개념을 소개하고 seg fault가 발생하는 원인을 페이지(page)와 연관지어 잘 설명해주고 있습니다.</p></div>
+                    </div>
+                    <div style="clear:both;"></div>
+                    <hr>
+                </div>
+                
+            </div>
+        </div>
+        <div class="modal-footer">
+            <p class="results-count text-medium" data-message-zero="포스트가 없습니다." data-message-one="1 개의 포스트가 있습니다." data-message-other="{n} 개의 포스트가 있습니다.">
+                26 개의 포스트가 있습니다.
+            </p>
+        </div>
+    </div>
+</div>
+
+        
+        
+<div id="cover" style="background-image:url('/assets/images/chelsea_cover.jpg');"></div>
+        <!--SCRIPTS-->
+
+<script src="/assets/js/jquery.js"></script>
+
+
+<script src="/assets/js/jquery.fancybox.js"></script>
+
+
+<script src="/assets/js/thumbs.js"></script>
+
+
+<script src="/assets/js/tranquilpeak.js"></script>
+
+<!--SCRIPTS END-->
+
+
+    
+
+
+
+    
+<script src="/assets/js/moment-with-locales.js"></script>
+
+    
+<script src="/assets/js/algoliasearch.js"></script>
+
+    <script>
+      var algoliaClient = algoliasearch('FDTOJ7KLS8', '935491408ac4c43d728c68858e4ea147');
+      var algoliaIndex = algoliaClient.initIndex('chelseafandev');
+    </script>
+
+
+    </body>
+</html>
