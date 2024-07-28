@@ -1,0 +1,793 @@
+
+<!DOCTYPE html>
+<html lang="ko">
+    
+<head>
+    <meta name="google-site-verification" content="Ojz5tvI9WuN6pn2n6i1E_mOkMyRiSSOp4KXuYSyaUjs">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="generator" content="첼시팬 개발자 작업 공간">
+    <title>boost::multiprecision을 활용하여 Java의 BigInteger 흉내내기 - 첼시팬 개발자 작업 공간</title>
+    <meta name="author" content="첼시팬개발자">
+    
+    
+        <link rel="icon" href="https://chelseafandev.github.io/assets/images/chelsea_favicon.png">
+    
+    
+        
+            <link rel="alternate" type="application/rss+xml" title="RSS" href="/rss2.xml">
+        
+    
+    <script type="application/ld+json">{"@context":"http://schema.org","@type":"BlogPosting","author":{"@type":"Person","name":"첼시팬개발자","sameAs":[],"image":"chelsea_logo.png"},"articleBody":"\n아래 표에서 처럼 C/C++에서 지원하는 정수 타입의 자료형(long long 또는 unsigned long long)은 최대 8byte입니다. 그렇다면 8byte(32bit)를 초과하는 정수는 어떤 자료형을 통해 관리해야할까요?\n\n\n\n자료형\n크기\n범위\n\n\n\nlong long\n8 byte\n-9,223,372,036,854,775,807 ~ 9,223,372,036,854,775,807\n\n\nunsigned long long\n8 byte\n0 ~ 18,446,744,073,709,551,615\n\n\nJava에서는 이처럼 8byte를 초과하는 큰 정수들을 처리하기 위한 BigInteger라는 클래스를 제공하고 있습니다.\njava12345678910111213141516String left = \"18446744073709551615\";String right = \"18446744073709551615\";// 문자열 타입의 첫번째 인자 값을 두번째 인자로 지정된 N진수로 변환해줌BigInteger bi_left = new BigInteger(left, 10);BigInteger bi_right = new BigInteger(right, 10);BigInteger output = bi_left.add(bi_right);System.out.println(\"output(dec): \" + output.toString());      StringBuilder sb = new StringBuilder();byte[] ba = output.toByteArray();for(final byte b: ba){  sb.append(String.format(\"0x%02x \", b&amp;0xff));}System.out.println(\"output(hex): \" + sb);\n\n12output(dec) : 36893488147419103230output(hex) : 0x01 0xff 0xff 0xff 0xff 0xff 0xff 0xff 0xfe\n\n\n\n불행히도 C/C++ 내장형 타입 중에는 8byte를 초과하는 자료형이 존재하지 않습니다. stackoverflow를 찾아보니 직접 구현을 해서 사용하거나 외부 라이브러리(Gmplib, bigint)를 사용하라고 하는데..입맛에 맞게 사용하기 위해 boost::multiprecision을 활용하여 간략하게 구현해보았습니다.\ncpp123456789101112131415161718192021222324252627282930313233343536373839404142434445464748495051525354#include &lt;iostream&gt;#include &lt;vector&gt;#include &lt;cinttypes&gt;#include &lt;algorithm&gt;#include &lt;boost/multiprecision/cpp_int.hpp&gt;int main(){  std::string left = \"18446744073709551615\";  std::string right = \"18446744073709551615\";    // 18446744073709551615는 10진수로 표현된 20자리 정수 값이며 풀어써보면 (1*10^19) + (8*10^18) + (4*10^17) + ... + (1*10^1) + (5*10^0) 입니다.  // 해당 과정을 구현한 코드는 아래와 같습니다.  //  // 사실 10진수 정수의 경우에는 문자열 타입의 값을 boost::multiprecision::cpp_int 생성자의 인자로 전달하면 쉽게 변환하여 연산이 가능합니다.  //   std::string value = \"18446744073709551615\";  //   boost::multiprecision::cpp_int bi_value(value);  //   // 하지만 Java의 BigInteger 처럼 사용자가 직접 특정 진수를 지정하여 변환할 수는 없었기때문에 진수 변환 로직을 추가했습니다.  boost::multiprecision::cpp_int bi_left(0);  int len = left.length();  for (int i = 0; i &lt; len; ++i)  {    std::string tmp_str;    tmp_str.append(1, left[i]);    bi_left += (boost::multiprecision::pow(boost::multiprecision::cpp_int(10), len - i - 1) * std::strtoimax(tmp_str.c_str(), nullptr, 10));  }  boost::multiprecision::cpp_int bi_right(0);  len = right.length();  for (int i = 0; i &lt; len; ++i)  {    std::string tmp_str;    tmp_str.append(1, left[i]);    bi_right += (boost::multiprecision::pow(boost::multiprecision::cpp_int(10), len - i - 1) * std::strtoimax(tmp_str.c_str(), nullptr, 10));  }  boost::multiprecision::cpp_int output = bi_left + bi_right;  std::cout &lt;&lt; \"output(dec): \" &lt;&lt; output &lt;&lt; std::endl;  using byte_array_type = std::vector&lt;unsigned char&gt;;  byte_array_type ba_output;  boost::multiprecision::export_bits(output, std::back_inserter(ba_output), 8);  printf(\"output(hex): \");  int ba_output_len = ba_output.size();  for(int i = 0; i &lt; ba_output_len; ++i)  {    printf(\"0x%02x \", ba_output[i]);  }  return 0;}\n\n12output(dec) : 36893488147419103230output(hex) : 0x01 0xff 0xff 0xff 0xff 0xff 0xff 0xff 0xfe\n\n\n\nReference\n\nhttps://learn.microsoft.com/ko-kr/cpp/cpp/data-type-ranges?view=msvc-170\nhttps://stackoverflow.com/questions/36952038/how-to-handle-big-integer-data-more-than-8-byte-or-more-than-20-digits-in-c\nhttps://gmplib.org/\nhttps://gist.github.com/bloopletech/338338\n\n","dateCreated":"2023-05-12T16:11:16+09:00","dateModified":"2023-07-02T22:23:21+09:00","datePublished":"2023-05-12T16:11:16+09:00","description":"","headline":"boost::multiprecision을 활용하여 Java의 BigInteger 흉내내기","image":[],"mainEntityOfPage":{"@type":"WebPage","@id":"https://chelseafandev.github.io/2023/05/12/impl-big-integer-in-cpp/"},"publisher":{"@type":"Organization","name":"첼시팬개발자","sameAs":[],"image":"chelsea_logo.png","logo":{"@type":"ImageObject","url":"chelsea_logo.png"}},"url":"https://chelseafandev.github.io/2023/05/12/impl-big-integer-in-cpp/","keywords":"boost::multiprecision, biginteger in c++"}</script>
+    <meta property="og:type" content="blog">
+<meta property="og:title" content="boost::multiprecision을 활용하여 Java의 BigInteger 흉내내기">
+<meta property="og:url" content="https://chelseafandev.github.io/2023/05/12/impl-big-integer-in-cpp/index.html">
+<meta property="og:site_name" content="첼시팬 개발자 작업 공간">
+<meta property="og:locale" content="ko_KR">
+<meta property="article:published_time" content="2023-05-12T07:11:16.000Z">
+<meta property="article:modified_time" content="2023-07-02T13:23:21.668Z">
+<meta property="article:author" content="첼시팬개발자">
+<meta property="article:tag" content="boost::multiprecision">
+<meta property="article:tag" content="biginteger in c++">
+<meta name="twitter:card" content="summary">
+    
+    
+        
+    
+    
+        <meta property="og:image" content="https://chelseafandev.github.io/assets/images/chelsea_logo.png">
+    
+    
+    
+    
+    <!--STYLES-->
+    
+<link rel="stylesheet" href="/assets/css/all.css">
+
+    
+<link rel="stylesheet" href="/assets/css/jquery.fancybox.css">
+
+    
+<link rel="stylesheet" href="/assets/css/thumbs.css">
+
+    
+<link rel="stylesheet" href="/assets/css/tranquilpeak.css">
+
+    <!--STYLES END-->
+    
+
+    
+
+    
+        
+    
+    <link rel="canonical" href="https://chelseafandev.github.io/2023/05/12/impl-big-integer-in-cpp/">
+</head>
+
+    <body>
+        <div id="blog">
+            <!-- Define author's picture -->
+
+
+    
+        
+            
+        
+    
+
+<header id="header" data-behavior="4">
+    <i id="btn-open-sidebar" class="fa fa-lg fa-bars"></i>
+    <div class="header-title">
+        <a class="header-title-link" href="/" aria-label>
+            첼시팬 개발자 작업 공간
+        </a>
+    </div>
+    
+        
+            <a class="header-right-picture " href="#about" aria-label="링크 열기: /#about">
+        
+        
+            <img class="header-picture" src="/assets/images/chelsea_logo.png" alt="저자 이미지">
+        
+        </a>
+    
+</header>
+
+            <!-- Define author's picture -->
+
+
+
+        
+    
+
+<nav id="sidebar" data-behavior="4" style="border-top-width: 100px;padding-top: 150px;">
+    <div class="sidebar-container">
+        
+            <div class="sidebar-profile">
+                <a href="/#about" aria-label="저자에 대해 더 알아보기">
+                    <img class="sidebar-profile-picture" src="/assets/images/chelsea_logo.png" alt="저자 이미지">
+                </a>
+                <h4 class="sidebar-profile-name">첼시팬개발자</h4>
+                
+                    <h5 class="sidebar-profile-bio"><p>조금 더디더라도 꾸준히</p>
+</h5>
+                
+            </div>
+        
+        
+            <ul class="sidebar-buttons">
+            
+                <li class="sidebar-button">
+                    
+                        <a class="sidebar-button-link " href="/" rel="noopener" title="전체글">
+                        <i class="sidebar-button-icon fas fa-list-ul" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">전체글</span>
+                    </a>
+            </li>
+            
+                <li class="sidebar-button">
+                    
+                        <a class="sidebar-button-link " href="/all-categories" rel="noopener" title="카테고리">
+                        <i class="sidebar-button-icon fa fa-bookmark" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">카테고리</span>
+                    </a>
+            </li>
+            
+                <li class="sidebar-button">
+                    
+                        <a class="sidebar-button-link " href="/all-tags" rel="noopener" title="태그">
+                        <i class="sidebar-button-icon fa fa-tags" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">태그</span>
+                    </a>
+            </li>
+            
+                <li class="sidebar-button">
+                    
+                        <a class="sidebar-button-link " href="/all-archives" rel="noopener" title="아카이브">
+                        <i class="sidebar-button-icon fa fa-archive" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">아카이브</span>
+                    </a>
+            </li>
+            
+                <li class="sidebar-button">
+                    
+                        <a class="sidebar-button-link " href="https://github.com/chelseafandev" target="_blank" rel="external nofollow noopener noreferrer" title="GitHub">
+                        <i class="sidebar-button-icon fab fa-github" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">GitHub</span>
+                    </a>
+            </li>
+            
+                <li class="sidebar-button">
+                    
+                        <a class="sidebar-button-link " href="/rss2.xml" rel="noopener" title="RSS">
+                        <i class="sidebar-button-icon fa fa-rss" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">RSS</span>
+                    </a>
+            </li>
+            
+        </ul>
+        
+    </div>
+</nav>
+
+            
+            <div id="main" data-behavior="4" class="
+                        hasCoverMetaIn
+                        ">
+                
+<article class="post">
+    
+    
+        <div class="post-header main-content-wrap text-left">
+    
+        <h1 class="post-title">
+            boost::multiprecision을 활용하여 Java의 BigInteger 흉내내기
+        </h1>
+    
+    
+        <div class="post-meta">
+    <time datetime="2023-05-12T16:11:16+09:00">
+	
+		    2023/05/12 16:11:16
+    	
+    </time>
+    
+        <span>카테고리 </span>
+        
+    <a class="category-link" href="/categories/C/">C++</a>
+
+
+    
+    
+        -
+        <span class="reading-time">⏱</span>
+        
+            읽는데 3 분 정도 소요 예상
+        
+        
+    
+</div>
+
+    
+</div>
+
+    
+    <div class="post-content markdown">
+        <div class="main-content-wrap">
+            <p><escape><span id="more"></span></escape></p>
+<p>아래 표에서 처럼 C/C++에서 지원하는 정수 타입의 자료형(long long 또는 unsigned long long)은 최대 8byte입니다. 그렇다면 8byte(32bit)를 초과하는 정수는 어떤 자료형을 통해 관리해야할까요?</p>
+<table>
+<thead>
+<tr>
+<th><strong>자료형</strong></th>
+<th><strong>크기</strong></th>
+<th><strong>범위</strong></th>
+</tr>
+</thead>
+<tbody><tr>
+<td>long long</td>
+<td>8 byte</td>
+<td>-9,223,372,036,854,775,807 ~ 9,223,372,036,854,775,807</td>
+</tr>
+<tr>
+<td>unsigned long long</td>
+<td>8 byte</td>
+<td>0 ~ 18,446,744,073,709,551,615</td>
+</tr>
+</tbody></table>
+<p>Java에서는 이처럼 8byte를 초과하는 큰 정수들을 처리하기 위한 BigInteger라는 클래스를 제공하고 있습니다.</p>
+<figure class="codeblock codeblock--tabbed"><figcaption><ul class="tabs"><li class="tab active">java</li></ul></figcaption><div class="tabs-content"><figure class="highlight java" style="display: block;"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line">String left = <span class="string">"18446744073709551615"</span>;</span><br><span class="line">String right = <span class="string">"18446744073709551615"</span>;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 문자열 타입의 첫번째 인자 값을 두번째 인자로 지정된 N진수로 변환해줌</span></span><br><span class="line">BigInteger bi_left = <span class="keyword">new</span> BigInteger(left, <span class="number">10</span>);</span><br><span class="line">BigInteger bi_right = <span class="keyword">new</span> BigInteger(right, <span class="number">10</span>);</span><br><span class="line">BigInteger output = bi_left.add(bi_right);</span><br><span class="line">System.out.println(<span class="string">"output(dec): "</span> + output.toString());</span><br><span class="line">      </span><br><span class="line">StringBuilder sb = <span class="keyword">new</span> StringBuilder();</span><br><span class="line"><span class="keyword">byte</span>[] ba = output.toByteArray();</span><br><span class="line"><span class="keyword">for</span>(<span class="keyword">final</span> <span class="keyword">byte</span> b: ba)</span><br><span class="line">{</span><br><span class="line">  sb.append(String.format(<span class="string">"0x%02x "</span>, b&amp;<span class="number">0xff</span>));</span><br><span class="line">}</span><br><span class="line">System.out.println(<span class="string">"output(hex): "</span> + sb);</span><br></pre></td></tr></tbody></table></figure></div></figure>
+
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">output(dec) : 36893488147419103230</span><br><span class="line">output(hex) : 0x01 0xff 0xff 0xff 0xff 0xff 0xff 0xff 0xfe</span><br></pre></td></tr></table></figure>
+
+<br>
+
+<p>불행히도 C/C++ 내장형 타입 중에는 8byte를 초과하는 자료형이 존재하지 않습니다. stackoverflow를 찾아보니 직접 구현을 해서 사용하거나 외부 라이브러리(<a target="_blank" rel="external nofollow noopener noreferrer" href="https://gmplib.org/">Gmplib</a>, <a target="_blank" rel="external nofollow noopener noreferrer" href="https://gist.github.com/bloopletech/338338">bigint</a>)를 사용하라고 하는데..<br>입맛에 맞게 사용하기 위해 boost::multiprecision을 활용하여 간략하게 구현해보았습니다.</p>
+<figure class="codeblock codeblock--tabbed"><figcaption><ul class="tabs"><li class="tab active">cpp</li></ul></figcaption><div class="tabs-content"><figure class="highlight cpp" style="display: block;"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;iostream&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;vector&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;cinttypes&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;algorithm&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;boost/multiprecision/cpp_int.hpp&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">main</span><span class="params">()</span></span></span><br><span class="line"><span class="function"></span>{</span><br><span class="line">  <span class="built_in">std</span>::<span class="built_in">string</span> left = <span class="string">"18446744073709551615"</span>;</span><br><span class="line">  <span class="built_in">std</span>::<span class="built_in">string</span> right = <span class="string">"18446744073709551615"</span>;</span><br><span class="line">  </span><br><span class="line">  <span class="comment">// 18446744073709551615는 10진수로 표현된 20자리 정수 값이며 풀어써보면 (1*10^19) + (8*10^18) + (4*10^17) + ... + (1*10^1) + (5*10^0) 입니다.</span></span><br><span class="line">  <span class="comment">// 해당 과정을 구현한 코드는 아래와 같습니다.</span></span><br><span class="line">  <span class="comment">//</span></span><br><span class="line">  <span class="comment">// 사실 10진수 정수의 경우에는 문자열 타입의 값을 boost::multiprecision::cpp_int 생성자의 인자로 전달하면 쉽게 변환하여 연산이 가능합니다.</span></span><br><span class="line">  <span class="comment">//   std::string value = "18446744073709551615";</span></span><br><span class="line">  <span class="comment">//   boost::multiprecision::cpp_int bi_value(value);</span></span><br><span class="line">  <span class="comment">// </span></span><br><span class="line">  <span class="comment">// 하지만 Java의 BigInteger 처럼 사용자가 직접 특정 진수를 지정하여 변환할 수는 없었기때문에 진수 변환 로직을 추가했습니다.</span></span><br><span class="line">  boost::<span class="function">multiprecision::cpp_int <span class="title">bi_left</span><span class="params">(<span class="number">0</span>)</span></span>;</span><br><span class="line">  <span class="keyword">int</span> len = left.length();</span><br><span class="line">  <span class="keyword">for</span> (<span class="keyword">int</span> i = <span class="number">0</span>; i &lt; len; ++i)</span><br><span class="line">  {</span><br><span class="line">    <span class="built_in">std</span>::<span class="built_in">string</span> tmp_str;</span><br><span class="line">    tmp_str.append(<span class="number">1</span>, left[i]);</span><br><span class="line">    bi_left += (boost::multiprecision::<span class="built_in">pow</span>(boost::multiprecision::cpp_int(<span class="number">10</span>), len - i - <span class="number">1</span>) * <span class="built_in">std</span>::strtoimax(tmp_str.c_str(), <span class="literal">nullptr</span>, <span class="number">10</span>));</span><br><span class="line">  }</span><br><span class="line"></span><br><span class="line">  boost::<span class="function">multiprecision::cpp_int <span class="title">bi_right</span><span class="params">(<span class="number">0</span>)</span></span>;</span><br><span class="line">  len = right.length();</span><br><span class="line">  <span class="keyword">for</span> (<span class="keyword">int</span> i = <span class="number">0</span>; i &lt; len; ++i)</span><br><span class="line">  {</span><br><span class="line">    <span class="built_in">std</span>::<span class="built_in">string</span> tmp_str;</span><br><span class="line">    tmp_str.append(<span class="number">1</span>, left[i]);</span><br><span class="line">    bi_right += (boost::multiprecision::<span class="built_in">pow</span>(boost::multiprecision::cpp_int(<span class="number">10</span>), len - i - <span class="number">1</span>) * <span class="built_in">std</span>::strtoimax(tmp_str.c_str(), <span class="literal">nullptr</span>, <span class="number">10</span>));</span><br><span class="line">  }</span><br><span class="line"></span><br><span class="line">  boost::multiprecision::cpp_int output = bi_left + bi_right;</span><br><span class="line">  <span class="built_in">std</span>::<span class="built_in">cout</span> &lt;&lt; <span class="string">"output(dec): "</span> &lt;&lt; output &lt;&lt; <span class="built_in">std</span>::<span class="built_in">endl</span>;</span><br><span class="line"></span><br><span class="line">  <span class="keyword">using</span> byte_array_type = <span class="built_in">std</span>::<span class="built_in">vector</span>&lt;<span class="keyword">unsigned</span> <span class="keyword">char</span>&gt;;</span><br><span class="line">  byte_array_type ba_output;</span><br><span class="line">  boost::multiprecision::export_bits(output, <span class="built_in">std</span>::back_inserter(ba_output), <span class="number">8</span>);</span><br><span class="line"></span><br><span class="line">  <span class="built_in">printf</span>(<span class="string">"output(hex): "</span>);</span><br><span class="line">  <span class="keyword">int</span> ba_output_len = ba_output.size();</span><br><span class="line">  <span class="keyword">for</span>(<span class="keyword">int</span> i = <span class="number">0</span>; i &lt; ba_output_len; ++i)</span><br><span class="line">  {</span><br><span class="line">    <span class="built_in">printf</span>(<span class="string">"0x%02x "</span>, ba_output[i]);</span><br><span class="line">  }</span><br><span class="line"></span><br><span class="line">  <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></figure></div></figure>
+
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">output(dec) : 36893488147419103230</span><br><span class="line">output(hex) : 0x01 0xff 0xff 0xff 0xff 0xff 0xff 0xff 0xfe</span><br></pre></td></tr></table></figure>
+
+<br>
+
+<p><strong>Reference</strong></p>
+<ul>
+<li><a target="_blank" rel="external nofollow noopener noreferrer" href="https://learn.microsoft.com/ko-kr/cpp/cpp/data-type-ranges?view=msvc-170">https://learn.microsoft.com/ko-kr/cpp/cpp/data-type-ranges?view=msvc-170</a></li>
+<li><a target="_blank" rel="external nofollow noopener noreferrer" href="https://stackoverflow.com/questions/36952038/how-to-handle-big-integer-data-more-than-8-byte-or-more-than-20-digits-in-c">https://stackoverflow.com/questions/36952038/how-to-handle-big-integer-data-more-than-8-byte-or-more-than-20-digits-in-c</a></li>
+<li><a target="_blank" rel="external nofollow noopener noreferrer" href="https://gmplib.org/">https://gmplib.org/</a></li>
+<li><a target="_blank" rel="external nofollow noopener noreferrer" href="https://gist.github.com/bloopletech/338338">https://gist.github.com/bloopletech/338338</a></li>
+</ul>
+
+            
+
+
+        </div>
+    </div>
+    <div id="post-footer" class="post-footer main-content-wrap">
+        
+            <div class="post-footer-tags">
+                <span class="text-color-light text-small">태그</span><br>
+                
+    <a class="tag tag--primary tag--small t-none-link" href="/tags/biginteger-in-c/" rel="tag">biginteger in c++</a> <a class="tag tag--primary tag--small t-none-link" href="/tags/boost-multiprecision/" rel="tag">boost::multiprecision</a>
+
+            </div>
+        
+        
+            <div class="post-actions-wrap">
+    <nav>
+        <ul class="post-actions post-action-nav">
+            <li class="post-action">
+                
+                    
+                <a class="post-action-btn btn btn--default tooltip--top" href="/2023/05/19/multithreaded-execution/" data-tooltip="boost::io_context 실행 모델에 대해 알아보자" aria-label="이전: boost::io_context 실행 모델에 대해 알아보자">
+                    
+                        <i class="fa fa-angle-left" aria-hidden="true"></i>
+                        <span class="hide-xs hide-sm text-small icon-ml">이전</span>
+                    </a>
+            </li>
+            <li class="post-action">
+                
+                    
+                <a class="post-action-btn btn btn--default tooltip--top" href="/2023/05/02/make-specific-memberfunc-to-templatefunc/" data-tooltip="클래스 템플릿의 특정 멤버 함수만 특수화하기" aria-label="다음: 클래스 템플릿의 특정 멤버 함수만 특수화하기">
+                    
+                        <span class="hide-xs hide-sm text-small icon-mr">다음</span>
+                        <i class="fa fa-angle-right" aria-hidden="true"></i>
+                    </a>
+            </li>
+        </ul>
+    </nav>
+    <ul class="post-actions post-action-share">
+        <li class="post-action hide-lg hide-md hide-sm">
+            <a class="post-action-btn btn btn--default btn-open-shareoptions" href="#btn-open-shareoptions" aria-label="이 포스트 공유하기">
+                <i class="fa fa-share-alt" aria-hidden="true"></i>
+            </a>
+        </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a class="post-action-btn btn btn--default" target="_blank" href="https://www.facebook.com/sharer/sharer.php?u=https://chelseafandev.github.io/2023/05/12/impl-big-integer-in-cpp/" title="Facebook에 공유하기" aria-label="Facebook에 공유하기" rel="external nofollow noopener noreferrer">
+                    <i class="fab fa-facebook" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a class="post-action-btn btn btn--default" target="_blank" href="https://twitter.com/intent/tweet?text=https://chelseafandev.github.io/2023/05/12/impl-big-integer-in-cpp/" title="Twitter에 공유하기" aria-label="Twitter에 공유하기" rel="external nofollow noopener noreferrer">
+                    <i class="fab fa-twitter" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a class="post-action-btn btn btn--default" target="_blank" href="https://plus.google.com/share?url=https://chelseafandev.github.io/2023/05/12/impl-big-integer-in-cpp/" title="Google+에 공유하기" aria-label="Google+에 공유하기" rel="external nofollow noopener noreferrer">
+                    <i class="fab fa-google-plus" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+        
+            
+        
+        <li class="post-action">
+            
+                <a class="post-action-btn btn btn--default" href="#" aria-label="맨 위로">
+            
+                <i class="fa fa-list" aria-hidden="true"></i>
+            </a>
+        </li>
+    </ul>
+</div>
+
+
+        
+        
+            
+        
+    </div>
+</article>
+
+
+
+<!-- Comment -->
+<!--  utteranc comment -->
+
+<script src="https://utteranc.es/client.js" repo="chelseafandev/blog-comment" issue-term="title" label="Comment" theme="github-light" crossorigin="anonymous" async>
+</script>
+
+                <footer id="footer" class="main-content-wrap">
+    <span class="copyrights">
+        Copyrights &copy; 2024 첼시팬개발자. All Rights Reserved.
+    </span>
+</footer>
+
+            </div>
+            
+                <div id="bottom-bar" class="post-bottom-bar" data-behavior="4">
+                    <div class="post-actions-wrap">
+    <nav>
+        <ul class="post-actions post-action-nav">
+            <li class="post-action">
+                
+                    
+                <a class="post-action-btn btn btn--default tooltip--top" href="/2023/05/19/multithreaded-execution/" data-tooltip="boost::io_context 실행 모델에 대해 알아보자" aria-label="이전: boost::io_context 실행 모델에 대해 알아보자">
+                    
+                        <i class="fa fa-angle-left" aria-hidden="true"></i>
+                        <span class="hide-xs hide-sm text-small icon-ml">이전</span>
+                    </a>
+            </li>
+            <li class="post-action">
+                
+                    
+                <a class="post-action-btn btn btn--default tooltip--top" href="/2023/05/02/make-specific-memberfunc-to-templatefunc/" data-tooltip="클래스 템플릿의 특정 멤버 함수만 특수화하기" aria-label="다음: 클래스 템플릿의 특정 멤버 함수만 특수화하기">
+                    
+                        <span class="hide-xs hide-sm text-small icon-mr">다음</span>
+                        <i class="fa fa-angle-right" aria-hidden="true"></i>
+                    </a>
+            </li>
+        </ul>
+    </nav>
+    <ul class="post-actions post-action-share">
+        <li class="post-action hide-lg hide-md hide-sm">
+            <a class="post-action-btn btn btn--default btn-open-shareoptions" href="#btn-open-shareoptions" aria-label="이 포스트 공유하기">
+                <i class="fa fa-share-alt" aria-hidden="true"></i>
+            </a>
+        </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a class="post-action-btn btn btn--default" target="_blank" href="https://www.facebook.com/sharer/sharer.php?u=https://chelseafandev.github.io/2023/05/12/impl-big-integer-in-cpp/" title="Facebook에 공유하기" aria-label="Facebook에 공유하기" rel="external nofollow noopener noreferrer">
+                    <i class="fab fa-facebook" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a class="post-action-btn btn btn--default" target="_blank" href="https://twitter.com/intent/tweet?text=https://chelseafandev.github.io/2023/05/12/impl-big-integer-in-cpp/" title="Twitter에 공유하기" aria-label="Twitter에 공유하기" rel="external nofollow noopener noreferrer">
+                    <i class="fab fa-twitter" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a class="post-action-btn btn btn--default" target="_blank" href="https://plus.google.com/share?url=https://chelseafandev.github.io/2023/05/12/impl-big-integer-in-cpp/" title="Google+에 공유하기" aria-label="Google+에 공유하기" rel="external nofollow noopener noreferrer">
+                    <i class="fab fa-google-plus" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+        
+            
+        
+        <li class="post-action">
+            
+                <a class="post-action-btn btn btn--default" href="#" aria-label="맨 위로">
+            
+                <i class="fa fa-list" aria-hidden="true"></i>
+            </a>
+        </li>
+    </ul>
+</div>
+
+
+                </div>
+                
+    <div id="share-options-bar" class="share-options-bar" data-behavior="4">
+        <i id="btn-close-shareoptions" class="fa fa-times"></i>
+        <ul class="share-options">
+            
+                
+                
+                <li class="share-option">
+                    <a class="share-option-btn" target="_blank" href="https://www.facebook.com/sharer/sharer.php?u=https://chelseafandev.github.io/2023/05/12/impl-big-integer-in-cpp/" aria-label="Facebook에 공유하기" rel="external nofollow noopener noreferrer">
+                        <i class="fab fa-facebook" aria-hidden="true"></i><span>Facebook에 공유하기</span>
+                    </a>
+                </li>
+            
+                
+                
+                <li class="share-option">
+                    <a class="share-option-btn" target="_blank" href="https://twitter.com/intent/tweet?text=https://chelseafandev.github.io/2023/05/12/impl-big-integer-in-cpp/" aria-label="Twitter에 공유하기" rel="external nofollow noopener noreferrer">
+                        <i class="fab fa-twitter" aria-hidden="true"></i><span>Twitter에 공유하기</span>
+                    </a>
+                </li>
+            
+                
+                
+                <li class="share-option">
+                    <a class="share-option-btn" target="_blank" href="https://plus.google.com/share?url=https://chelseafandev.github.io/2023/05/12/impl-big-integer-in-cpp/" aria-label="Google+에 공유하기" rel="external nofollow noopener noreferrer">
+                        <i class="fab fa-google-plus" aria-hidden="true"></i><span>Google+에 공유하기</span>
+                    </a>
+                </li>
+            
+        </ul>
+    </div>
+
+
+            
+        </div>
+        
+
+
+    
+        
+    
+
+<div id="about">
+    <div id="about-card">
+        <div id="about-btn-close">
+            <i class="fa fa-times"></i>
+        </div>
+        
+            <img id="about-card-picture" src="/assets/images/chelsea_logo.png" alt="저자 이미지">
+        
+            <h4 id="about-card-name">첼시팬개발자</h4>
+        
+            <div id="about-card-bio"><p>조금 더디더라도 꾸준히</p>
+</div>
+        
+        
+            <div id="about-card-job">
+                <i class="fa fa-briefcase"></i>
+                <br>
+                <p>개발자</p>
+
+            </div>
+        
+        
+            <div id="about-card-location">
+                <i class="fa fa-map-marker-alt"></i>
+                <br>
+                서울, 대한민국
+            </div>
+        
+    </div>
+</div>
+
+        
+            <div id="algolia-search-modal" class="modal-container">
+    <div class="modal">
+        <div class="modal-header">
+            <span class="close-button"><i class="fa fa-times"></i></span>
+            <a href="https://algolia.com" target="_blank" rel="external nofollow noopener noreferrer" class="searchby-algolia text-color-light link-unstyled">
+                <span class="searchby-algolia-text text-color-light text-small">by</span>
+                <img class="searchby-algolia-logo" src="/assets/images/logo-algolia-nebula-blue-full.svg">
+            </a>
+            <i class="search-icon fa fa-search"></i>
+            <form id="algolia-search-form">
+                <input type="text" id="algolia-search-input" name="search" class="form-control input--large search-input" placeholder="Search ">
+            </form>
+        </div>
+        <div class="modal-body">
+            <div class="no-result text-color-light text-center">포스트가 없습니다.</div>
+            <div class="results">
+                
+                <div class="media">
+                    <!--  -->
+                    <div class="media-body">
+                        <a class="link-unstyled" href="https://chelseafandev.github.io/2021/07/08/hello-hexo/" aria-label=": Hexo Tranquilpeak 테마의 Markdown syntax">
+                            <h3 class="media-heading">Hexo Tranquilpeak 테마의 Markdown syntax</h3>
+                        </a>
+                        <span class="media-meta">
+                            <span class="media-date text-small">
+                                
+                                    2021년 7월 8일
+                                
+                            </span>
+                        </span>
+                        <div class="media-content hide-xs font-nanumsquareround"><p>Hexo 테마 중 하나인 <a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/LouisBarranqueiro/hexo-theme-tranquilpeak/blob/master/DOCUMENTATION.md">Tranquilpeak의 공식 문서</a>를 참조하여 Post시에 활용할 수 있는 다양한 Markdown syntax들을 사용해보았습니다.</p></div>
+                    </div>
+                    <div style="clear:both;"></div>
+                    <hr>
+                </div>
+                
+                <div class="media">
+                    <!-- 
+                    <div class="media-left">
+                        <a
+                            class="link-unstyled"
+                            href="https://chelseafandev.github.io/2021/07/10/tr-ruud-gullit/"
+                            aria-label=": (BBC 스포츠) 첼시 루드 굴리트 25년이 지난 지금 그의 프리미어그리 진출을 애정어린 시선으로 되돌아 보다"
+                        >
+                            <img class="media-image" src="https://chelseafandev.github.io/2021/07/10/tr-ruud-gullit/tr_ruud_gullit_picture_1.png" width="90" height="90"/>
+                        </a>
+                    </div>
+                     -->
+                    <div class="media-body">
+                        <a class="link-unstyled" href="https://chelseafandev.github.io/2021/07/10/tr-ruud-gullit/" aria-label=": (BBC 스포츠) 첼시 루드 굴리트 25년이 지난 지금 그의 프리미어그리 진출을 애정어린 시선으로 되돌아 보다">
+                            <h3 class="media-heading">(BBC 스포츠) 첼시 루드 굴리트 25년이 지난 지금 그의 프리미어그리 진출을 애정어린 시선으로 되돌아 보다</h3>
+                        </a>
+                        <span class="media-meta">
+                            <span class="media-date text-small">
+                                
+                                    2021년 7월 10일
+                                
+                            </span>
+                        </span>
+                        <div class="media-content hide-xs font-nanumsquareround"><p>피파 좀 한다는 사람이라면 모두가 다 알만한 그 분, X사기캐 굴리트😬<br>커리어 막바지에 첼시에서도 잠깐 활약했었네요.<br><a target="_blank" rel="external nofollow noopener noreferrer" href="https://www.bbc.com/sport/football/52904670">BBC Sport에 굴리트가 직접 기고한 회고록 느낌의 글</a>을 한번 번역해보았습니다.</p></div>
+                    </div>
+                    <div style="clear:both;"></div>
+                    <hr>
+                </div>
+                
+                <div class="media">
+                    <!--  -->
+                    <div class="media-body">
+                        <a class="link-unstyled" href="https://chelseafandev.github.io/2021/07/13/os-io-system/" aria-label=": I/O는 어떻게 처리될까?">
+                            <h3 class="media-heading">I/O는 어떻게 처리될까?</h3>
+                        </a>
+                        <span class="media-meta">
+                            <span class="media-date text-small">
+                                
+                                    2021년 7월 13일
+                                
+                            </span>
+                        </span>
+                        <div class="media-content hide-xs font-nanumsquareround"><p>운영 체제의 바이블 <a target="_blank" rel="external nofollow noopener noreferrer" href="https://www.wiley.com/en-us/Operating+System+Concepts%2C+10th+Edition-p-9781119320913">Operating System Concepts</a>(흔히 공룡책🦕이라고들 하죠)을 바탕으로 I/O 시스템에 대해 정리해보았습니다.</p></div>
+                    </div>
+                    <div style="clear:both;"></div>
+                    <hr>
+                </div>
+                
+                <div class="media">
+                    <!--  -->
+                    <div class="media-body">
+                        <a class="link-unstyled" href="https://chelseafandev.github.io/2021/07/22/tip-how-to-use-tmux-md/" aria-label=": 강력한 터미널 멀티플렉서 tmux를 활용해보자">
+                            <h3 class="media-heading">강력한 터미널 멀티플렉서 tmux를 활용해보자</h3>
+                        </a>
+                        <span class="media-meta">
+                            <span class="media-date text-small">
+                                
+                                    2021년 7월 22일
+                                
+                            </span>
+                        </span>
+                        <div class="media-content hide-xs font-nanumsquareround"><p>이번엔 익숙해지면 정말 강력한 터미널 멀티플렉서인 tmux에 대해 소개해보려고 합니다.</p></div>
+                    </div>
+                    <div style="clear:both;"></div>
+                    <hr>
+                </div>
+                
+                <div class="media">
+                    <!--  -->
+                    <div class="media-body">
+                        <a class="link-unstyled" href="https://chelseafandev.github.io/2021/08/02/os-sync-async-block-nonblock/" aria-label=": Blocking, Nonblocking, Sync, Async">
+                            <h3 class="media-heading">Blocking, Nonblocking, Sync, Async</h3>
+                        </a>
+                        <span class="media-meta">
+                            <span class="media-date text-small">
+                                
+                                    2021년 8월 2일
+                                
+                            </span>
+                        </span>
+                        <div class="media-content hide-xs font-nanumsquareround"><p>오늘은 공룡책🦕에 언급된 Blocking과 Nonblocking, Synchronous와 Asynchronous에 대해서 정리해보고자 합니다. Synchronous와 Asynchronous의 개념은 <strong>쓰레드</strong>와 <strong>I/O</strong>에서 등장하게 되는데요, 각각이 어떠한 의미로 사용되는지도 구분해서 살펴보도록 하겠습니다.</p></div>
+                    </div>
+                    <div style="clear:both;"></div>
+                    <hr>
+                </div>
+                
+                <div class="media">
+                    <!-- 
+                    <div class="media-left">
+                        <a
+                            class="link-unstyled"
+                            href="https://chelseafandev.github.io/2021/08/05/tr-lukaku-want-to-chelsea/"
+                            aria-label=": (BBC 스포츠) 첼시의 물망에 오른 루카쿠 적절한 오퍼가 온다면 인터 밀란을 떠나기 원해"
+                        >
+                            <img class="media-image" src="https://chelseafandev.github.io/2021/08/05/tr-lukaku-want-to-chelsea/tr-lukaku-want-to-chelsea.jpg" width="90" height="90"/>
+                        </a>
+                    </div>
+                     -->
+                    <div class="media-body">
+                        <a class="link-unstyled" href="https://chelseafandev.github.io/2021/08/05/tr-lukaku-want-to-chelsea/" aria-label=": (BBC 스포츠) 첼시의 물망에 오른 루카쿠 적절한 오퍼가 온다면 인터 밀란을 떠나기 원해">
+                            <h3 class="media-heading">(BBC 스포츠) 첼시의 물망에 오른 루카쿠 적절한 오퍼가 온다면 인터 밀란을 떠나기 원해</h3>
+                        </a>
+                        <span class="media-meta">
+                            <span class="media-date text-small">
+                                
+                                    2021년 8월 5일
+                                
+                            </span>
+                        </span>
+                        <div class="media-content hide-xs font-nanumsquareround"><p>오늘은 첼시 이적설이 가까워져가고 있는 루카쿠 관련 기사를 가져왔습니다. 베르너의 결정력이 너무나도 아쉬웠던 지난 시즌 첼시를 생각하면 꼭 필요한 영입이라고 생각되네요😁</p></div>
+                    </div>
+                    <div style="clear:both;"></div>
+                    <hr>
+                </div>
+                
+                <div class="media">
+                    <!-- 
+                    <div class="media-left">
+                        <a
+                            class="link-unstyled"
+                            href="https://chelseafandev.github.io/2021/08/12/tr-son-new-contract/"
+                            aria-label=": (BBC 스포츠) 토트넘 공격수 손흥민 4년 재계약 성사"
+                        >
+                            <img class="media-image" src="https://chelseafandev.github.io/2021/08/12/tr-son-new-contract/tr-son-new-contract-figure1.jpg" width="90" height="90"/>
+                        </a>
+                    </div>
+                     -->
+                    <div class="media-body">
+                        <a class="link-unstyled" href="https://chelseafandev.github.io/2021/08/12/tr-son-new-contract/" aria-label=": (BBC 스포츠) 토트넘 공격수 손흥민 4년 재계약 성사">
+                            <h3 class="media-heading">(BBC 스포츠) 토트넘 공격수 손흥민 4년 재계약 성사</h3>
+                        </a>
+                        <span class="media-meta">
+                            <span class="media-date text-small">
+                                
+                                    2021년 8월 12일
+                                
+                            </span>
+                        </span>
+                        <div class="media-content hide-xs font-nanumsquareround"><p>오늘은 현재 프리미어리그 토트넘 핫스퍼에서 활약 중인 손흥민 선수의 재계약 관련 기사를 가져왔습니다. 다음 시즌 누누감독이 이끌게 되는 토트넘, 쌉월클👍 손흥민선수와 함께 좋은 성적 거뒀으면 좋겠습니다.</p></div>
+                    </div>
+                    <div style="clear:both;"></div>
+                    <hr>
+                </div>
+                
+                <div class="media">
+                    <!--  -->
+                    <div class="media-body">
+                        <a class="link-unstyled" href="https://chelseafandev.github.io/2021/09/24/hyperscan-phase1/" aria-label=": 인텔 Hyperscan 레퍼런스 가이드 번역">
+                            <h3 class="media-heading">인텔 Hyperscan 레퍼런스 가이드 번역</h3>
+                        </a>
+                        <span class="media-meta">
+                            <span class="media-date text-small">
+                                
+                                    2021년 9월 24일
+                                
+                            </span>
+                        </span>
+                        <div class="media-content hide-xs font-nanumsquareround"><p>이번 포스팅에서는 인텔 Hyperscan의 <a target="_blank" rel="external nofollow noopener noreferrer" href="http://intel.github.io/hyperscan/dev-reference/index.html">공식 문서</a>를 통해 컴파일(compile)이나 스캔(scan)과 같은 Hyperscan의 기본적인 개념들에 대해 알아보도록 하겠습니다. 추후에는 Hyperscan API를 직접 사용하여 정규 표현식 패턴 매칭을 수행하는 샘플 코드도 업로드할 예정입니다.</p></div>
+                    </div>
+                    <div style="clear:both;"></div>
+                    <hr>
+                </div>
+                
+                <div class="media">
+                    <!--  -->
+                    <div class="media-body">
+                        <a class="link-unstyled" href="https://chelseafandev.github.io/2021/10/12/hyperscan-phase2/" aria-label=": 인텔 Hyperscan API 테스트 코드 작성">
+                            <h3 class="media-heading">인텔 Hyperscan API 테스트 코드 작성</h3>
+                        </a>
+                        <span class="media-meta">
+                            <span class="media-date text-small">
+                                
+                                    2021년 10월 12일
+                                
+                            </span>
+                        </span>
+                        <div class="media-content hide-xs font-nanumsquareround"><p>이번 포스팅에서는 <a href="https://chelseafandev.github.io/2021/09/24/hyperscan-phase1/">인텔 Hyperscan 레퍼런스 가이드 번역</a>에 이어서 Hyperscan API를 직접 사용하여 정규 표현식 패턴 매칭을 수행하는 샘플 코드를 작성하고 테스트 해보는 시간을 갖겠습니다.</p></div>
+                    </div>
+                    <div style="clear:both;"></div>
+                    <hr>
+                </div>
+                
+                <div class="media">
+                    <!--  -->
+                    <div class="media-body">
+                        <a class="link-unstyled" href="https://chelseafandev.github.io/2021/11/09/gdb-chapter4-program-crash/" aria-label=": Seg Fault는 왜 발생하는가?">
+                            <h3 class="media-heading">Seg Fault는 왜 발생하는가?</h3>
+                        </a>
+                        <span class="media-meta">
+                            <span class="media-date text-small">
+                                
+                                    2021년 11월 9일
+                                
+                            </span>
+                        </span>
+                        <div class="media-content hide-xs font-nanumsquareround"><p>이번 포스팅에서는 <a target="_blank" rel="external nofollow noopener noreferrer" href="https://nostarch.com/debugging.htm">The Art of Debugging with GDB, DDD and Eclipse</a>의 <strong>Chatper 4 WHEN A PROGRAM CRASHES</strong> 내용을 번역해보았습니다. 해당 챕터의 앞부분에서는 가상 주소 공간에서의 페이지(page)에 대한 개념을 소개하고 seg fault가 발생하는 원인을 페이지(page)와 연관지어 잘 설명해주고 있습니다.</p></div>
+                    </div>
+                    <div style="clear:both;"></div>
+                    <hr>
+                </div>
+                
+            </div>
+        </div>
+        <div class="modal-footer">
+            <p class="results-count text-medium" data-message-zero="포스트가 없습니다." data-message-one="1 개의 포스트가 있습니다." data-message-other="{n} 개의 포스트가 있습니다.">
+                27 개의 포스트가 있습니다.
+            </p>
+        </div>
+    </div>
+</div>
+
+        
+        
+<div id="cover" style="background-image:url('/assets/images/chelsea_cover.jpg');"></div>
+        <!--SCRIPTS-->
+
+<script src="/assets/js/jquery.js"></script>
+
+
+<script src="/assets/js/jquery.fancybox.js"></script>
+
+
+<script src="/assets/js/thumbs.js"></script>
+
+
+<script src="/assets/js/tranquilpeak.js"></script>
+
+<!--SCRIPTS END-->
+
+
+    
+
+
+
+    
+<script src="/assets/js/moment-with-locales.js"></script>
+
+    
+<script src="/assets/js/algoliasearch.js"></script>
+
+    <script>
+      var algoliaClient = algoliasearch('FDTOJ7KLS8', '935491408ac4c43d728c68858e4ea147');
+      var algoliaIndex = algoliaClient.initIndex('chelseafandev');
+    </script>
+
+
+    </body>
+</html>

@@ -1,0 +1,1075 @@
+
+<!DOCTYPE html>
+<html lang="ko">
+    
+<head>
+    <meta name="google-site-verification" content="Ojz5tvI9WuN6pn2n6i1E_mOkMyRiSSOp4KXuYSyaUjs">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="generator" content="첼시팬 개발자 작업 공간">
+    <title>인텔 Hyperscan 레퍼런스 가이드 번역 - 첼시팬 개발자 작업 공간</title>
+    <meta name="author" content="첼시팬개발자">
+    
+    
+        <link rel="icon" href="https://chelseafandev.github.io/assets/images/chelsea_favicon.png">
+    
+    
+        
+            <link rel="alternate" type="application/rss+xml" title="RSS" href="/rss2.xml">
+        
+    
+    <script type="application/ld+json">{"@context":"http://schema.org","@type":"BlogPosting","author":{"@type":"Person","name":"첼시팬개발자","sameAs":[],"image":"chelsea_logo.png"},"articleBody":"이번 포스팅에서는 인텔 Hyperscan의 공식 문서를 통해 컴파일(compile)이나 스캔(scan)과 같은 Hyperscan의 기본적인 개념들에 대해 알아보도록 하겠습니다. 추후에는 Hyperscan API를 직접 사용하여 정규 표현식 패턴 매칭을 수행하는 샘플 코드도 업로드할 예정입니다.\n\n\n\n\n\n\n\n\nIntroductionHyperscan은 높은 성능과 유연성을 고려하여 디자인된 정규 표현식 매칭 엔진 소프트웨어 입니다. 이것은 직관적인 C API 형태의 라이브러리로 구현되었습니다.\n\nHyperscan is a software regular expression matching engine designed with high performance and flexibility in mind. It is implemented as a library that exposes a straightforward C API.\n\n\n\nHyperscan API는 2가지 요소(compilation과 scanning)로 구성되어 있습니다.\n\nThe Hyperscan API itself is composed of two major components:\n\n\n\nCompilation이 함수들은 식별자나 옵션 플래그값에 따른 정규 표현식 그룹을 전달받아 Hyperscan의 scanning API에서 사용하는 변경이 불가한 데이터베이스 형태로 변환(compile)합니다. 이 변환 과정에서 주어진 표현식들을 효율적으로 매칭하기위한 데이터베이스를 생성하기 위해 많은 양의 분석 및 최적화 작업을 수행합니다.\n\nThese functions take a group of regular expressions, along with identifiers and option flags, and compile them into an immutable database that can be used by the Hyperscan scanning API. This compilation process performs considerable analysis and optimization work in order to build a database that will match the given expressions efficiently.\n\n\n\n만약 (Hyperscan에서 지원하지 않는 정규표현식을 사용하거나 리소스 임계치 초과와 같은)어떠한 이유에서든 특정 패턴이 데이터베이스화되지 않는다면 패턴 컴파일러에 의해 에러가 반환될 것입니다.\n\nIf a pattern cannot be built into a database for any reason (such as the use of an unsupported expression construct, or the overflowing of a resource limit), an error will be returned by the pattern compiler.\n\n\n\n변환된 데이터베이스는 직렬화되거나 재배치될 수 있으며 이를 통해 디스크에 저장되거나 호스트 간 이동이 가능합니다. 또한 이 데이터베이스는 특정한 플랫폼 특성의 대상이 될 수 있습니다. (예를 들어, Intel® AVX2 지시어의 사용)\n\nCompiled databases can be serialized and relocated, so that they can be stored to disk or moved between hosts. They can also be targeted to particular platform features (for example, the use of Intel® Advanced Vector Extensions 2 (Intel® AVX2) instructions).\n\n\n\nScanning일단 Hyperscan 데이터베이스가 생성이 된다면, 이 데이터베이스는 메모리 상에 있는 데이터를 스캔하기 위해 사용될 수 있습니다. Hyperscan은 몇가지 스캐닝 모드를 제공하는데, 이 모드는 스캔한 데이터가 단일 인접 블록(single contiguous block)으로 사용이 가능한지, 메모리에 있는 몇몇 블록에 동시에 분배가 가능한지 또는 스트림 안에서 일련의 블록(sequence of blocks)으로 스캔되는지에 따라 결정됩니다.\n\nOnce a Hyperscan database has been created, it can be used to scan data in memory. Hyperscan provides several scanning modes, depending on whether the data to be scanned is available as a single contiguous block, whether it is distributed amongst several blocks in memory at the same time, or whether it is to be scanned as a sequence of blocks in a stream.\n\n\n\n매칭된 정보는 각각의 매칭 과정에서 동기적으로 호출되는 사용자 정의 콜백 함수를 통해 어플리케이션으로 전달됩니다.\n\nMatches are delivered to the application via a user-supplied callback function that is called synchronously for each match.\n\n\n\n주어진 데이터베이스에 대해, Hyperscan은 몇가지 보장들을 제공합니다.\n\nFor a given database, Hyperscan provides several guarantees:\n\n\n\n\n2가지 고정 사이즈 할당을 제외하면 런타임시에 메모리 할당은 발생하지 않으며, 2가지 고정 사이즈 할당 과정은 반드시 performance-critical 어플리케이션 전에 끝나야합니다.\n스크래치 공간: 스캔 시점에 내부 데이터에 사용되는 임시 메모리 공간입니다. 단일 스캔 호출이 끝난 이후에 scratch 공간 내의 구조들은 유지되지 않습니다.\n스트림 공간: 스트리밍 모드인 경우에만 해당하며, 각각의 스트림에 대한 스캔 호출 사이에서 유지되는 데이터를 저장하기 위해 몇몇 상태 공간이 요구됩니다. 이를 통해 Hyperscan은 복수의 데이터 블록에 걸쳐 매칭되는 정보를 트랙킹할 수 있습니다.\n\n\n주어진 데이터베이스에서 요구하는 scratch 공간 및 stream 상태(스트리밍 모드에서) 공간의 크기는 고정되어있으며 데이터베이스 컴파일 타임에 결정됩니다. 이는 어플리케이션의 메모리 요구사항을 사전에 알 수 있다는 의미이며, 성능상의 이유로 필요한 경우라면, 이러한 구조들은 미리 할당될 수 있습니다.\nHyperscan 컴파일러에 의해 정상적으로 컴파일된 패턴이라면 어떠한 입력 값이 들어오더라도 스캔이 가능합니다. 런타임 시 스캔 호출이 에러를 반환하도록 하는 내부적인 리소스 제한이나 다른 제약사항들은 없습니다.\n\n\n\nNo memory allocations occur at runtime with the exception of two fixed-size allocations, both of which should be done ahead of time for performance-critical applications:\nScratch space: temporary memory used for internal data at scan time. Structures in scratch space do not persist beyond the end of a single scan call.\nStream state: in streaming mode only, some state space is required to store data that persists between scan calls for each stream. This allows Hyperscan to track matches that span multiple blocks of data.\n\n\nThe sizes of the scratch space and stream state (in streaming mode) required for a given database are fixed and determined at database compile time. This means that the memory requirements of the application are known ahead of time, and these structures can be pre-allocated if required for performance reasons.\nAny pattern that has successfully been compiled by the Hyperscan compiler can be scanned against any input. There are no internal resource limits or other limitations at runtime that could cause a scan call to return an error.\n\n\n\n\n\n\nCompiling PatternsBuilding a DatabaseHyperscan 컴파일러 API는 정규표현식을 입력받아 그것들을 스캔 작업시에 사용되는 컴파일된 패턴 데이터베이스 형태로 변환합니다.\n\nThe Hyperscan compiler API accepts regular expressions and converts them into a compiled pattern database that can then be used to scan data.\n\n\n\nAPI에서는 정규표현식을 데이터베이스화하기 위한 3가지 형태의 함수를 제공하고 있습니다.\n\nThe API provides three functions that compile regular expressions into databases:\n\n\n\n\nhs_compile(): 단일 정규표현식을 패턴 데이터베이스로 컴파일합니다.\nhs_compile_multi(): 정규표현식의 배열(정규표현식의 집합)을 패턴 데이터베이스로 컴파일합니다. 지원하는 모든 패턴들이 매칭에 성공하는 경우에 반환되는 사용자 정의 구분자(id)를 가지고 동시에 스캔될 것입니다. \nhs_compile_ext_multi(): 위 함수와 마찬가지로 정규표현식의 배열(정규표현식의 집합)을 패턴 데이터베이스로 컴파일하며, 각각의 표현식에 대해 확장된 파라미터가 명시되도록 허용합니다.\n\n\n\nhs_compile(): compiles a single expression into a pattern database.\nhs_compile_multi(): compiles an array of expressions into a pattern database. All of the supplied patterns will be scanned for concurrently at scan time, with user-supplied identifiers returned when they match.\nhs_compile_ext_multi(): compiles an array of expressions as above, but allows Extended Parameters to be specified for each expression.\n\n\n\n\n컴파일 작업은 Hyperscan 라이브러리가 주어진 패턴들을 분석할 수 있도록 해주고, 런타임 시에 계산했다면 비용이 굉장히 클 수 있는 이러한 패턴들을 어떻게하면 최적화된 방식으로 스캔할 수 있을지를 미리 결정하도록 해줍니다.\n\nCompilation allows the Hyperscan library to analyze the given pattern(s) and pre-determine how to scan for these patterns in an optimized fashion that would be far too expensive to compute at run-time.\n\n\n\n표현식들을 컴파일하고자 할때는, 컴파일된 패턴들의 결과가 스트리밍 모드에 사용될것인지 블록 또는 벡터 모드에서 사용될 것인지 여부를 결정해야합니다.\n\nWhen compiling expressions, a decision needs to be made whether the resulting compiled patterns are to be used in a streaming, block or vectored mode:\n\n\n\n\n스트리밍 모드: 스캔하려는 대상이 연속적인 스트림이며 이를 한번에 스캔할 수는 없습니다; 데이터의 블록이 순차적으로 스캔되며 스트림 내 여러 블록들에서 매칭이 발생할 수 있습니다. 스트리밍 모드에서 각각의 스트림은 스캔 호출 간의 스트림 상태를 저장하기 위한 메모리 블록을 필요로 합니다.\n블록 모드: 스캔 대상이 개별적이고 인접한 블록이며 이 블록은 한번의 호출로 스캔될 수 있으며 상태값 저장이 필요하지 않습니다.\n벡터 모드: 스캔 대상이 한번에 처리가 가능한 인접하지 않은 블록의 리스트로 구성되어있습니다. 블록 모드와 마찬가지로 상태값 저장은 필요하지 않습니다.\n\n\n\nStreaming mode: the target data to be scanned is a continuous stream, not all of which is available at once; blocks of data are scanned in sequence and matches may span multiple blocks in a stream. In streaming mode, each stream requires a block of memory to store its state between scan calls.\nBlock mode: the target data is a discrete, contiguous block which can be scanned in one call and does not require state to be retained.\nVectored mode: the target data consists of a list of non-contiguous blocks that are available all at once. As for block mode, no retention of state is required.\n\n\n\n\n스트리밍 모드에 사용되는 패턴들을 컴파일하기 위해서는 hs_compile() 함수의 모드 파라미터 값을 HS_MODE_STREAM으로 설정해야합니다; 이와 동일하게, 블록 모드는 HS_MODE_BLCOK, 벡터 모드에서는 HS_MODE_VECTORED로 설정해야합니다. 하나의 모드로 컴파일된 패턴 데이터베이스는 오직 그 모드에서만 사용할 수 있습니다. 패턴 데이터베이스를 컴파일하기 위해 사용된 Hyperscan 버전과 스캔을 위한 Hyperscan 버전은 반드시 일치해야합니다.\n\nTo compile patterns to be used in streaming mode, the mode parameter of hs_compile() must be set to HS_MODE_STREAM; similarly, block mode requires the use of HS_MODE_BLOCK and vectored mode requires the use of HS_MODE_VECTORED. A pattern database compiled for one mode (streaming, block or vectored) can only be used in that mode. The version of Hyperscan used to produce a compiled pattern database must match the version of Hyperscan used to scan with it.\n\n\n\nPattern SupportHyperscan은 PCRE 라이브러리(“libpcre”)에서 사용되는 패턴 문법(https://www.pcre.org 참조)을 지원합니다. 하지만 libpcre에서 사용가능한 모든 구조들을 지원하는 것은 아닙니다. 지원하지 않는 구조들을 사용하는 경우 컴파일 에러를 발생시킬 것입니다.\n\nHyperscan supports the pattern syntax used by the PCRE library (“libpcre”), described at https://www.pcre.org. However, not all constructs available in libpcre are supported. The use of unsupported constructs will result in compilation errors.\n\n\n\nPCRE 8.41 또는 그 상위 버전을 사용해야만 Hyperscan의 PCRE 라이브러리 문법 분석이 유효합니다.\n\nThe version of PCRE used to validate Hyperscan’s interpretation of this syntax is 8.41 or above.\n\n\n\nSupported Constructs지원하는 정규표현식 구조들은 해당 링크를 통해 확인가능하며, 아래 2가지 정보를 참고하시기 바랍니다.\n임의 표현식의 매우 큰 반복 횟수를 갖는 경계가 있는 반복 한정사(예를 들어, ([a-z]|bc*d|xy?z){1000,5000})는 패턴 컴파일 타임에 “Pattern too large” 에러를 발생시킬 것입니다.\nBounded-repeat quantifiers with large repeat counts of arbitrary expressions (e.g. ([a-z]|bc*d|xy?z){1000,5000}) will result in a “Pattern too large” error at pattern compile time.\n\n\n매칭의 시작 지점을 추출하는 옵션 플래그값인 HS_FLAG_SOM_LEFTMOST를 사용하여 컴파일하는 경우에는 모든 패턴이 정상적으로 컴파일되지 않을 수 있습니다. 해당 플래그 값을 지원하는 패턴들은 Hyperscan에 의해 정상적으로 컴파일되는 패턴들의 일부입니다; 주목할점은, 매칭의 시작 지점을 추출하는 옵션을 사용하지 않고 Hyperscan 컴파일이 가능한 대다수의 경계가 있는 반복 한정사 형태들은 해당 옵션을 사용하는 경우에는 컴파일되지 않을 수 있습니다. (반복 한정사를 사용하는 패턴들의 경우에는 컴파일 시 SOM값 사용에 주의해야함)\nAt this time, not all patterns can be successfully compiled with the HS_FLAG_SOM_LEFTMOST flag, which enables per-pattern support for Start of Match. The patterns that support this flag are a subset of patterns that can be successfully compiled with Hyperscan; notably, many bounded repeat forms that can be compiled with Hyperscan without the Start of Match flag enabled cannot be compiled with the flag enabled.\n\n\n\n\nSemanticsHyperscan은 기본적으로 libpcre 문법을 따르지만, 약간은 다른 문법를 제공합니다. libpcre 문법과의 주요한 차이는 스트리밍과 다중 동시(multiple simultaneous) 패턴 매칭의 요구 사항들에 의해 발생한 것입니다.\n\nWhile Hyperscan follows libpcre syntax, it provides different semantics. The major departures from libpcre semantics are motivated by the requirements of streaming and multiple simultaneous pattern matching.\n\n\n\nlibpcre 문법과 주요한 차이는 아래와 같습니다.\n\nThe major departures from libpcre semantics are:\n\n\n\n\n다중 패턴 매칭: Hyperscan은 패턴 매칭이 몇몇 패턴에 대해 동시에 분석되도록 허용합니다. 이것은 libpcre에서 |(파이프)를 통해 패턴들을 구분하는 것과는 다릅니다.\n순서를 보장하지 않음: Hyperscan에서 제공하는 다중 매치는 순서를 보장하지 않습니다.\n종료 오프셋만 제공: Hyperscan의 기본 동작은 매칭의 종료 오프셋만을 알려주도록 되어있습니다. 시작 오프셋 값의 사용 여부는 패턴 컴파일 타임에 표현식 마다 특정 플래그값(HS_FLAG_SOM_LEFTMOS)을 통해 설정할 수 있습니다. Start of Match 단락에서 자세한 내용을 살펴볼 수 있습니다.\n“모든 매칭”에 대한 리포트: 표현식 fooxyzbarbar에 대해 foo.*bar 패턴을 스캔하는 경우 Hyperscan은 2가지 매칭 결과(fooxyzbar와 fooxyzbarbar의 끝지점과 일치하는 시점에)를 반환할 것입니다. 이와 대조적으로 기본적인 libpcre 문법에서는 오로지 하나의 매칭 결과만을 반환하게 됩니다. (greedy semantics을 사용하는 경우라면 fooxyzbarbar를 non-greedy semantics을 사용하는 경우라면 fooxyzbar를) 이것은 greedy와 non-greedy semantics간의 전환 과정이 Hyperscan에서는 존재하지 않는다는 것을 의미합니다.\n\n\n\nMultiple pattern matching: Hyperscan allows matches to be reported for several patterns simultaneously. This is not equivalent to separating the patterns by | in libpcre, which evaluates alternations left-to-right.\nLack of ordering: the multiple matches that Hyperscan produces are not guaranteed to be ordered, although they will always fall within the bounds of the current scan.\nEnd offsets only: Hyperscan’s default behaviour is only to report the end offset of a match. Reporting of the start offset can be enabled with per-expression flags at pattern compile time. See Start of Match for details.\n“All matches” reported: scanning /foo.*bar/ against fooxyzbarbar will return two matches from Hyperscan – at the points corresponding to the ends of fooxyzbar and fooxyzbarbar. In contrast, libpcre semantics by default would report only one match at fooxyzbarbar (greedy semantics) or, if non-greedy semantics were switched on, one match at fooxyzbar. This means that switching between greedy and non-greedy semantics is a no-op in Hyperscan.\n\n\n\n\nStart of Match(SOM)기본적으로 Hyperscan은 매칭 콜백 함수(패턴 매칭이 발생하는 경우 어플리케이션에게 호출 결과를 알려주는 콜백 함수)가 호출될 때 매칭의 종료 오프셋만을 제공할 것입니다. 만약 HS_FLAG_SOM_LEFTMOST 플래그값을 특정 패턴에 적용한다면 동일한 매칭 결과뿐만 아니라 종료 오프셋에 부합하는 가장 왼쪽의 시작 오프셋도 제공할 것입니다.\n\nIn standard operation, Hyperscan will only provide the end offset of a match when the match callback is called. If the HS_FLAG_SOM_LEFTMOST flag is specified for a particular pattern, then the same set of matches is returned, but each match will also provide the leftmost possible start offset corresponding to its end offset.\n\n\n\nSOM(Start of Match) 플래그의 사용은 몇가지 트레이드오프와 제한들을 수반합니다.\n\nUsing the SOM flag entails a number of trade-offs and limitations:\n\n\n\n\n지원하는 패턴의 감소: 많은 패턴에 대해, SOM을 추적하는 과정은 복잡하며 Hyperscan의 패턴 컴파일 과정에서 “Pattern too large” 에러를 발생시킬 수 있습니다. (SOM 플래그를 사용하지 않으면 지원하는 패턴이라할지라도)\n증가된 스트림 상태: 스캔 시점에 상태 공간은 SOM 오프셋값을 추적하는데 필요하며, 스트리밍 모드 사용 시 해당 공간에는 지속적인 스트림 상태 정보가 저장되어야합니다. 이와 같은 이유로 SOM은 패턴 매칭 시 요구되는 스트림 상태를 증가시킬 것입니다.\n성능 오버헤드: 일반적으로 SOM을 추적하는 것과 관련된 성능 비용이 존재합니다.\n양립할 수 없는 특성: 몇가지 다른 Hyperscan 패턴 플래그(HS_FLAG_SINGLEMATCH나 HS_FLAG_PREFILTER)들과 SOM은 동시에 사용될 수 없습니다. 이들을 HS_FLAG_SOM_LEFTMOST와 함께 사용하는 경우에는 컴파일 에러를 발생시킬 것입니다.\n\n\n\nReduced pattern support: For many patterns, tracking SOM is complex and can result in Hyperscan failing to compile a pattern with a “Pattern too large” error, even if the pattern is supported in normal operation.\nIncreased stream state: At scan time, state space is required to track potential SOM offsets, and this must be stored in persistent stream state in streaming mode. Accordingly, SOM will generally increase the stream state required to match a pattern.\nPerformance overhead: Similarly, there is generally a performance cost associated with tracking SOM.\nIncompatible features: Some other Hyperscan pattern flags (such as HS_FLAG_SINGLEMATCH and HS_FLAG_PREFILTER) can not be used in combination with SOM. Specifying them together with HS_FLAG_SOM_LEFTMOST will result in a compilation error.\n\n\n\n\n스트리밍 모드에서는 SOM에 의해 전달되는 정밀성의 정도를 SOM horizon 플래그들을 통해 조절할 수 있습니다. 이 플래그들은 Hyperscan이 종료 오프셋의 특정 길이 내에서 정확한 SOM 정보를 전달하도록 하며, 그렇지않은 경우에는 HS_OFFSET_PAST_HORIZON의 특별한 시작 오프셋을 반환하도록 합니다.\n\nIn streaming mode, the amount of precision delivered by SOM can be controlled with the SOM horizon flags. These instruct Hyperscan to deliver accurate SOM information within a certain distance of the end offset, and return a special start offset of HS_OFFSET_PAST_HORIZON otherwise. Specifying a small or medium SOM horizon will usually reduce the stream state required for a given database.\n\n스트리밍 모드에서 매칭 결과로 반환되는 시작 오프셋은 현재 스캔중인 블록 이전의 스트림 내 한 지점을 가리킵니다. Hyperscan은 이전 블록들을 평가하는 도구를 제공하지 않습니다; 만약 이전 데이터에 대한 검사가 필요하다면 어플리케이션 자체적으로 그 데이터들을 저장해야만 합니다.\nIn streaming mode, the start offset returned for a match may refer to a point in the stream before the current block being scanned. Hyperscan provides no facility for accessing earlier blocks; if the calling application needs to inspect historical data, then it must store it itself.\n\n\n\n\n\n\nScanning for PatternsHyperscan은 3가지 다른 스캐닝 모드를 제공합니다. 각각의 모드들은 hs_scan으로 시작하는 그들만의 스캐닝 함수를 갖고 있습니다. 추가적으로 스트리밍 모드에는 스트림 상태를 관리하는 몇가지 다른 API 함수들이 존재합니다.\n\nHyperscan provides three different scanning modes, each with its own scan function beginning with hs_scan. In addition, streaming mode has a number of other API functions for managing stream state.\n\n\n\nHandling Matches매칭이 발생한 경우 모든 스캐닝 함수들은 사용자가 정의한 콜백 함수를 호출할 것입니다. 이 콜백 함수는 아래와 같은 반환 값과 매개변수를 갖습니다:\n\nAll of these functions will call a user-supplied callback function when a match is found. This function has the following signature:\n\n1typedef int (*match_event_handler)(unsigned int id, unsigned long long from, unsigned long long to, unsigned int flags, void *context)\n\n매개변수 id에는 매칭된 표현에대해 컴파일 타임에 입력됐던 id값이 저장되며, 매개변수 to에는 매칭의 종료 오프셋이 저장될 것입니다. 만약 해당 패턴에 SOM이 요청됐다면, 매개변수 from에는 매칭의 가장 왼쪽의 시작 오프셋이 저장될 것입니다.\n\nThe id argument will be set to the identifier for the matching expression provided at compile time, and the to argument will be set to the end-offset of the match. If SOM was requested for the pattern (see Start of Match), the from argument will be set to the leftmost possible start-offset for the match.\n\n\n\n콜백 함수에는 0이 아닌 값을 반환하여 스캐닝 작업을 중지할 수 있는 기능이 있습니다.\n\nThe match callback function has the capability to halt scanning by returning a non-zero value.\n\n\n\n콜백 함수에 대한 더 많은 정보는 match_event_handler을 참조하시기 바랍니다.\n\nSee match_event_handler for more information.\n\n\n\nStreaming Mode일단은 블록모드부터😁링크 참조\n\n\nBlock Mode블록 모드 API는 hs_scan() 함수 하나로 구성되어 있습니다. 해당 함수는 컴파일된 패턴을 사용하여 타겟 데이터내의 매치 정보를 추출하고, 함수 포인터 콜백을 사용하여 어플리케이션과 통신합니다.\n\nThe block mode runtime API consists of a single function: hs_scan(). Using the compiled patterns this function identifies matches in the target data, using a function pointer callback to communicate with the application.\n\nhs_scan() 함수는 블록 모드에서는 스트림과 관련된 오버레드를 발생시키지 않는 다는 점만 제외하면 hs_open_stream() → hs_scan_stream() → hs_close_stream()의 호출 과정과 동일합니다.\n\nThis single hs_scan() function is essentially equivalent to calling hs_open_stream(), making a single call to hs_scan_stream(), and then hs_close_stream(), except that block mode operation does not incur all the stream related overhead.\n\n\n\nVectored Mode일단은 블록모드부터😁링크 참조\n\n\nScratch Space데이터를 스캐닝하는 동안 Hyperscan은 그때 그때 생성되는 내부 데이터를 저장하기 위한 용도로 임시 메모리 공간의 일부를 필요로합니다. 이 메모리 공간이 불운하게도 스택에 올라가기에는 너무 크고, 특히나 임베디드 어플리케이션의 경우에, 동적으로 할당하기에는 비용이 너무나 큽니다. 그래서 미리 할당되는 공간인 “스크래치” 공간이 스캐닝 함수에 제공되어야만 합니다.\n\nWhile scanning data, Hyperscan needs a small amount of temporary memory to store on-the-fly internal data. This amount is unfortunately too large to fit on the stack, particularly for embedded applications, and allocating memory dynamically is too expensive, so a pre-allocated “scratch” space must be provided to the scanning functions.\n\n\n\nhs_alloc_scratch() 함수는 주어진 데이터베이스를 지원하기 위해 충분히 큰 스크래치 공간을 할당합니다. 만약 어플리케이션이 다중 데이터베이스를 사용하는 경우라면, 오직 하나의 스크래치 영역만이 필요합니다: 이 경우, 각각의 데이터베이스마다 (동일한 스크래치 포인터로) hs_alloc_scratch()함수를 호출하는 것은 주어진 데이터베이스라면 어떠한 것이든지 스캐닝을 지원하기 위한 충분한 스크래치 공간을 보장합니다.\n\nThe function hs_alloc_scratch() allocates a large enough region of scratch space to support a given database. If the application uses multiple databases, only a single scratch region is necessary: in this case, calling hs_alloc_scratch() on each database (with the same scratch pointer) will ensure that the scratch space is large enough to support scanning against any of the given databases.\n\n\n\nHyperscan 라이브러리는 re-entrant(여러 쓰레드가 코드를 동시에 수행할 수 있고, 그런 경우에도 실행 결과의 correctness가 보장되는 것) 하지만, 스크래치 공간의 사용은 그렇지 않습니다. 예를 들어, 구성 상 재귀적이고 중첩되는 스캐닝 동작이 필요로 하다면, 컨텍스트 마다의 스크래치 공간이 요구됩니다.\n\nWhile the Hyperscan library is re-entrant, the use of scratch spaces is not. For example, if by design it is deemed necessary to run recursive or nested scanning (say, from the match callback function), then an additional scratch space is required for that context.\n\n재귀적인 스캐닝이 없는 경우라면, 쓰레드 하나 당 오로지 하나의 스크래치 공간만이 필요하며 이 공간은 데이터 스캐닝이 시작되기 전에 할당될 수 있습니다.\n\nIn the absence of recursive scanning, only one such space is required per thread and can (and indeed should) be allocated before data scanning is to commence.\n\n하나의 “main” 쓰레드에서 표현식들의 집합이 컴파일되고 데이터가 다중 “worker” 쓰레드에 의해 스캐닝되는 상황에서는, hs_clone_scratch()라는 편리한 함수가 이미 존재하는 스크래치 공간의 복사본이 각각의 쓰레드들에게 할당될 수 있도록해줍니다.\n\nIn a scenario where a set of expressions are compiled by a single “main” thread and data will be scanned by multiple “worker” threads, the convenience function hs_clone_scratch() allows multiple copies of an existing scratch space to be made for each thread (rather than forcing the caller to pass all the compiled databases through hs_alloc_scratch() multiple times).\n\n\n\n예를 들어\n\nFor example:\n\n12345678910111213141516171819202122232425262728hs_error_t err;hs_scratch_t *scratch_prototype = NULL;err = hs_alloc_scratch(db, &amp;scratch_prototype);if (err != HS_SUCCESS) &#123;    printf(&quot;hs_alloc_scratch failed!&quot;);    exit(1);&#125;hs_scratch_t *scratch_thread1 = NULL;hs_scratch_t *scratch_thread2 = NULL;// 위에서 할당한 scratch_prototype 공간을 복사(clone)해서 scratch_thread1에서도 사용err = hs_clone_scratch(scratch_prototype, &amp;scratch_thread1);if (err != HS_SUCCESS) &#123;    printf(&quot;hs_clone_scratch failed!&quot;);    exit(1);&#125;// 위에서 할당한 scratch_prototype 공간을 복사(clone)해서 scratch_thread2에서도 사용err = hs_clone_scratch(scratch_prototype, &amp;scratch_thread2);if (err != HS_SUCCESS) &#123;    printf(&quot;hs_clone_scratch failed!&quot;);    exit(1);&#125;hs_free_scratch(scratch_prototype);/* Now two threads can both scan against database db, each with its own scratch space. */\n\n\n\n해당 게시글에서 발생한 오탈자나 잘못된 내용에 대한 정정 댓글 격하게 환영합니다😎\n\nReference\n\nhttps://www.hyperscan.io/\nhttp://intel.github.io/hyperscan/dev-reference/index.html\nhttps://github.com/intel/hyperscan\nhttp://pcre.org/\n\n","dateCreated":"2021-09-24T16:51:56+09:00","dateModified":"2023-06-09T14:02:43+09:00","datePublished":"2021-09-24T16:51:56+09:00","description":"이번 포스팅에서는 인텔 Hyperscan의 공식 문서를 통해 컴파일(compile)이나 스캔(scan)과 같은 Hyperscan의 기본적인 개념들에 대해 알아보도록 하겠습니다. 추후에는 Hyperscan API를 직접 사용하여 정규 표현식 패턴 매칭을 수행하는 샘플 코드도 업로드할 예정입니다.","headline":"인텔 Hyperscan 레퍼런스 가이드 번역","image":[],"mainEntityOfPage":{"@type":"WebPage","@id":"https://chelseafandev.github.io/2021/09/24/hyperscan-phase1/"},"publisher":{"@type":"Organization","name":"첼시팬개발자","sameAs":[],"image":"chelsea_logo.png","logo":{"@type":"ImageObject","url":"chelsea_logo.png"}},"url":"https://chelseafandev.github.io/2021/09/24/hyperscan-phase1/","keywords":"hyperscan, regex, regular expression, 인텔 하이퍼스캔, 정규표현식 패턴 매칭"}</script>
+    <meta name="description" content="이번 포스팅에서는 인텔 Hyperscan의 공식 문서를 통해 컴파일(compile)이나 스캔(scan)과 같은 Hyperscan의 기본적인 개념들에 대해 알아보도록 하겠습니다. 추후에는 Hyperscan API를 직접 사용하여 정규 표현식 패턴 매칭을 수행하는 샘플 코드도 업로드할 예정입니다.">
+<meta property="og:type" content="blog">
+<meta property="og:title" content="인텔 Hyperscan 레퍼런스 가이드 번역">
+<meta property="og:url" content="https://chelseafandev.github.io/2021/09/24/hyperscan-phase1/index.html">
+<meta property="og:site_name" content="첼시팬 개발자 작업 공간">
+<meta property="og:description" content="이번 포스팅에서는 인텔 Hyperscan의 공식 문서를 통해 컴파일(compile)이나 스캔(scan)과 같은 Hyperscan의 기본적인 개념들에 대해 알아보도록 하겠습니다. 추후에는 Hyperscan API를 직접 사용하여 정규 표현식 패턴 매칭을 수행하는 샘플 코드도 업로드할 예정입니다.">
+<meta property="og:locale" content="ko_KR">
+<meta property="article:published_time" content="2021-09-24T07:51:56.000Z">
+<meta property="article:modified_time" content="2023-06-09T05:02:43.802Z">
+<meta property="article:author" content="첼시팬개발자">
+<meta property="article:tag" content="hyperscan">
+<meta property="article:tag" content="regex">
+<meta property="article:tag" content="regular expression">
+<meta property="article:tag" content="인텔 하이퍼스캔">
+<meta property="article:tag" content="정규표현식 패턴 매칭">
+<meta name="twitter:card" content="summary">
+    
+    
+        
+    
+    
+        <meta property="og:image" content="https://chelseafandev.github.io/assets/images/chelsea_logo.png">
+    
+    
+    
+    
+    <!--STYLES-->
+    
+<link rel="stylesheet" href="/assets/css/all.css">
+
+    
+<link rel="stylesheet" href="/assets/css/jquery.fancybox.css">
+
+    
+<link rel="stylesheet" href="/assets/css/thumbs.css">
+
+    
+<link rel="stylesheet" href="/assets/css/tranquilpeak.css">
+
+    <!--STYLES END-->
+    
+
+    
+
+    
+        
+    
+    <link rel="canonical" href="https://chelseafandev.github.io/2021/09/24/hyperscan-phase1/">
+</head>
+
+    <body>
+        <div id="blog">
+            <!-- Define author's picture -->
+
+
+    
+        
+            
+        
+    
+
+<header id="header" data-behavior="4">
+    <i id="btn-open-sidebar" class="fa fa-lg fa-bars"></i>
+    <div class="header-title">
+        <a class="header-title-link" href="/" aria-label>
+            첼시팬 개발자 작업 공간
+        </a>
+    </div>
+    
+        
+            <a class="header-right-picture " href="#about" aria-label="링크 열기: /#about">
+        
+        
+            <img class="header-picture" src="/assets/images/chelsea_logo.png" alt="저자 이미지">
+        
+        </a>
+    
+</header>
+
+            <!-- Define author's picture -->
+
+
+
+        
+    
+
+<nav id="sidebar" data-behavior="4" style="border-top-width: 100px;padding-top: 150px;">
+    <div class="sidebar-container">
+        
+            <div class="sidebar-profile">
+                <a href="/#about" aria-label="저자에 대해 더 알아보기">
+                    <img class="sidebar-profile-picture" src="/assets/images/chelsea_logo.png" alt="저자 이미지">
+                </a>
+                <h4 class="sidebar-profile-name">첼시팬개발자</h4>
+                
+                    <h5 class="sidebar-profile-bio"><p>조금 더디더라도 꾸준히</p>
+</h5>
+                
+            </div>
+        
+        
+            <ul class="sidebar-buttons">
+            
+                <li class="sidebar-button">
+                    
+                        <a class="sidebar-button-link " href="/" rel="noopener" title="전체글">
+                        <i class="sidebar-button-icon fas fa-list-ul" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">전체글</span>
+                    </a>
+            </li>
+            
+                <li class="sidebar-button">
+                    
+                        <a class="sidebar-button-link " href="/all-categories" rel="noopener" title="카테고리">
+                        <i class="sidebar-button-icon fa fa-bookmark" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">카테고리</span>
+                    </a>
+            </li>
+            
+                <li class="sidebar-button">
+                    
+                        <a class="sidebar-button-link " href="/all-tags" rel="noopener" title="태그">
+                        <i class="sidebar-button-icon fa fa-tags" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">태그</span>
+                    </a>
+            </li>
+            
+                <li class="sidebar-button">
+                    
+                        <a class="sidebar-button-link " href="/all-archives" rel="noopener" title="아카이브">
+                        <i class="sidebar-button-icon fa fa-archive" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">아카이브</span>
+                    </a>
+            </li>
+            
+                <li class="sidebar-button">
+                    
+                        <a class="sidebar-button-link " href="https://github.com/chelseafandev" target="_blank" rel="external nofollow noopener noreferrer" title="GitHub">
+                        <i class="sidebar-button-icon fab fa-github" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">GitHub</span>
+                    </a>
+            </li>
+            
+                <li class="sidebar-button">
+                    
+                        <a class="sidebar-button-link " href="/rss2.xml" rel="noopener" title="RSS">
+                        <i class="sidebar-button-icon fa fa-rss" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">RSS</span>
+                    </a>
+            </li>
+            
+        </ul>
+        
+    </div>
+</nav>
+
+            
+            <div id="main" data-behavior="4" class="
+                        hasCoverMetaIn
+                        ">
+                
+<article class="post">
+    
+    
+        <div class="post-header main-content-wrap text-left">
+    
+        <h1 class="post-title">
+            인텔 Hyperscan 레퍼런스 가이드 번역
+        </h1>
+    
+    
+        <div class="post-meta">
+    <time datetime="2021-09-24T16:51:56+09:00">
+	
+		    2021/09/24 16:51:56
+    	
+    </time>
+    
+        <span>카테고리 </span>
+        
+    <a class="category-link" href="/categories/%EA%B8%B0%EC%88%A0%EB%AC%B8%EC%84%9C-%EB%B2%88%EC%97%AD/">기술문서 번역</a>
+
+
+    
+    
+        -
+        <span class="reading-time">⏱</span>
+        
+            읽는데 22 분 정도 소요 예상
+        
+        
+    
+</div>
+
+    
+</div>
+
+    
+    <div class="post-content markdown">
+        <div class="main-content-wrap">
+            <p>이번 포스팅에서는 인텔 Hyperscan의 <a target="_blank" rel="external nofollow noopener noreferrer" href="http://intel.github.io/hyperscan/dev-reference/index.html">공식 문서</a>를 통해 컴파일(compile)이나 스캔(scan)과 같은 Hyperscan의 기본적인 개념들에 대해 알아보도록 하겠습니다. 추후에는 Hyperscan API를 직접 사용하여 정규 표현식 패턴 매칭을 수행하는 샘플 코드도 업로드할 예정입니다.</p>
+<span id="more"></span>
+
+<br>
+
+<h1 id="table-of-contents">목차</h1><ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#Introduction"><span class="toc-number">1.</span> <span class="toc-text">Introduction</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#Compilation"><span class="toc-number">1.1.</span> <span class="toc-text">Compilation</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#Scanning"><span class="toc-number">1.2.</span> <span class="toc-text">Scanning</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Compiling-Patterns"><span class="toc-number">2.</span> <span class="toc-text">Compiling Patterns</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#Building-a-Database"><span class="toc-number">2.1.</span> <span class="toc-text">Building a Database</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#Pattern-Support"><span class="toc-number">2.2.</span> <span class="toc-text">Pattern Support</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#Supported-Constructs"><span class="toc-number">2.2.1.</span> <span class="toc-text">Supported Constructs</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#Semantics"><span class="toc-number">2.3.</span> <span class="toc-text">Semantics</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#Start-of-Match-SOM"><span class="toc-number">2.3.1.</span> <span class="toc-text">Start of Match(SOM)</span></a></li></ol></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Scanning-for-Patterns"><span class="toc-number">3.</span> <span class="toc-text">Scanning for Patterns</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#Handling-Matches"><span class="toc-number">3.1.</span> <span class="toc-text">Handling Matches</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#Streaming-Mode"><span class="toc-number">3.2.</span> <span class="toc-text">Streaming Mode</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#Block-Mode"><span class="toc-number">3.3.</span> <span class="toc-text">Block Mode</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#Vectored-Mode"><span class="toc-number">3.4.</span> <span class="toc-text">Vectored Mode</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#Scratch-Space"><span class="toc-number">3.5.</span> <span class="toc-text">Scratch Space</span></a></li></ol></li></ol>
+
+<br>
+
+<h2 id="Introduction"><a href="#Introduction" class="headerlink" title="Introduction"></a>Introduction</h2><p>Hyperscan은 높은 성능과 유연성을 고려하여 디자인된 정규 표현식 매칭 엔진 소프트웨어 입니다. 이것은 직관적인 C API 형태의 라이브러리로 구현되었습니다.</p>
+<blockquote>
+<p>Hyperscan is a software regular expression matching engine designed with high performance and flexibility in mind. It is implemented as a library that exposes a straightforward C API.</p>
+</blockquote>
+<br>
+
+<p>Hyperscan API는 2가지 요소(<strong>compilation</strong>과 <strong>scanning</strong>)로 구성되어 있습니다.</p>
+<blockquote>
+<p>The Hyperscan API itself is composed of two major components:</p>
+</blockquote>
+<br>
+
+<h3 id="Compilation"><a href="#Compilation" class="headerlink" title="Compilation"></a>Compilation</h3><p>이 함수들은 식별자나 옵션 플래그값에 따른 정규 표현식 그룹을 전달받아 Hyperscan의 scanning API에서 사용하는 변경이 불가한 데이터베이스 형태로 변환(compile)합니다. 이 변환 과정에서 주어진 표현식들을 효율적으로 매칭하기위한 데이터베이스를 생성하기 위해 많은 양의 분석 및 최적화 작업을 수행합니다.</p>
+<blockquote>
+<p>These functions take a group of regular expressions, along with identifiers and option flags, and compile them into an immutable database that can be used by the Hyperscan scanning API. This compilation process performs considerable analysis and optimization work in order to build a database that will match the given expressions efficiently.</p>
+</blockquote>
+<br>
+
+<p>만약 (Hyperscan에서 지원하지 않는 정규표현식을 사용하거나 리소스 임계치 초과와 같은)어떠한 이유에서든 특정 패턴이 데이터베이스화되지 않는다면 패턴 컴파일러에 의해 에러가 반환될 것입니다.</p>
+<blockquote>
+<p>If a pattern cannot be built into a database for any reason (such as the use of an unsupported expression construct, or the overflowing of a resource limit), an error will be returned by the pattern compiler.</p>
+</blockquote>
+<br>
+
+<p>변환된 데이터베이스는 직렬화되거나 재배치될 수 있으며 이를 통해 디스크에 저장되거나 호스트 간 이동이 가능합니다. 또한 이 데이터베이스는 특정한 플랫폼 특성의 대상이 될 수 있습니다. (예를 들어, Intel® AVX2 지시어의 사용)</p>
+<blockquote>
+<p>Compiled databases can be serialized and relocated, so that they can be stored to disk or moved between hosts. They can also be targeted to particular platform features (for example, the use of Intel® Advanced Vector Extensions 2 (Intel® AVX2) instructions).</p>
+</blockquote>
+<br>
+
+<h3 id="Scanning"><a href="#Scanning" class="headerlink" title="Scanning"></a>Scanning</h3><p>일단 Hyperscan 데이터베이스가 생성이 된다면, 이 데이터베이스는 메모리 상에 있는 데이터를 스캔하기 위해 사용될 수 있습니다. Hyperscan은 몇가지 스캐닝 모드를 제공하는데, 이 모드는 스캔한 데이터가 단일 인접 블록(single contiguous block)으로 사용이 가능한지, 메모리에 있는 몇몇 블록에 동시에 분배가 가능한지 또는 스트림 안에서 일련의 블록(sequence of blocks)으로 스캔되는지에 따라 결정됩니다.</p>
+<blockquote>
+<p>Once a Hyperscan database has been created, it can be used to scan data in memory. Hyperscan provides several scanning modes, depending on whether the data to be scanned is available as a single contiguous block, whether it is distributed amongst several blocks in memory at the same time, or whether it is to be scanned as a sequence of blocks in a stream.</p>
+</blockquote>
+<br>
+
+<p>매칭된 정보는 각각의 매칭 과정에서 동기적으로 호출되는 사용자 정의 콜백 함수를 통해 어플리케이션으로 전달됩니다.</p>
+<blockquote>
+<p>Matches are delivered to the application via a user-supplied callback function that is called synchronously for each match.</p>
+</blockquote>
+<br>
+
+<p>주어진 데이터베이스에 대해, Hyperscan은 몇가지 보장들을 제공합니다.</p>
+<blockquote>
+<p>For a given database, Hyperscan provides several guarantees:</p>
+</blockquote>
+<br>
+
+<ul>
+<li>2가지 고정 사이즈 할당을 제외하면 런타임시에 메모리 할당은 발생하지 않으며, 2가지 고정 사이즈 할당 과정은 반드시 performance-critical 어플리케이션 전에 끝나야합니다.<ul>
+<li>스크래치 공간: 스캔 시점에 내부 데이터에 사용되는 임시 메모리 공간입니다. 단일 스캔 호출이 끝난 이후에 scratch 공간 내의 구조들은 유지되지 않습니다.</li>
+<li>스트림 공간: 스트리밍 모드인 경우에만 해당하며, 각각의 스트림에 대한 스캔 호출 사이에서 유지되는 데이터를 저장하기 위해 몇몇 상태 공간이 요구됩니다. 이를 통해 Hyperscan은 복수의 데이터 블록에 걸쳐 매칭되는 정보를 트랙킹할 수 있습니다.</li>
+</ul>
+</li>
+<li>주어진 데이터베이스에서 요구하는 scratch 공간 및 stream 상태(스트리밍 모드에서) 공간의 크기는 고정되어있으며 데이터베이스 컴파일 타임에 결정됩니다. 이는 어플리케이션의 메모리 요구사항을 사전에 알 수 있다는 의미이며, 성능상의 이유로 필요한 경우라면, 이러한 구조들은 미리 할당될 수 있습니다.</li>
+<li>Hyperscan 컴파일러에 의해 정상적으로 컴파일된 패턴이라면 어떠한 입력 값이 들어오더라도 스캔이 가능합니다. 런타임 시 스캔 호출이 에러를 반환하도록 하는 내부적인 리소스 제한이나 다른 제약사항들은 없습니다.</li>
+</ul>
+<blockquote>
+<ul>
+<li>No memory allocations occur at runtime with the exception of two fixed-size allocations, both of which should be done ahead of time for performance-critical applications:<ul>
+<li>Scratch space: temporary memory used for internal data at scan time. Structures in scratch space do not persist beyond the end of a single scan call.</li>
+<li>Stream state: in streaming mode only, some state space is required to store data that persists between scan calls for each stream. This allows Hyperscan to track matches that span multiple blocks of data.</li>
+</ul>
+</li>
+<li>The sizes of the scratch space and stream state (in streaming mode) required for a given database are fixed and determined at database compile time. This means that the memory requirements of the application are known ahead of time, and these structures can be pre-allocated if required for performance reasons.</li>
+<li>Any pattern that has successfully been compiled by the Hyperscan compiler can be scanned against any input. There are no internal resource limits or other limitations at runtime that could cause a scan call to return an error.</li>
+</ul>
+</blockquote>
+<br>
+<br>
+
+<hr>
+<h2 id="Compiling-Patterns"><a href="#Compiling-Patterns" class="headerlink" title="Compiling Patterns"></a>Compiling Patterns</h2><h3 id="Building-a-Database"><a href="#Building-a-Database" class="headerlink" title="Building a Database"></a>Building a Database</h3><p>Hyperscan 컴파일러 API는 정규표현식을 입력받아 그것들을 스캔 작업시에 사용되는 컴파일된 패턴 데이터베이스 형태로 변환합니다.</p>
+<blockquote>
+<p>The Hyperscan compiler API accepts regular expressions and converts them into a compiled pattern database that can then be used to scan data.</p>
+</blockquote>
+<br>
+
+<p>API에서는 정규표현식을 데이터베이스화하기 위한 3가지 형태의 함수를 제공하고 있습니다.</p>
+<blockquote>
+<p>The API provides three functions that compile regular expressions into databases:</p>
+</blockquote>
+<br>
+
+<ol>
+<li>hs_compile(): 단일 정규표현식을 패턴 데이터베이스로 컴파일합니다.</li>
+<li>hs_compile_multi(): 정규표현식의 배열(정규표현식의 집합)을 패턴 데이터베이스로 컴파일합니다. 지원하는 모든 패턴들이 매칭에 성공하는 경우에 반환되는 사용자 정의 구분자(id)를 가지고 동시에 스캔될 것입니다. </li>
+<li>hs_compile_ext_multi(): 위 함수와 마찬가지로 정규표현식의 배열(정규표현식의 집합)을 패턴 데이터베이스로 컴파일하며, 각각의 표현식에 대해 확장된 파라미터가 명시되도록 허용합니다.</li>
+</ol>
+<blockquote>
+<ol>
+<li>hs_compile(): compiles a single expression into a pattern database.</li>
+<li>hs_compile_multi(): compiles an array of expressions into a pattern database. All of the supplied patterns will be scanned for concurrently at scan time, with user-supplied identifiers returned when they match.</li>
+<li>hs_compile_ext_multi(): compiles an array of expressions as above, but allows Extended Parameters to be specified for each expression.</li>
+</ol>
+</blockquote>
+<br>
+
+<p>컴파일 작업은 Hyperscan 라이브러리가 주어진 패턴들을 분석할 수 있도록 해주고, 런타임 시에 계산했다면 비용이 굉장히 클 수 있는 이러한 패턴들을 어떻게하면 최적화된 방식으로 스캔할 수 있을지를 미리 결정하도록 해줍니다.</p>
+<blockquote>
+<p>Compilation allows the Hyperscan library to analyze the given pattern(s) and pre-determine how to scan for these patterns in an optimized fashion that would be far too expensive to compute at run-time.</p>
+</blockquote>
+<br>
+
+<p>표현식들을 컴파일하고자 할때는, 컴파일된 패턴들의 결과가 스트리밍 모드에 사용될것인지 블록 또는 벡터 모드에서 사용될 것인지 여부를 결정해야합니다.</p>
+<blockquote>
+<p>When compiling expressions, a decision needs to be made whether the resulting compiled patterns are to be used in a streaming, block or vectored mode:</p>
+</blockquote>
+<br>
+
+<ul>
+<li>스트리밍 모드: 스캔하려는 대상이 연속적인 스트림이며 이를 한번에 스캔할 수는 없습니다; 데이터의 블록이 순차적으로 스캔되며 스트림 내 여러 블록들에서 매칭이 발생할 수 있습니다. 스트리밍 모드에서 각각의 스트림은 스캔 호출 간의 스트림 상태를 저장하기 위한 메모리 블록을 필요로 합니다.</li>
+<li>블록 모드: 스캔 대상이 개별적이고 인접한 블록이며 이 블록은 한번의 호출로 스캔될 수 있으며 상태값 저장이 필요하지 않습니다.</li>
+<li>벡터 모드: 스캔 대상이 한번에 처리가 가능한 인접하지 않은 블록의 리스트로 구성되어있습니다. 블록 모드와 마찬가지로 상태값 저장은 필요하지 않습니다.</li>
+</ul>
+<blockquote>
+<ul>
+<li>Streaming mode: the target data to be scanned is a continuous stream, not all of which is available at once; blocks of data are scanned in sequence and matches may span multiple blocks in a stream. In streaming mode, each stream requires a block of memory to store its state between scan calls.</li>
+<li>Block mode: the target data is a discrete, contiguous block which can be scanned in one call and does not require state to be retained.</li>
+<li>Vectored mode: the target data consists of a list of non-contiguous blocks that are available all at once. As for block mode, no retention of state is required.</li>
+</ul>
+</blockquote>
+<br>
+
+<p>스트리밍 모드에 사용되는 패턴들을 컴파일하기 위해서는 hs_compile() 함수의 모드 파라미터 값을 HS_MODE_STREAM으로 설정해야합니다; 이와 동일하게, 블록 모드는 HS_MODE_BLCOK, 벡터 모드에서는 HS_MODE_VECTORED로 설정해야합니다. 하나의 모드로 컴파일된 패턴 데이터베이스는 오직 그 모드에서만 사용할 수 있습니다. 패턴 데이터베이스를 컴파일하기 위해 사용된 Hyperscan 버전과 스캔을 위한 Hyperscan 버전은 반드시 일치해야합니다.</p>
+<blockquote>
+<p>To compile patterns to be used in streaming mode, the mode parameter of hs_compile() must be set to HS_MODE_STREAM; similarly, block mode requires the use of HS_MODE_BLOCK and vectored mode requires the use of HS_MODE_VECTORED. A pattern database compiled for one mode (streaming, block or vectored) can only be used in that mode. The version of Hyperscan used to produce a compiled pattern database must match the version of Hyperscan used to scan with it.</p>
+</blockquote>
+<br>
+
+<h3 id="Pattern-Support"><a href="#Pattern-Support" class="headerlink" title="Pattern Support"></a>Pattern Support</h3><p>Hyperscan은 PCRE 라이브러리(“libpcre”)에서 사용되는 패턴 문법(<a target="_blank" rel="external nofollow noopener noreferrer" href="https://www.pcre.org/">https://www.pcre.org</a> 참조)을 지원합니다. 하지만 libpcre에서 사용가능한 모든 구조들을 지원하는 것은 아닙니다. 지원하지 않는 구조들을 사용하는 경우 컴파일 에러를 발생시킬 것입니다.</p>
+<blockquote>
+<p>Hyperscan supports the pattern syntax used by the PCRE library (“libpcre”), described at <a target="_blank" rel="external nofollow noopener noreferrer" href="https://www.pcre.org/">https://www.pcre.org</a>. However, not all constructs available in libpcre are supported. The use of unsupported constructs will result in compilation errors.</p>
+</blockquote>
+<br>
+
+<p>PCRE 8.41 또는 그 상위 버전을 사용해야만 Hyperscan의 PCRE 라이브러리 문법 분석이 유효합니다.</p>
+<blockquote>
+<p>The version of PCRE used to validate Hyperscan’s interpretation of this syntax is 8.41 or above.</p>
+</blockquote>
+<br>
+
+<h4 id="Supported-Constructs"><a href="#Supported-Constructs" class="headerlink" title="Supported Constructs"></a>Supported Constructs</h4><p>지원하는 정규표현식 구조들은 <a target="_blank" rel="external nofollow noopener noreferrer" href="http://intel.github.io/hyperscan/dev-reference/compilation.html#pattern-support">해당 링크</a>를 통해 확인가능하며, 아래 2가지 정보를 참고하시기 바랍니다.</p>
+<div class="alert info"><p>임의 표현식의 매우 큰 반복 횟수를 갖는 경계가 있는 반복 한정사(예를 들어, ([a-z]|bc*d|xy?z){1000,5000})는 패턴 컴파일 타임에 “Pattern too large” 에러를 발생시킬 것입니다.</p>
+<p>Bounded-repeat quantifiers with large repeat counts of arbitrary expressions (e.g. ([a-z]|bc*d|xy?z){1000,5000}) will result in a “Pattern too large” error at pattern compile time.</p>
+</div>
+
+<div class="alert info"><p>매칭의 시작 지점을 추출하는 옵션 플래그값인 HS_FLAG_SOM_LEFTMOST를 사용하여 컴파일하는 경우에는 모든 패턴이 정상적으로 컴파일되지 않을 수 있습니다. 해당 플래그 값을 지원하는 패턴들은 Hyperscan에 의해 정상적으로 컴파일되는 패턴들의 일부입니다; 주목할점은, 매칭의 시작 지점을 추출하는 옵션을 사용하지 않고 Hyperscan 컴파일이 가능한 대다수의 경계가 있는 반복 한정사 형태들은 해당 옵션을 사용하는 경우에는 컴파일되지 않을 수 있습니다. (반복 한정사를 사용하는 패턴들의 경우에는 컴파일 시 SOM값 사용에 주의해야함)</p>
+<p>At this time, not all patterns can be successfully compiled with the HS_FLAG_SOM_LEFTMOST flag, which enables per-pattern support for Start of Match. The patterns that support this flag are a subset of patterns that can be successfully compiled with Hyperscan; notably, many bounded repeat forms that can be compiled with Hyperscan without the Start of Match flag enabled cannot be compiled with the flag enabled.</p>
+</div>
+
+<br>
+
+<h3 id="Semantics"><a href="#Semantics" class="headerlink" title="Semantics"></a>Semantics</h3><p>Hyperscan은 기본적으로 libpcre 문법을 따르지만, 약간은 다른 문법를 제공합니다. libpcre 문법과의 주요한 차이는 스트리밍과 다중 동시(multiple simultaneous) 패턴 매칭의 요구 사항들에 의해 발생한 것입니다.</p>
+<blockquote>
+<p>While Hyperscan follows libpcre syntax, it provides different semantics. The major departures from libpcre semantics are motivated by the requirements of streaming and multiple simultaneous pattern matching.</p>
+</blockquote>
+<br>
+
+<p>libpcre 문법과 주요한 차이는 아래와 같습니다.</p>
+<blockquote>
+<p>The major departures from libpcre semantics are:</p>
+</blockquote>
+<br>
+
+<ol>
+<li>다중 패턴 매칭: Hyperscan은 패턴 매칭이 몇몇 패턴에 대해 동시에 분석되도록 허용합니다. 이것은 libpcre에서 |(파이프)를 통해 패턴들을 구분하는 것과는 다릅니다.</li>
+<li>순서를 보장하지 않음: Hyperscan에서 제공하는 다중 매치는 순서를 보장하지 않습니다.</li>
+<li><u>종료 오프셋만 제공</u>: Hyperscan의 기본 동작은 매칭의 종료 오프셋만을 알려주도록 되어있습니다. 시작 오프셋 값의 사용 여부는 패턴 컴파일 타임에 표현식 마다 특정 플래그값(HS_FLAG_SOM_LEFTMOS)을 통해 설정할 수 있습니다. Start of Match 단락에서 자세한 내용을 살펴볼 수 있습니다.</li>
+<li><u>“모든 매칭”에 대한 리포트</u>: 표현식 fooxyzbarbar에 대해 foo.*bar 패턴을 스캔하는 경우 Hyperscan은 2가지 매칭 결과(fooxyzbar와 fooxyzbarbar의 끝지점과 일치하는 시점에)를 반환할 것입니다. 이와 대조적으로 기본적인 libpcre 문법에서는 오로지 하나의 매칭 결과만을 반환하게 됩니다. (greedy semantics을 사용하는 경우라면 fooxyzbarbar를 non-greedy semantics을 사용하는 경우라면 fooxyzbar를) 이것은 greedy와 non-greedy semantics간의 전환 과정이 Hyperscan에서는 존재하지 않는다는 것을 의미합니다.</li>
+</ol>
+<blockquote>
+<ol>
+<li>Multiple pattern matching: Hyperscan allows matches to be reported for several patterns simultaneously. This is not equivalent to separating the patterns by | in libpcre, which evaluates alternations left-to-right.</li>
+<li>Lack of ordering: the multiple matches that Hyperscan produces are not guaranteed to be ordered, although they will always fall within the bounds of the current scan.</li>
+<li>End offsets only: Hyperscan’s default behaviour is only to report the end offset of a match. Reporting of the start offset can be enabled with per-expression flags at pattern compile time. See Start of Match for details.</li>
+<li>“All matches” reported: scanning /foo.*bar/ against fooxyzbarbar will return two matches from Hyperscan – at the points corresponding to the ends of fooxyzbar and fooxyzbarbar. In contrast, libpcre semantics by default would report only one match at fooxyzbarbar (greedy semantics) or, if non-greedy semantics were switched on, one match at fooxyzbar. This means that switching between greedy and non-greedy semantics is a no-op in Hyperscan.</li>
+</ol>
+</blockquote>
+<br>
+
+<h4 id="Start-of-Match-SOM"><a href="#Start-of-Match-SOM" class="headerlink" title="Start of Match(SOM)"></a>Start of Match(SOM)</h4><p>기본적으로 Hyperscan은 매칭 콜백 함수(패턴 매칭이 발생하는 경우 어플리케이션에게 호출 결과를 알려주는 콜백 함수)가 호출될 때 매칭의 종료 오프셋만을 제공할 것입니다. 만약 HS_FLAG_SOM_LEFTMOST 플래그값을 특정 패턴에 적용한다면 동일한 매칭 결과뿐만 아니라 종료 오프셋에 부합하는 가장 왼쪽의 시작 오프셋도 제공할 것입니다.</p>
+<blockquote>
+<p>In standard operation, Hyperscan will only provide the end offset of a match when the match callback is called. If the HS_FLAG_SOM_LEFTMOST flag is specified for a particular pattern, then the same set of matches is returned, but each match will also provide the leftmost possible start offset corresponding to its end offset.</p>
+</blockquote>
+<br>
+
+<p>SOM(Start of Match) 플래그의 사용은 몇가지 트레이드오프와 제한들을 수반합니다.</p>
+<blockquote>
+<p>Using the SOM flag entails a number of trade-offs and limitations:</p>
+</blockquote>
+<br>
+
+<ul>
+<li>지원하는 패턴의 감소: 많은 패턴에 대해, SOM을 추적하는 과정은 복잡하며 Hyperscan의 패턴 컴파일 과정에서 “Pattern too large” 에러를 발생시킬 수 있습니다. (SOM 플래그를 사용하지 않으면 지원하는 패턴이라할지라도)</li>
+<li>증가된 스트림 상태: 스캔 시점에 상태 공간은 SOM 오프셋값을 추적하는데 필요하며, 스트리밍 모드 사용 시 해당 공간에는 지속적인 스트림 상태 정보가 저장되어야합니다. 이와 같은 이유로 SOM은 패턴 매칭 시 요구되는 스트림 상태를 증가시킬 것입니다.</li>
+<li>성능 오버헤드: 일반적으로 SOM을 추적하는 것과 관련된 성능 비용이 존재합니다.</li>
+<li>양립할 수 없는 특성: 몇가지 다른 Hyperscan 패턴 플래그(HS_FLAG_SINGLEMATCH나 HS_FLAG_PREFILTER)들과 SOM은 동시에 사용될 수 없습니다. 이들을 HS_FLAG_SOM_LEFTMOST와 함께 사용하는 경우에는 컴파일 에러를 발생시킬 것입니다.</li>
+</ul>
+<blockquote>
+<ul>
+<li>Reduced pattern support: For many patterns, tracking SOM is complex and can result in Hyperscan failing to compile a pattern with a “Pattern too large” error, even if the pattern is supported in normal operation.</li>
+<li>Increased stream state: At scan time, state space is required to track potential SOM offsets, and this must be stored in persistent stream state in streaming mode. Accordingly, SOM will generally increase the stream state required to match a pattern.</li>
+<li>Performance overhead: Similarly, there is generally a performance cost associated with tracking SOM.</li>
+<li>Incompatible features: Some other Hyperscan pattern flags (such as HS_FLAG_SINGLEMATCH and HS_FLAG_PREFILTER) can not be used in combination with SOM. Specifying them together with HS_FLAG_SOM_LEFTMOST will result in a compilation error.</li>
+</ul>
+</blockquote>
+<br>
+
+<p>스트리밍 모드에서는 SOM에 의해 전달되는 정밀성의 정도를 SOM horizon 플래그들을 통해 조절할 수 있습니다. 이 플래그들은 Hyperscan이 종료 오프셋의 특정 길이 내에서 정확한 SOM 정보를 전달하도록 하며, 그렇지않은 경우에는 HS_OFFSET_PAST_HORIZON의 특별한 시작 오프셋을 반환하도록 합니다.</p>
+<blockquote>
+<p>In streaming mode, the amount of precision delivered by SOM can be controlled with the SOM horizon flags. These instruct Hyperscan to deliver accurate SOM information within a certain distance of the end offset, and return a special start offset of HS_OFFSET_PAST_HORIZON otherwise. Specifying a small or medium SOM horizon will usually reduce the stream state required for a given database.</p>
+</blockquote>
+<div class="alert info"><p>스트리밍 모드에서 매칭 결과로 반환되는 시작 오프셋은 현재 스캔중인 블록 이전의 스트림 내 한 지점을 가리킵니다. Hyperscan은 이전 블록들을 평가하는 도구를 제공하지 않습니다; 만약 이전 데이터에 대한 검사가 필요하다면 어플리케이션 자체적으로 그 데이터들을 저장해야만 합니다.</p>
+<p>In streaming mode, the start offset returned for a match may refer to a point in the stream before the current block being scanned. Hyperscan provides no facility for accessing earlier blocks; if the calling application needs to inspect historical data, then it must store it itself.</p>
+</div>
+
+<br>
+<br>
+
+<hr>
+<h2 id="Scanning-for-Patterns"><a href="#Scanning-for-Patterns" class="headerlink" title="Scanning for Patterns"></a>Scanning for Patterns</h2><p>Hyperscan은 3가지 다른 스캐닝 모드를 제공합니다. 각각의 모드들은 hs_scan으로 시작하는 그들만의 스캐닝 함수를 갖고 있습니다. 추가적으로 스트리밍 모드에는 스트림 상태를 관리하는 몇가지 다른 API 함수들이 존재합니다.</p>
+<blockquote>
+<p>Hyperscan provides three different scanning modes, each with its own scan function beginning with hs_scan. In addition, streaming mode has a number of other API functions for managing stream state.</p>
+</blockquote>
+<br>
+
+<h3 id="Handling-Matches"><a href="#Handling-Matches" class="headerlink" title="Handling Matches"></a>Handling Matches</h3><p>매칭이 발생한 경우 모든 스캐닝 함수들은 사용자가 정의한 콜백 함수를 호출할 것입니다. 이 콜백 함수는 아래와 같은 반환 값과 매개변수를 갖습니다:</p>
+<blockquote>
+<p>All of these functions will call a user-supplied callback function when a match is found. This function has the following signature:</p>
+</blockquote>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">typedef</span> <span class="title">int</span> <span class="params">(*match_event_handler)</span><span class="params">(<span class="keyword">unsigned</span> <span class="keyword">int</span> id, <span class="keyword">unsigned</span> <span class="keyword">long</span> <span class="keyword">long</span> from, <span class="keyword">unsigned</span> <span class="keyword">long</span> <span class="keyword">long</span> to, <span class="keyword">unsigned</span> <span class="keyword">int</span> flags, <span class="keyword">void</span> *context)</span></span></span><br></pre></td></tr></table></figure>
+
+<p><strong>매개변수 id</strong>에는 매칭된 표현에대해 컴파일 타임에 입력됐던 id값이 저장되며, <strong>매개변수 to</strong>에는 매칭의 종료 오프셋이 저장될 것입니다. 만약 해당 패턴에 SOM이 요청됐다면, <strong>매개변수 from</strong>에는 매칭의 가장 왼쪽의 시작 오프셋이 저장될 것입니다.</p>
+<blockquote>
+<p>The id argument will be set to the identifier for the matching expression provided at compile time, and the to argument will be set to the end-offset of the match. If SOM was requested for the pattern (see Start of Match), the from argument will be set to the leftmost possible start-offset for the match.</p>
+</blockquote>
+<br>
+
+<p>콜백 함수에는 0이 아닌 값을 반환하여 스캐닝 작업을 중지할 수 있는 기능이 있습니다.</p>
+<blockquote>
+<p>The match callback function has the capability to halt scanning by returning a non-zero value.</p>
+</blockquote>
+<br>
+
+<p>콜백 함수에 대한 더 많은 정보는 <a target="_blank" rel="external nofollow noopener noreferrer" href="http://intel.github.io/hyperscan/dev-reference/api_files.html#c.match_event_handler">match_event_handler</a>을 참조하시기 바랍니다.</p>
+<blockquote>
+<p>See match_event_handler for more information.</p>
+</blockquote>
+<br>
+
+<h3 id="Streaming-Mode"><a href="#Streaming-Mode" class="headerlink" title="Streaming Mode"></a>Streaming Mode</h3><p><del>일단은 블록모드부터😁</del><br><a target="_blank" rel="external nofollow noopener noreferrer" href="http://intel.github.io/hyperscan/dev-reference/runtime.html#streaming-mode">링크 참조</a></p>
+<br>
+
+<h3 id="Block-Mode"><a href="#Block-Mode" class="headerlink" title="Block Mode"></a>Block Mode</h3><p>블록 모드 API는 hs_scan() 함수 하나로 구성되어 있습니다. 해당 함수는 컴파일된 패턴을 사용하여 타겟 데이터내의 매치 정보를 추출하고, 함수 포인터 콜백을 사용하여 어플리케이션과 통신합니다.</p>
+<blockquote>
+<p>The block mode runtime API consists of a single function: hs_scan(). Using the compiled patterns this function identifies matches in the target data, using a function pointer callback to communicate with the application.</p>
+</blockquote>
+<p>hs_scan() 함수는 블록 모드에서는 스트림과 관련된 오버레드를 발생시키지 않는 다는 점만 제외하면 hs_open_stream() → hs_scan_stream() → hs_close_stream()의 호출 과정과 동일합니다.</p>
+<blockquote>
+<p>This single hs_scan() function is essentially equivalent to calling hs_open_stream(), making a single call to hs_scan_stream(), and then hs_close_stream(), except that block mode operation does not incur all the stream related overhead.</p>
+</blockquote>
+<br>
+
+<h3 id="Vectored-Mode"><a href="#Vectored-Mode" class="headerlink" title="Vectored Mode"></a>Vectored Mode</h3><p><del>일단은 블록모드부터😁</del><br><a target="_blank" rel="external nofollow noopener noreferrer" href="http://intel.github.io/hyperscan/dev-reference/runtime.html#vectored-mode">링크 참조</a></p>
+<br>
+
+<h3 id="Scratch-Space"><a href="#Scratch-Space" class="headerlink" title="Scratch Space"></a>Scratch Space</h3><p>데이터를 스캐닝하는 동안 Hyperscan은 그때 그때 생성되는 내부 데이터를 저장하기 위한 용도로 임시 메모리 공간의 일부를 필요로합니다. 이 메모리 공간이 불운하게도 스택에 올라가기에는 너무 크고, 특히나 임베디드 어플리케이션의 경우에, 동적으로 할당하기에는 비용이 너무나 큽니다. 그래서 미리 할당되는 공간인 “스크래치” 공간이 스캐닝 함수에 제공되어야만 합니다.</p>
+<blockquote>
+<p>While scanning data, Hyperscan needs a small amount of temporary memory to store on-the-fly internal data. This amount is unfortunately too large to fit on the stack, particularly for embedded applications, and allocating memory dynamically is too expensive, so a pre-allocated “scratch” space must be provided to the scanning functions.</p>
+</blockquote>
+<br>
+
+<p>hs_alloc_scratch() 함수는 주어진 데이터베이스를 지원하기 위해 충분히 큰 스크래치 공간을 할당합니다. 만약 어플리케이션이 다중 데이터베이스를 사용하는 경우라면, 오직 하나의 스크래치 영역만이 필요합니다: 이 경우, 각각의 데이터베이스마다 (동일한 스크래치 포인터로) hs_alloc_scratch()함수를 호출하는 것은 주어진 데이터베이스라면 어떠한 것이든지 스캐닝을 지원하기 위한 충분한 스크래치 공간을 보장합니다.</p>
+<blockquote>
+<p>The function hs_alloc_scratch() allocates a large enough region of scratch space to support a given database. If the application uses multiple databases, only a single scratch region is necessary: in this case, calling hs_alloc_scratch() on each database (with the same scratch pointer) will ensure that the scratch space is large enough to support scanning against any of the given databases.</p>
+</blockquote>
+<br>
+
+<p>Hyperscan 라이브러리는 re-entrant(여러 쓰레드가 코드를 동시에 수행할 수 있고, 그런 경우에도 실행 결과의 correctness가 보장되는 것) 하지만, 스크래치 공간의 사용은 그렇지 않습니다. 예를 들어, 구성 상 재귀적이고 중첩되는 스캐닝 동작이 필요로 하다면, 컨텍스트 마다의 스크래치 공간이 요구됩니다.</p>
+<blockquote>
+<p>While the Hyperscan library is re-entrant, the use of scratch spaces is not. For example, if by design it is deemed necessary to run recursive or nested scanning (say, from the match callback function), then an additional scratch space is required for that context.</p>
+</blockquote>
+<p>재귀적인 스캐닝이 없는 경우라면, 쓰레드 하나 당 오로지 하나의 스크래치 공간만이 필요하며 이 공간은 데이터 스캐닝이 시작되기 전에 할당될 수 있습니다.</p>
+<blockquote>
+<p>In the absence of recursive scanning, only one such space is required per thread and can (and indeed should) be allocated before data scanning is to commence.</p>
+</blockquote>
+<p>하나의 “main” 쓰레드에서 표현식들의 집합이 컴파일되고 데이터가 다중 “worker” 쓰레드에 의해 스캐닝되는 상황에서는, hs_clone_scratch()라는 편리한 함수가 이미 존재하는 스크래치 공간의 복사본이 각각의 쓰레드들에게 할당될 수 있도록해줍니다.</p>
+<blockquote>
+<p>In a scenario where a set of expressions are compiled by a single “main” thread and data will be scanned by multiple “worker” threads, the convenience function hs_clone_scratch() allows multiple copies of an existing scratch space to be made for each thread (rather than forcing the caller to pass all the compiled databases through hs_alloc_scratch() multiple times).</p>
+</blockquote>
+<br>
+
+<p>예를 들어</p>
+<blockquote>
+<p>For example:</p>
+</blockquote>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">hs_error_t</span> err;</span><br><span class="line"><span class="keyword">hs_scratch_t</span> *scratch_prototype = <span class="literal">NULL</span>;</span><br><span class="line">err = <span class="built_in">hs_alloc_scratch</span>(db, &amp;scratch_prototype);</span><br><span class="line"><span class="keyword">if</span> (err != HS_SUCCESS) &#123;</span><br><span class="line">    <span class="built_in">printf</span>(<span class="string">&quot;hs_alloc_scratch failed!&quot;</span>);</span><br><span class="line">    <span class="built_in">exit</span>(<span class="number">1</span>);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">hs_scratch_t</span> *scratch_thread1 = <span class="literal">NULL</span>;</span><br><span class="line"><span class="keyword">hs_scratch_t</span> *scratch_thread2 = <span class="literal">NULL</span>;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 위에서 할당한 scratch_prototype 공간을 복사(clone)해서 scratch_thread1에서도 사용</span></span><br><span class="line">err = <span class="built_in">hs_clone_scratch</span>(scratch_prototype, &amp;scratch_thread1);</span><br><span class="line"><span class="keyword">if</span> (err != HS_SUCCESS) &#123;</span><br><span class="line">    <span class="built_in">printf</span>(<span class="string">&quot;hs_clone_scratch failed!&quot;</span>);</span><br><span class="line">    <span class="built_in">exit</span>(<span class="number">1</span>);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 위에서 할당한 scratch_prototype 공간을 복사(clone)해서 scratch_thread2에서도 사용</span></span><br><span class="line">err = <span class="built_in">hs_clone_scratch</span>(scratch_prototype, &amp;scratch_thread2);</span><br><span class="line"><span class="keyword">if</span> (err != HS_SUCCESS) &#123;</span><br><span class="line">    <span class="built_in">printf</span>(<span class="string">&quot;hs_clone_scratch failed!&quot;</span>);</span><br><span class="line">    <span class="built_in">exit</span>(<span class="number">1</span>);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="built_in">hs_free_scratch</span>(scratch_prototype);</span><br><span class="line"></span><br><span class="line"><span class="comment">/* Now two threads can both scan against database db, each with its own scratch space. */</span></span><br></pre></td></tr></table></figure>
+
+<br>
+<br>
+<span class="highlight-text yellow">해당 게시글에서 발생한 오탈자나 잘못된 내용에 대한 정정 댓글 격하게 환영합니다</span>😎
+
+<p><strong>Reference</strong></p>
+<ul>
+<li><a target="_blank" rel="external nofollow noopener noreferrer" href="https://www.hyperscan.io/">https://www.hyperscan.io/</a></li>
+<li><a target="_blank" rel="external nofollow noopener noreferrer" href="http://intel.github.io/hyperscan/dev-reference/index.html">http://intel.github.io/hyperscan/dev-reference/index.html</a></li>
+<li><a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/intel/hyperscan">https://github.com/intel/hyperscan</a></li>
+<li><a target="_blank" rel="external nofollow noopener noreferrer" href="http://pcre.org/">http://pcre.org/</a></li>
+</ul>
+
+            
+
+
+        </div>
+    </div>
+    <div id="post-footer" class="post-footer main-content-wrap">
+        
+            <div class="post-footer-tags">
+                <span class="text-color-light text-small">태그</span><br>
+                
+    <a class="tag tag--primary tag--small t-none-link" href="/tags/hyperscan/" rel="tag">hyperscan</a> <a class="tag tag--primary tag--small t-none-link" href="/tags/regex/" rel="tag">regex</a> <a class="tag tag--primary tag--small t-none-link" href="/tags/regular-expression/" rel="tag">regular expression</a> <a class="tag tag--primary tag--small t-none-link" href="/tags/%EC%9D%B8%ED%85%94-%ED%95%98%EC%9D%B4%ED%8D%BC%EC%8A%A4%EC%BA%94/" rel="tag">인텔 하이퍼스캔</a> <a class="tag tag--primary tag--small t-none-link" href="/tags/%EC%A0%95%EA%B7%9C%ED%91%9C%ED%98%84%EC%8B%9D-%ED%8C%A8%ED%84%B4-%EB%A7%A4%EC%B9%AD/" rel="tag">정규표현식 패턴 매칭</a>
+
+            </div>
+        
+        
+            <div class="post-actions-wrap">
+    <nav>
+        <ul class="post-actions post-action-nav">
+            <li class="post-action">
+                
+                    
+                <a class="post-action-btn btn btn--default tooltip--top" href="/2021/10/12/hyperscan-phase2/" data-tooltip="인텔 Hyperscan API 테스트 코드 작성" aria-label="이전: 인텔 Hyperscan API 테스트 코드 작성">
+                    
+                        <i class="fa fa-angle-left" aria-hidden="true"></i>
+                        <span class="hide-xs hide-sm text-small icon-ml">이전</span>
+                    </a>
+            </li>
+            <li class="post-action">
+                
+                    
+                <a class="post-action-btn btn btn--default tooltip--top" href="/2021/08/12/tr-son-new-contract/" data-tooltip="(BBC 스포츠) 토트넘 공격수 손흥민 4년 재계약 성사" aria-label="다음: (BBC 스포츠) 토트넘 공격수 손흥민 4년 재계약 성사">
+                    
+                        <span class="hide-xs hide-sm text-small icon-mr">다음</span>
+                        <i class="fa fa-angle-right" aria-hidden="true"></i>
+                    </a>
+            </li>
+        </ul>
+    </nav>
+    <ul class="post-actions post-action-share">
+        <li class="post-action hide-lg hide-md hide-sm">
+            <a class="post-action-btn btn btn--default btn-open-shareoptions" href="#btn-open-shareoptions" aria-label="이 포스트 공유하기">
+                <i class="fa fa-share-alt" aria-hidden="true"></i>
+            </a>
+        </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a class="post-action-btn btn btn--default" target="_blank" href="https://www.facebook.com/sharer/sharer.php?u=https://chelseafandev.github.io/2021/09/24/hyperscan-phase1/" title="Facebook에 공유하기" aria-label="Facebook에 공유하기" rel="external nofollow noopener noreferrer">
+                    <i class="fab fa-facebook" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a class="post-action-btn btn btn--default" target="_blank" href="https://twitter.com/intent/tweet?text=https://chelseafandev.github.io/2021/09/24/hyperscan-phase1/" title="Twitter에 공유하기" aria-label="Twitter에 공유하기" rel="external nofollow noopener noreferrer">
+                    <i class="fab fa-twitter" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a class="post-action-btn btn btn--default" target="_blank" href="https://plus.google.com/share?url=https://chelseafandev.github.io/2021/09/24/hyperscan-phase1/" title="Google+에 공유하기" aria-label="Google+에 공유하기" rel="external nofollow noopener noreferrer">
+                    <i class="fab fa-google-plus" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+        
+            
+        
+        <li class="post-action">
+            
+                <a class="post-action-btn btn btn--default" href="#table-of-contents" aria-label="목차">
+            
+                <i class="fa fa-list" aria-hidden="true"></i>
+            </a>
+        </li>
+    </ul>
+</div>
+
+
+        
+        
+            
+        
+    </div>
+</article>
+
+
+
+<!-- Comment -->
+<!--  utteranc comment -->
+
+<script src="https://utteranc.es/client.js" repo="chelseafandev/blog-comment" issue-term="title" label="Comment" theme="github-light" crossorigin="anonymous" async>
+</script>
+
+                <footer id="footer" class="main-content-wrap">
+    <span class="copyrights">
+        Copyrights &copy; 2024 첼시팬개발자. All Rights Reserved.
+    </span>
+</footer>
+
+            </div>
+            
+                <div id="bottom-bar" class="post-bottom-bar" data-behavior="4">
+                    <div class="post-actions-wrap">
+    <nav>
+        <ul class="post-actions post-action-nav">
+            <li class="post-action">
+                
+                    
+                <a class="post-action-btn btn btn--default tooltip--top" href="/2021/10/12/hyperscan-phase2/" data-tooltip="인텔 Hyperscan API 테스트 코드 작성" aria-label="이전: 인텔 Hyperscan API 테스트 코드 작성">
+                    
+                        <i class="fa fa-angle-left" aria-hidden="true"></i>
+                        <span class="hide-xs hide-sm text-small icon-ml">이전</span>
+                    </a>
+            </li>
+            <li class="post-action">
+                
+                    
+                <a class="post-action-btn btn btn--default tooltip--top" href="/2021/08/12/tr-son-new-contract/" data-tooltip="(BBC 스포츠) 토트넘 공격수 손흥민 4년 재계약 성사" aria-label="다음: (BBC 스포츠) 토트넘 공격수 손흥민 4년 재계약 성사">
+                    
+                        <span class="hide-xs hide-sm text-small icon-mr">다음</span>
+                        <i class="fa fa-angle-right" aria-hidden="true"></i>
+                    </a>
+            </li>
+        </ul>
+    </nav>
+    <ul class="post-actions post-action-share">
+        <li class="post-action hide-lg hide-md hide-sm">
+            <a class="post-action-btn btn btn--default btn-open-shareoptions" href="#btn-open-shareoptions" aria-label="이 포스트 공유하기">
+                <i class="fa fa-share-alt" aria-hidden="true"></i>
+            </a>
+        </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a class="post-action-btn btn btn--default" target="_blank" href="https://www.facebook.com/sharer/sharer.php?u=https://chelseafandev.github.io/2021/09/24/hyperscan-phase1/" title="Facebook에 공유하기" aria-label="Facebook에 공유하기" rel="external nofollow noopener noreferrer">
+                    <i class="fab fa-facebook" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a class="post-action-btn btn btn--default" target="_blank" href="https://twitter.com/intent/tweet?text=https://chelseafandev.github.io/2021/09/24/hyperscan-phase1/" title="Twitter에 공유하기" aria-label="Twitter에 공유하기" rel="external nofollow noopener noreferrer">
+                    <i class="fab fa-twitter" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a class="post-action-btn btn btn--default" target="_blank" href="https://plus.google.com/share?url=https://chelseafandev.github.io/2021/09/24/hyperscan-phase1/" title="Google+에 공유하기" aria-label="Google+에 공유하기" rel="external nofollow noopener noreferrer">
+                    <i class="fab fa-google-plus" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+        
+            
+        
+        <li class="post-action">
+            
+                <a class="post-action-btn btn btn--default" href="#table-of-contents" aria-label="목차">
+            
+                <i class="fa fa-list" aria-hidden="true"></i>
+            </a>
+        </li>
+    </ul>
+</div>
+
+
+                </div>
+                
+    <div id="share-options-bar" class="share-options-bar" data-behavior="4">
+        <i id="btn-close-shareoptions" class="fa fa-times"></i>
+        <ul class="share-options">
+            
+                
+                
+                <li class="share-option">
+                    <a class="share-option-btn" target="_blank" href="https://www.facebook.com/sharer/sharer.php?u=https://chelseafandev.github.io/2021/09/24/hyperscan-phase1/" aria-label="Facebook에 공유하기" rel="external nofollow noopener noreferrer">
+                        <i class="fab fa-facebook" aria-hidden="true"></i><span>Facebook에 공유하기</span>
+                    </a>
+                </li>
+            
+                
+                
+                <li class="share-option">
+                    <a class="share-option-btn" target="_blank" href="https://twitter.com/intent/tweet?text=https://chelseafandev.github.io/2021/09/24/hyperscan-phase1/" aria-label="Twitter에 공유하기" rel="external nofollow noopener noreferrer">
+                        <i class="fab fa-twitter" aria-hidden="true"></i><span>Twitter에 공유하기</span>
+                    </a>
+                </li>
+            
+                
+                
+                <li class="share-option">
+                    <a class="share-option-btn" target="_blank" href="https://plus.google.com/share?url=https://chelseafandev.github.io/2021/09/24/hyperscan-phase1/" aria-label="Google+에 공유하기" rel="external nofollow noopener noreferrer">
+                        <i class="fab fa-google-plus" aria-hidden="true"></i><span>Google+에 공유하기</span>
+                    </a>
+                </li>
+            
+        </ul>
+    </div>
+
+
+            
+        </div>
+        
+
+
+    
+        
+    
+
+<div id="about">
+    <div id="about-card">
+        <div id="about-btn-close">
+            <i class="fa fa-times"></i>
+        </div>
+        
+            <img id="about-card-picture" src="/assets/images/chelsea_logo.png" alt="저자 이미지">
+        
+            <h4 id="about-card-name">첼시팬개발자</h4>
+        
+            <div id="about-card-bio"><p>조금 더디더라도 꾸준히</p>
+</div>
+        
+        
+            <div id="about-card-job">
+                <i class="fa fa-briefcase"></i>
+                <br>
+                <p>개발자</p>
+
+            </div>
+        
+        
+            <div id="about-card-location">
+                <i class="fa fa-map-marker-alt"></i>
+                <br>
+                서울, 대한민국
+            </div>
+        
+    </div>
+</div>
+
+        
+            <div id="algolia-search-modal" class="modal-container">
+    <div class="modal">
+        <div class="modal-header">
+            <span class="close-button"><i class="fa fa-times"></i></span>
+            <a href="https://algolia.com" target="_blank" rel="external nofollow noopener noreferrer" class="searchby-algolia text-color-light link-unstyled">
+                <span class="searchby-algolia-text text-color-light text-small">by</span>
+                <img class="searchby-algolia-logo" src="/assets/images/logo-algolia-nebula-blue-full.svg">
+            </a>
+            <i class="search-icon fa fa-search"></i>
+            <form id="algolia-search-form">
+                <input type="text" id="algolia-search-input" name="search" class="form-control input--large search-input" placeholder="Search ">
+            </form>
+        </div>
+        <div class="modal-body">
+            <div class="no-result text-color-light text-center">포스트가 없습니다.</div>
+            <div class="results">
+                
+                <div class="media">
+                    <!--  -->
+                    <div class="media-body">
+                        <a class="link-unstyled" href="https://chelseafandev.github.io/2021/07/08/hello-hexo/" aria-label=": Hexo Tranquilpeak 테마의 Markdown syntax">
+                            <h3 class="media-heading">Hexo Tranquilpeak 테마의 Markdown syntax</h3>
+                        </a>
+                        <span class="media-meta">
+                            <span class="media-date text-small">
+                                
+                                    2021년 7월 8일
+                                
+                            </span>
+                        </span>
+                        <div class="media-content hide-xs font-nanumsquareround"><p>Hexo 테마 중 하나인 <a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/LouisBarranqueiro/hexo-theme-tranquilpeak/blob/master/DOCUMENTATION.md">Tranquilpeak의 공식 문서</a>를 참조하여 Post시에 활용할 수 있는 다양한 Markdown syntax들을 사용해보았습니다.</p></div>
+                    </div>
+                    <div style="clear:both;"></div>
+                    <hr>
+                </div>
+                
+                <div class="media">
+                    <!-- 
+                    <div class="media-left">
+                        <a
+                            class="link-unstyled"
+                            href="https://chelseafandev.github.io/2021/07/10/tr-ruud-gullit/"
+                            aria-label=": (BBC 스포츠) 첼시 루드 굴리트 25년이 지난 지금 그의 프리미어그리 진출을 애정어린 시선으로 되돌아 보다"
+                        >
+                            <img class="media-image" src="https://chelseafandev.github.io/2021/07/10/tr-ruud-gullit/tr_ruud_gullit_picture_1.png" width="90" height="90"/>
+                        </a>
+                    </div>
+                     -->
+                    <div class="media-body">
+                        <a class="link-unstyled" href="https://chelseafandev.github.io/2021/07/10/tr-ruud-gullit/" aria-label=": (BBC 스포츠) 첼시 루드 굴리트 25년이 지난 지금 그의 프리미어그리 진출을 애정어린 시선으로 되돌아 보다">
+                            <h3 class="media-heading">(BBC 스포츠) 첼시 루드 굴리트 25년이 지난 지금 그의 프리미어그리 진출을 애정어린 시선으로 되돌아 보다</h3>
+                        </a>
+                        <span class="media-meta">
+                            <span class="media-date text-small">
+                                
+                                    2021년 7월 10일
+                                
+                            </span>
+                        </span>
+                        <div class="media-content hide-xs font-nanumsquareround"><p>피파 좀 한다는 사람이라면 모두가 다 알만한 그 분, X사기캐 굴리트😬<br>커리어 막바지에 첼시에서도 잠깐 활약했었네요.<br><a target="_blank" rel="external nofollow noopener noreferrer" href="https://www.bbc.com/sport/football/52904670">BBC Sport에 굴리트가 직접 기고한 회고록 느낌의 글</a>을 한번 번역해보았습니다.</p></div>
+                    </div>
+                    <div style="clear:both;"></div>
+                    <hr>
+                </div>
+                
+                <div class="media">
+                    <!--  -->
+                    <div class="media-body">
+                        <a class="link-unstyled" href="https://chelseafandev.github.io/2021/07/13/os-io-system/" aria-label=": I/O는 어떻게 처리될까?">
+                            <h3 class="media-heading">I/O는 어떻게 처리될까?</h3>
+                        </a>
+                        <span class="media-meta">
+                            <span class="media-date text-small">
+                                
+                                    2021년 7월 13일
+                                
+                            </span>
+                        </span>
+                        <div class="media-content hide-xs font-nanumsquareround"><p>운영 체제의 바이블 <a target="_blank" rel="external nofollow noopener noreferrer" href="https://www.wiley.com/en-us/Operating+System+Concepts%2C+10th+Edition-p-9781119320913">Operating System Concepts</a>(흔히 공룡책🦕이라고들 하죠)을 바탕으로 I/O 시스템에 대해 정리해보았습니다.</p></div>
+                    </div>
+                    <div style="clear:both;"></div>
+                    <hr>
+                </div>
+                
+                <div class="media">
+                    <!--  -->
+                    <div class="media-body">
+                        <a class="link-unstyled" href="https://chelseafandev.github.io/2021/07/22/tip-how-to-use-tmux-md/" aria-label=": 강력한 터미널 멀티플렉서 tmux를 활용해보자">
+                            <h3 class="media-heading">강력한 터미널 멀티플렉서 tmux를 활용해보자</h3>
+                        </a>
+                        <span class="media-meta">
+                            <span class="media-date text-small">
+                                
+                                    2021년 7월 22일
+                                
+                            </span>
+                        </span>
+                        <div class="media-content hide-xs font-nanumsquareround"><p>이번엔 익숙해지면 정말 강력한 터미널 멀티플렉서인 tmux에 대해 소개해보려고 합니다.</p></div>
+                    </div>
+                    <div style="clear:both;"></div>
+                    <hr>
+                </div>
+                
+                <div class="media">
+                    <!--  -->
+                    <div class="media-body">
+                        <a class="link-unstyled" href="https://chelseafandev.github.io/2021/08/02/os-sync-async-block-nonblock/" aria-label=": Blocking, Nonblocking, Sync, Async">
+                            <h3 class="media-heading">Blocking, Nonblocking, Sync, Async</h3>
+                        </a>
+                        <span class="media-meta">
+                            <span class="media-date text-small">
+                                
+                                    2021년 8월 2일
+                                
+                            </span>
+                        </span>
+                        <div class="media-content hide-xs font-nanumsquareround"><p>오늘은 공룡책🦕에 언급된 Blocking과 Nonblocking, Synchronous와 Asynchronous에 대해서 정리해보고자 합니다. Synchronous와 Asynchronous의 개념은 <strong>쓰레드</strong>와 <strong>I/O</strong>에서 등장하게 되는데요, 각각이 어떠한 의미로 사용되는지도 구분해서 살펴보도록 하겠습니다.</p></div>
+                    </div>
+                    <div style="clear:both;"></div>
+                    <hr>
+                </div>
+                
+                <div class="media">
+                    <!-- 
+                    <div class="media-left">
+                        <a
+                            class="link-unstyled"
+                            href="https://chelseafandev.github.io/2021/08/05/tr-lukaku-want-to-chelsea/"
+                            aria-label=": (BBC 스포츠) 첼시의 물망에 오른 루카쿠 적절한 오퍼가 온다면 인터 밀란을 떠나기 원해"
+                        >
+                            <img class="media-image" src="https://chelseafandev.github.io/2021/08/05/tr-lukaku-want-to-chelsea/tr-lukaku-want-to-chelsea.jpg" width="90" height="90"/>
+                        </a>
+                    </div>
+                     -->
+                    <div class="media-body">
+                        <a class="link-unstyled" href="https://chelseafandev.github.io/2021/08/05/tr-lukaku-want-to-chelsea/" aria-label=": (BBC 스포츠) 첼시의 물망에 오른 루카쿠 적절한 오퍼가 온다면 인터 밀란을 떠나기 원해">
+                            <h3 class="media-heading">(BBC 스포츠) 첼시의 물망에 오른 루카쿠 적절한 오퍼가 온다면 인터 밀란을 떠나기 원해</h3>
+                        </a>
+                        <span class="media-meta">
+                            <span class="media-date text-small">
+                                
+                                    2021년 8월 5일
+                                
+                            </span>
+                        </span>
+                        <div class="media-content hide-xs font-nanumsquareround"><p>오늘은 첼시 이적설이 가까워져가고 있는 루카쿠 관련 기사를 가져왔습니다. 베르너의 결정력이 너무나도 아쉬웠던 지난 시즌 첼시를 생각하면 꼭 필요한 영입이라고 생각되네요😁</p></div>
+                    </div>
+                    <div style="clear:both;"></div>
+                    <hr>
+                </div>
+                
+                <div class="media">
+                    <!-- 
+                    <div class="media-left">
+                        <a
+                            class="link-unstyled"
+                            href="https://chelseafandev.github.io/2021/08/12/tr-son-new-contract/"
+                            aria-label=": (BBC 스포츠) 토트넘 공격수 손흥민 4년 재계약 성사"
+                        >
+                            <img class="media-image" src="https://chelseafandev.github.io/2021/08/12/tr-son-new-contract/tr-son-new-contract-figure1.jpg" width="90" height="90"/>
+                        </a>
+                    </div>
+                     -->
+                    <div class="media-body">
+                        <a class="link-unstyled" href="https://chelseafandev.github.io/2021/08/12/tr-son-new-contract/" aria-label=": (BBC 스포츠) 토트넘 공격수 손흥민 4년 재계약 성사">
+                            <h3 class="media-heading">(BBC 스포츠) 토트넘 공격수 손흥민 4년 재계약 성사</h3>
+                        </a>
+                        <span class="media-meta">
+                            <span class="media-date text-small">
+                                
+                                    2021년 8월 12일
+                                
+                            </span>
+                        </span>
+                        <div class="media-content hide-xs font-nanumsquareround"><p>오늘은 현재 프리미어리그 토트넘 핫스퍼에서 활약 중인 손흥민 선수의 재계약 관련 기사를 가져왔습니다. 다음 시즌 누누감독이 이끌게 되는 토트넘, 쌉월클👍 손흥민선수와 함께 좋은 성적 거뒀으면 좋겠습니다.</p></div>
+                    </div>
+                    <div style="clear:both;"></div>
+                    <hr>
+                </div>
+                
+                <div class="media">
+                    <!--  -->
+                    <div class="media-body">
+                        <a class="link-unstyled" href="https://chelseafandev.github.io/2021/09/24/hyperscan-phase1/" aria-label=": 인텔 Hyperscan 레퍼런스 가이드 번역">
+                            <h3 class="media-heading">인텔 Hyperscan 레퍼런스 가이드 번역</h3>
+                        </a>
+                        <span class="media-meta">
+                            <span class="media-date text-small">
+                                
+                                    2021년 9월 24일
+                                
+                            </span>
+                        </span>
+                        <div class="media-content hide-xs font-nanumsquareround"><p>이번 포스팅에서는 인텔 Hyperscan의 <a target="_blank" rel="external nofollow noopener noreferrer" href="http://intel.github.io/hyperscan/dev-reference/index.html">공식 문서</a>를 통해 컴파일(compile)이나 스캔(scan)과 같은 Hyperscan의 기본적인 개념들에 대해 알아보도록 하겠습니다. 추후에는 Hyperscan API를 직접 사용하여 정규 표현식 패턴 매칭을 수행하는 샘플 코드도 업로드할 예정입니다.</p></div>
+                    </div>
+                    <div style="clear:both;"></div>
+                    <hr>
+                </div>
+                
+                <div class="media">
+                    <!--  -->
+                    <div class="media-body">
+                        <a class="link-unstyled" href="https://chelseafandev.github.io/2021/10/12/hyperscan-phase2/" aria-label=": 인텔 Hyperscan API 테스트 코드 작성">
+                            <h3 class="media-heading">인텔 Hyperscan API 테스트 코드 작성</h3>
+                        </a>
+                        <span class="media-meta">
+                            <span class="media-date text-small">
+                                
+                                    2021년 10월 12일
+                                
+                            </span>
+                        </span>
+                        <div class="media-content hide-xs font-nanumsquareround"><p>이번 포스팅에서는 <a href="https://chelseafandev.github.io/2021/09/24/hyperscan-phase1/">인텔 Hyperscan 레퍼런스 가이드 번역</a>에 이어서 Hyperscan API를 직접 사용하여 정규 표현식 패턴 매칭을 수행하는 샘플 코드를 작성하고 테스트 해보는 시간을 갖겠습니다.</p></div>
+                    </div>
+                    <div style="clear:both;"></div>
+                    <hr>
+                </div>
+                
+                <div class="media">
+                    <!--  -->
+                    <div class="media-body">
+                        <a class="link-unstyled" href="https://chelseafandev.github.io/2021/11/09/gdb-chapter4-program-crash/" aria-label=": Seg Fault는 왜 발생하는가?">
+                            <h3 class="media-heading">Seg Fault는 왜 발생하는가?</h3>
+                        </a>
+                        <span class="media-meta">
+                            <span class="media-date text-small">
+                                
+                                    2021년 11월 9일
+                                
+                            </span>
+                        </span>
+                        <div class="media-content hide-xs font-nanumsquareround"><p>이번 포스팅에서는 <a target="_blank" rel="external nofollow noopener noreferrer" href="https://nostarch.com/debugging.htm">The Art of Debugging with GDB, DDD and Eclipse</a>의 <strong>Chatper 4 WHEN A PROGRAM CRASHES</strong> 내용을 번역해보았습니다. 해당 챕터의 앞부분에서는 가상 주소 공간에서의 페이지(page)에 대한 개념을 소개하고 seg fault가 발생하는 원인을 페이지(page)와 연관지어 잘 설명해주고 있습니다.</p></div>
+                    </div>
+                    <div style="clear:both;"></div>
+                    <hr>
+                </div>
+                
+            </div>
+        </div>
+        <div class="modal-footer">
+            <p class="results-count text-medium" data-message-zero="포스트가 없습니다." data-message-one="1 개의 포스트가 있습니다." data-message-other="{n} 개의 포스트가 있습니다.">
+                27 개의 포스트가 있습니다.
+            </p>
+        </div>
+    </div>
+</div>
+
+        
+        
+<div id="cover" style="background-image:url('/assets/images/chelsea_cover.jpg');"></div>
+        <!--SCRIPTS-->
+
+<script src="/assets/js/jquery.js"></script>
+
+
+<script src="/assets/js/jquery.fancybox.js"></script>
+
+
+<script src="/assets/js/thumbs.js"></script>
+
+
+<script src="/assets/js/tranquilpeak.js"></script>
+
+<!--SCRIPTS END-->
+
+
+    
+
+
+
+    
+<script src="/assets/js/moment-with-locales.js"></script>
+
+    
+<script src="/assets/js/algoliasearch.js"></script>
+
+    <script>
+      var algoliaClient = algoliasearch('FDTOJ7KLS8', '935491408ac4c43d728c68858e4ea147');
+      var algoliaIndex = algoliaClient.initIndex('chelseafandev');
+    </script>
+
+
+    </body>
+</html>

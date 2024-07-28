@@ -1,0 +1,832 @@
+
+<!DOCTYPE html>
+<html lang="ko">
+    
+<head>
+    <meta name="google-site-verification" content="Ojz5tvI9WuN6pn2n6i1E_mOkMyRiSSOp4KXuYSyaUjs">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="generator" content="첼시팬 개발자 작업 공간">
+    <title>IP 라우팅 과정에 대해 알아보자 - 첼시팬 개발자 작업 공간</title>
+    <meta name="author" content="첼시팬개발자">
+    
+    
+        <link rel="icon" href="https://chelseafandev.github.io/assets/images/chelsea_favicon.png">
+    
+    
+        
+            <link rel="alternate" type="application/rss+xml" title="RSS" href="/rss2.xml">
+        
+    
+    <script type="application/ld+json">{"@context":"http://schema.org","@type":"BlogPosting","author":{"@type":"Person","name":"첼시팬개발자","sameAs":[],"image":"chelsea_logo.png"},"articleBody":"저번 포스팅에 이어서 이번에는 L3 스위치에서의 IP 라우팅 과정에 대해 알아보겠습니다.\n\n넷매니아즈라는 사이트에 총 4편의 시리즈로 연재된 L3 스위치의 패킷 전달에 대한 아주 양질의 게시물을 참고하여 정리해보았으며, 실제 연재글에서는 상세한 그림과 함께 L3 스위치 내부 구조를 좀 더 세분화하여 설명하고 있으니 관심이 있으신분들은 여기를 참조해주시기 바랍니다.\n\n\n\n\n서버1과 서버4는 서로 다른 VLAN(서버1은 VLAN ID: 10, 서버4는 VLAN ID: 20)에 존재하며, 서버1의 ARP 테이블에는 L3 스위치(여기서는 Gateway)의 엔트리가 이미 존재한다고 가정하겠습니다.\n서버1에서 서버4로 패킷 전달 - ARP Request FloodingARP Request Flooding\n\n\n서버1에서 서버4로 패킷을 보내려고 합니다.\n서버1의 라우팅 테이블을 참조(Destination 주소 별 게이트웨이 IP와 출력 포트를 확인할 수 있음)하여 서버4의 IP주소는 디폴트 라우트에 매칭된다는 사실과 Gateway IP주소(여기서는 L3 스위치의 주소임) 및 출력 포트를 확인할 수 있습니다.\n서버1은 ARP 테이블을 참조하여 Gateway IP주소에 대한 MAC 주소를 확인합니다.\n출력 포트와 MAC 주소를 확인했으니 서버1은 서버4로 패킷을 송신합니다.\n해당 패킷은 출력 포트를 통해 L3 스위치로 이동합니다.\n패킷을 수신한 L3 스위치는 해당 패킷을 버퍼(Ingress Packet Buffer)에 잠시 저장해둡니다.\n이제 L3 스위치에서 수신한 패킷의 Source MAC 주소를 학습할 차례입니다. 동일 VLAN을 소유한 Line Card들에만 Source MAC 주소 정보를 공유하여 각각의 MAC 테이블에 그 값(VLAN, Source MAC 주소, 포트)을 저장하도록 합니다.\n다음으로 해당 패킷을 IP 라우팅시킬지 Ethernet 스위칭시킬것인지를 결정하는데 이를 위해 Destination MAC 주소를 참조합니다.Destination MAC 주소가 L3 스위치의 MAC 주소인 경우에는, IP 라우팅Destination MAC 주소가 L3 스위치의 MAC 주소가 아닌 경우에는, Ethernet 스위칭\n\n\n이 경우에는 해당 패킷의 Destination MAC 주소가 Gateway 즉, L3 스위치의 MAC 주소이므로 IP 라우팅을 시킵니다.\nIP 라우팅을 위해 L3 스위치는 Destination IP 주소에 대한 FIB lookup(LPM: Longest Prefix Match)을 수행하여 해당 패킷이 L3 스위치와 바로 연결되어 있는 목적지인 서버4로 가고자한다는 것을 확인합니다.\n다음으로 L3 스위치는 ARP 테이블을 확인하여 Destination IP 주소에 대한 MAC 주소가 존재하는지 확인합니다.\n만약 존재하지 않는다(ARP Miss!)면 동일한 VLAN에 속한 Line Card들에게 ARP Request 패킷을 Flooding합니다.\n\n\n서버1에서 서버4로 패킷 전달 - ARP Reply 수신ARP Reply 수신\n\n\nARP Request 패킷을 수신한 서버4, 서버5, 서버6중에 해당 IP 주소를 소유한 서버4가 이에 대한 응답으로 ARP Reply를 L3 스위치로 전달합니다.\nARP Reply 패킷을 수신한 L3 스위치는 해당 패킷을 버퍼(Ingress Packet Buffer)에 잠시 저장해둡니다.\n이제 L3 스위치에서 수신한 패킷의 Source MAC 주소를 학습할 차례입니다. 동일 VLAN을 소유한 Line Card들에만 Source MAC 주소 정보를 공유하여 각각의 MAC 테이블에 그 값(VLAN, Source MAC 주소, 포트)을 저장하도록 합니다.\n다음으로 해당 패킷을 IP 라우팅시킬지 Ethernet 스위칭시킬것인지를 결정하는데 이를 위해 Destination MAC 주소를 참조합니다.\n이 경우에는 해당 패킷의 Destination MAC 주소가 L3 스위치의 MAC 주소이므로 IP 라우팅을 시킵니다.\n여기서 만약 해당 패킷의 타입(Ethernet Header에 있는 EtherType)이 ARP 패킷(EtherType = 0x0806)인 경우에는 라우팅 시키지 않고 무조건 Control Module(L3 스위치 내에 존재하는 특정 모듈)이라는 곳으로 올려줍니다.\nARP Reply 패킷을 수신한 Control Module은 ARP 테이블에 서버4의 IP 주소에 대한 MAC주소를 저장합니다.\n여기까지 완료하면 이제 L3 스위치는 서버1에서 받은 패킷을 서버4로 송신할 수 있습니다.\n\n\n서버1에서 서버4로 패킷 전달 - IP 라우팅IP 라우팅\n\n\n서버1이 목적지 주소가 서버4인 패킷을 L3 스위치로 보냅니다.\n패킷을 수신한 L3 스위치는 해당 패킷을 버퍼(Ingress Packet Buffer)에 잠시 저장해둡니다.\nSource MAC 주소를 학습해볼까 했지만 해당 패킷의 Source MAC 주소는 이미 학습된 서버1의 정보입니다. 그러니 건너뜁니다.\n이제 수신 패킷의 Destination IP 주소로 FIB lookup을해서 OIF(Outgoing Interface)를 확인(여기서는 서버4가 속한 VLAN ID를 확인할 수 있음)합니다.\n그리고 ARP 테이블을 참조하여 Destination IP에 대한 MAC 주소를 확인합니다.\n마지막으로 5번에서 찾은 MAC 주소를 통해 MAC 테이블에서 출력 포트를 확인합니다.\nL3 스위치는 앞서 버퍼에 잠시 저장해둔 패킷(2번 과정을 참고)을 출력을 위한 버퍼(Egress Packet Buffer)로 옮긴 후 6번에서 확인된 MAC주소로 해당 패킷을 송신합니다.\n서버1이 송신한 패킷은 최종적으로 서버4에 도달하게됩니다.\n\n\nL3 스위치 동작의 핵심 정리\nL3 스위치는 수신 패킷에 대해 항상 Source MAC 학습부터 수행한다.\nL3 스위치는 수신 패킷의 Destination MAC 주소가 L3 스위치의 MAC 주소이면 IP 라우팅시키고, 그렇지 않은 경우는 Ethernet 스위칭시킨다.\nL3 스위치는 IP 라우팅 과정에서 RIB/FIB에 명시된 OIF(Outgoing Interface)가 물리적 포트가 아닌 VLAN ID 정보가 될 수 있으므로, 실제 패킷을 송신할 출력 포트를 확인하기 위해서는 MAC 테이블을 참조해야한다. 즉,\nFIB lookup을 통해 Next Hop IP와 OIF를 알아내고\nARP 테이블 lookup을 통해 Next Hop IP에 대한 MAC 주소를 알아내고 (만약 목적지가 L3 스위치와 바로 연결된 경우라면, Destination IP 주소에 대한 MAC 주소를 알아냄)\nMAC 테이블 lookup을 통해 MAC 주소에 대한 물리적 포트를 알아낸다 (만약 IP 라우팅 과정에서 MAC 테이블에 해당 엔트리가 존재하지 않으면, VLAN 테이블을 참조하여 OIF에 속한 모든 물리적 포트로 패킷을 Flooding 함)\n\n\n\n\n\n\n해당 게시글에서 발생한 오탈자나 잘못된 내용에 대한 정정 댓글 격하게 환영합니다😎\n\nReference\n\nhttps://www.netmanias.com/ko/?m=view&amp;id=blog&amp;no=5529\n\n","dateCreated":"2021-12-06T12:33:13+09:00","dateModified":"2023-06-09T14:02:43+09:00","datePublished":"2021-12-06T12:33:13+09:00","description":"저번 포스팅에 이어서 이번에는 L3 스위치에서의 IP 라우팅 과정에 대해 알아보겠습니다.","headline":"IP 라우팅 과정에 대해 알아보자","image":[],"mainEntityOfPage":{"@type":"WebPage","@id":"https://chelseafandev.github.io/2021/12/06/ip-routing-flow/"},"publisher":{"@type":"Organization","name":"첼시팬개발자","sameAs":[],"image":"chelsea_logo.png","logo":{"@type":"ImageObject","url":"chelsea_logo.png"}},"url":"https://chelseafandev.github.io/2021/12/06/ip-routing-flow/","keywords":"L3 스위치, ip routing, ip 라우팅, ARP Request, ARP Reply"}</script>
+    <meta name="description" content="저번 포스팅에 이어서 이번에는 L3 스위치에서의 IP 라우팅 과정에 대해 알아보겠습니다.">
+<meta property="og:type" content="blog">
+<meta property="og:title" content="IP 라우팅 과정에 대해 알아보자">
+<meta property="og:url" content="https://chelseafandev.github.io/2021/12/06/ip-routing-flow/index.html">
+<meta property="og:site_name" content="첼시팬 개발자 작업 공간">
+<meta property="og:description" content="저번 포스팅에 이어서 이번에는 L3 스위치에서의 IP 라우팅 과정에 대해 알아보겠습니다.">
+<meta property="og:locale" content="ko_KR">
+<meta property="og:image" content="https://chelseafandev.github.io/assets/images/ip-routing-arp-request-flooding.png">
+<meta property="og:image" content="https://chelseafandev.github.io/assets/images/ip-routing-arp-reply-receiving.png">
+<meta property="og:image" content="https://chelseafandev.github.io/assets/images/ip-routing.png">
+<meta property="article:published_time" content="2021-12-06T03:33:13.000Z">
+<meta property="article:modified_time" content="2023-06-09T05:02:43.803Z">
+<meta property="article:author" content="첼시팬개발자">
+<meta property="article:tag" content="L3 스위치">
+<meta property="article:tag" content="ip routing">
+<meta property="article:tag" content="ip 라우팅">
+<meta property="article:tag" content="ARP Request">
+<meta property="article:tag" content="ARP Reply">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://chelseafandev.github.io/assets/images/ip-routing-arp-request-flooding.png">
+    
+    
+        
+    
+    
+        <meta property="og:image" content="https://chelseafandev.github.io/assets/images/chelsea_logo.png">
+    
+    
+    
+    
+    <!--STYLES-->
+    
+<link rel="stylesheet" href="/assets/css/all.css">
+
+    
+<link rel="stylesheet" href="/assets/css/jquery.fancybox.css">
+
+    
+<link rel="stylesheet" href="/assets/css/thumbs.css">
+
+    
+<link rel="stylesheet" href="/assets/css/tranquilpeak.css">
+
+    <!--STYLES END-->
+    
+
+    
+
+    
+        
+    
+    <link rel="canonical" href="https://chelseafandev.github.io/2021/12/06/ip-routing-flow/">
+</head>
+
+    <body>
+        <div id="blog">
+            <!-- Define author's picture -->
+
+
+    
+        
+            
+        
+    
+
+<header id="header" data-behavior="4">
+    <i id="btn-open-sidebar" class="fa fa-lg fa-bars"></i>
+    <div class="header-title">
+        <a class="header-title-link" href="/" aria-label>
+            첼시팬 개발자 작업 공간
+        </a>
+    </div>
+    
+        
+            <a class="header-right-picture " href="#about" aria-label="링크 열기: /#about">
+        
+        
+            <img class="header-picture" src="/assets/images/chelsea_logo.png" alt="저자 이미지">
+        
+        </a>
+    
+</header>
+
+            <!-- Define author's picture -->
+
+
+
+        
+    
+
+<nav id="sidebar" data-behavior="4" style="border-top-width: 100px;padding-top: 150px;">
+    <div class="sidebar-container">
+        
+            <div class="sidebar-profile">
+                <a href="/#about" aria-label="저자에 대해 더 알아보기">
+                    <img class="sidebar-profile-picture" src="/assets/images/chelsea_logo.png" alt="저자 이미지">
+                </a>
+                <h4 class="sidebar-profile-name">첼시팬개발자</h4>
+                
+                    <h5 class="sidebar-profile-bio"><p>조금 더디더라도 꾸준히</p>
+</h5>
+                
+            </div>
+        
+        
+            <ul class="sidebar-buttons">
+            
+                <li class="sidebar-button">
+                    
+                        <a class="sidebar-button-link " href="/" rel="noopener" title="전체글">
+                        <i class="sidebar-button-icon fas fa-list-ul" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">전체글</span>
+                    </a>
+            </li>
+            
+                <li class="sidebar-button">
+                    
+                        <a class="sidebar-button-link " href="/all-categories" rel="noopener" title="카테고리">
+                        <i class="sidebar-button-icon fa fa-bookmark" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">카테고리</span>
+                    </a>
+            </li>
+            
+                <li class="sidebar-button">
+                    
+                        <a class="sidebar-button-link " href="/all-tags" rel="noopener" title="태그">
+                        <i class="sidebar-button-icon fa fa-tags" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">태그</span>
+                    </a>
+            </li>
+            
+                <li class="sidebar-button">
+                    
+                        <a class="sidebar-button-link " href="/all-archives" rel="noopener" title="아카이브">
+                        <i class="sidebar-button-icon fa fa-archive" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">아카이브</span>
+                    </a>
+            </li>
+            
+                <li class="sidebar-button">
+                    
+                        <a class="sidebar-button-link " href="https://github.com/chelseafandev" target="_blank" rel="external nofollow noopener noreferrer" title="GitHub">
+                        <i class="sidebar-button-icon fab fa-github" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">GitHub</span>
+                    </a>
+            </li>
+            
+                <li class="sidebar-button">
+                    
+                        <a class="sidebar-button-link " href="/rss2.xml" rel="noopener" title="RSS">
+                        <i class="sidebar-button-icon fa fa-rss" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">RSS</span>
+                    </a>
+            </li>
+            
+        </ul>
+        
+    </div>
+</nav>
+
+            
+            <div id="main" data-behavior="4" class="
+                        hasCoverMetaIn
+                        ">
+                
+<article class="post">
+    
+    
+        <div class="post-header main-content-wrap text-left">
+    
+        <h1 class="post-title">
+            IP 라우팅 과정에 대해 알아보자
+        </h1>
+    
+    
+        <div class="post-meta">
+    <time datetime="2021-12-06T12:33:13+09:00">
+	
+		    2021/12/06 12:33:13
+    	
+    </time>
+    
+        <span>카테고리 </span>
+        
+    <a class="category-link" href="/categories/%EB%84%A4%ED%8A%B8%EC%9B%8C%ED%81%AC/">네트워크</a>
+
+
+    
+    
+        -
+        <span class="reading-time">⏱</span>
+        
+            읽는데 5 분 정도 소요 예상
+        
+        
+    
+</div>
+
+    
+</div>
+
+    
+    <div class="post-content markdown">
+        <div class="main-content-wrap">
+            <p><a href="https://chelseafandev.github.io/2021/12/06/ethernet-switching-flow/">저번 포스팅</a>에 이어서 이번에는 L3 스위치에서의 IP 라우팅 과정에 대해 알아보겠습니다.</p>
+<span id="more"></span>
+<p><a target="_blank" rel="external nofollow noopener noreferrer" href="https://www.netmanias.com/ko/">넷매니아즈</a>라는 사이트에 총 4편의 시리즈로 연재된 L3 스위치의 패킷 전달에 대한 아주 양질의 게시물을 참고하여 정리해보았으며, 실제 연재글에서는 상세한 그림과 함께 L3 스위치 내부 구조를 좀 더 세분화하여 설명하고 있으니 관심이 있으신분들은 <a target="_blank" rel="external nofollow noopener noreferrer" href="https://www.netmanias.com/ko/?m=view&id=blog&no=5529">여기</a>를 참조해주시기 바랍니다.</p>
+<br>
+
+<h1 id="table-of-contents">목차</h1><ol class="toc"><li class="toc-item toc-level-3"><a class="toc-link" href="#%EC%84%9C%EB%B2%841%EC%97%90%EC%84%9C-%EC%84%9C%EB%B2%844%EB%A1%9C-%ED%8C%A8%ED%82%B7-%EC%A0%84%EB%8B%AC-ARP-Request-Flooding"><span class="toc-number">1.</span> <span class="toc-text">서버1에서 서버4로 패킷 전달 - ARP Request Flooding</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%EC%84%9C%EB%B2%841%EC%97%90%EC%84%9C-%EC%84%9C%EB%B2%844%EB%A1%9C-%ED%8C%A8%ED%82%B7-%EC%A0%84%EB%8B%AC-ARP-Reply-%EC%88%98%EC%8B%A0"><span class="toc-number">2.</span> <span class="toc-text">서버1에서 서버4로 패킷 전달 - ARP Reply 수신</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%EC%84%9C%EB%B2%841%EC%97%90%EC%84%9C-%EC%84%9C%EB%B2%844%EB%A1%9C-%ED%8C%A8%ED%82%B7-%EC%A0%84%EB%8B%AC-IP-%EB%9D%BC%EC%9A%B0%ED%8C%85"><span class="toc-number">3.</span> <span class="toc-text">서버1에서 서버4로 패킷 전달 - IP 라우팅</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#L3-%EC%8A%A4%EC%9C%84%EC%B9%98-%EB%8F%99%EC%9E%91%EC%9D%98-%ED%95%B5%EC%8B%AC-%EC%A0%95%EB%A6%AC"><span class="toc-number">4.</span> <span class="toc-text">L3 스위치 동작의 핵심 정리</span></a></li></ol>
+
+<p>서버1과 서버4는 서로 다른 VLAN(서버1은 VLAN ID: 10, 서버4는 VLAN ID: 20)에 존재하며, 서버1의 ARP 테이블에는 L3 스위치(여기서는 Gateway)의 엔트리가 이미 존재한다고 가정하겠습니다.<br><br></p>
+<h3 id="서버1에서-서버4로-패킷-전달-ARP-Request-Flooding"><a href="#서버1에서-서버4로-패킷-전달-ARP-Request-Flooding" class="headerlink" title="서버1에서 서버4로 패킷 전달 - ARP Request Flooding"></a>서버1에서 서버4로 패킷 전달 - ARP Request Flooding</h3><div class="figure center" style="width:;"><img class="fig-img" src="/assets/images/ip-routing-arp-request-flooding.png" alt="ARP Request Flooding"><span class="caption">ARP Request Flooding</span></div>
+
+<ol>
+<li>서버1에서 서버4로 패킷을 보내려고 합니다.</li>
+<li>서버1의 <strong>라우팅 테이블</strong>을 참조(Destination 주소 별 게이트웨이 IP와 출력 포트를 확인할 수 있음)하여 서버4의 IP주소는 디폴트 라우트에 매칭된다는 사실과 Gateway IP주소(여기서는 L3 스위치의 주소임) 및 출력 포트를 확인할 수 있습니다.</li>
+<li>서버1은 <strong>ARP 테이블</strong>을 참조하여 Gateway IP주소에 대한 MAC 주소를 확인합니다.</li>
+<li>출력 포트와 MAC 주소를 확인했으니 서버1은 서버4로 패킷을 송신합니다.</li>
+<li>해당 패킷은 출력 포트를 통해 L3 스위치로 이동합니다.</li>
+<li>패킷을 수신한 L3 스위치는 해당 패킷을 버퍼(Ingress Packet Buffer)에 잠시 저장해둡니다.</li>
+<li>이제 L3 스위치에서 수신한 패킷의 <strong>Source MAC 주소를 학습</strong>할 차례입니다. 동일 VLAN을 소유한 Line Card들에만 Source MAC 주소 정보를 공유하여 각각의 <strong>MAC 테이블</strong>에 그 값(VLAN, Source MAC 주소, 포트)을 저장하도록 합니다.</li>
+<li>다음으로 해당 패킷을 <strong>IP 라우팅</strong>시킬지 <strong>Ethernet 스위칭</strong>시킬것인지를 결정하는데 이를 위해 Destination MAC 주소를 참조합니다.<div class="alert info"><p>Destination MAC 주소가 L3 스위치의 MAC 주소인 경우에는, <strong>IP 라우팅</strong><br>Destination MAC 주소가 L3 스위치의 MAC 주소가 아닌 경우에는, <strong>Ethernet 스위칭</strong></p>
+</div>
+<br></li>
+<li>이 경우에는 해당 패킷의 Destination MAC 주소가 Gateway 즉, L3 스위치의 MAC 주소이므로 IP 라우팅을 시킵니다.</li>
+<li>IP 라우팅을 위해 L3 스위치는 Destination IP 주소에 대한 FIB lookup(LPM: Longest Prefix Match)을 수행하여 해당 패킷이 L3 스위치와 바로 연결되어 있는 목적지인 서버4로 가고자한다는 것을 확인합니다.</li>
+<li>다음으로 L3 스위치는 ARP 테이블을 확인하여 Destination IP 주소에 대한 MAC 주소가 존재하는지 확인합니다.</li>
+<li>만약 존재하지 않는다(ARP Miss!)면 동일한 VLAN에 속한 Line Card들에게 ARP Request 패킷을 Flooding합니다.</li>
+</ol>
+<hr>
+<h3 id="서버1에서-서버4로-패킷-전달-ARP-Reply-수신"><a href="#서버1에서-서버4로-패킷-전달-ARP-Reply-수신" class="headerlink" title="서버1에서 서버4로 패킷 전달 - ARP Reply 수신"></a>서버1에서 서버4로 패킷 전달 - ARP Reply 수신</h3><div class="figure center" style="width:;"><img class="fig-img" src="/assets/images/ip-routing-arp-reply-receiving.png" alt="ARP Reply 수신"><span class="caption">ARP Reply 수신</span></div>
+
+<ol>
+<li>ARP Request 패킷을 수신한 서버4, 서버5, 서버6중에 해당 IP 주소를 소유한 서버4가 이에 대한 응답으로 ARP Reply를 L3 스위치로 전달합니다.</li>
+<li>ARP Reply 패킷을 수신한 L3 스위치는 해당 패킷을 버퍼(Ingress Packet Buffer)에 잠시 저장해둡니다.</li>
+<li>이제 L3 스위치에서 수신한 패킷의 <strong>Source MAC 주소를 학습</strong>할 차례입니다. 동일 VLAN을 소유한 Line Card들에만 Source MAC 주소 정보를 공유하여 각각의 <strong>MAC 테이블</strong>에 그 값(VLAN, Source MAC 주소, 포트)을 저장하도록 합니다.</li>
+<li>다음으로 해당 패킷을 <strong>IP 라우팅</strong>시킬지 <strong>Ethernet 스위칭</strong>시킬것인지를 결정하는데 이를 위해 Destination MAC 주소를 참조합니다.</li>
+<li>이 경우에는 해당 패킷의 Destination MAC 주소가 L3 스위치의 MAC 주소이므로 IP 라우팅을 시킵니다.</li>
+<li>여기서 만약 해당 패킷의 타입(Ethernet Header에 있는 EtherType)이 ARP 패킷(EtherType = 0x0806)인 경우에는 라우팅 시키지 않고 무조건 Control Module(L3 스위치 내에 존재하는 특정 모듈)이라는 곳으로 올려줍니다.</li>
+<li>ARP Reply 패킷을 수신한 Control Module은 ARP 테이블에 서버4의 IP 주소에 대한 MAC주소를 저장합니다.</li>
+<li>여기까지 완료하면 이제 L3 스위치는 서버1에서 받은 패킷을 서버4로 송신할 수 있습니다.</li>
+</ol>
+<hr>
+<h3 id="서버1에서-서버4로-패킷-전달-IP-라우팅"><a href="#서버1에서-서버4로-패킷-전달-IP-라우팅" class="headerlink" title="서버1에서 서버4로 패킷 전달 - IP 라우팅"></a>서버1에서 서버4로 패킷 전달 - IP 라우팅</h3><div class="figure center" style="width:;"><img class="fig-img" src="/assets/images/ip-routing.png" alt="IP 라우팅"><span class="caption">IP 라우팅</span></div>
+
+<ol>
+<li>서버1이 목적지 주소가 서버4인 패킷을 L3 스위치로 보냅니다.</li>
+<li>패킷을 수신한 L3 스위치는 해당 패킷을 버퍼(Ingress Packet Buffer)에 잠시 저장해둡니다.</li>
+<li>Source MAC 주소를 학습해볼까 했지만 해당 패킷의 Source MAC 주소는 이미 학습된 서버1의 정보입니다. 그러니 건너뜁니다.</li>
+<li>이제 수신 패킷의 Destination IP 주소로 FIB lookup을해서 OIF(Outgoing Interface)를 확인(여기서는 서버4가 속한 VLAN ID를 확인할 수 있음)합니다.</li>
+<li>그리고 ARP 테이블을 참조하여 Destination IP에 대한 MAC 주소를 확인합니다.</li>
+<li>마지막으로 5번에서 찾은 MAC 주소를 통해 MAC 테이블에서 출력 포트를 확인합니다.</li>
+<li>L3 스위치는 앞서 버퍼에 잠시 저장해둔 패킷(2번 과정을 참고)을 출력을 위한 버퍼(Egress Packet Buffer)로 옮긴 후 6번에서 확인된 MAC주소로 해당 패킷을 송신합니다.</li>
+<li>서버1이 송신한 패킷은 최종적으로 서버4에 도달하게됩니다.</li>
+</ol>
+<hr>
+<h3 id="L3-스위치-동작의-핵심-정리"><a href="#L3-스위치-동작의-핵심-정리" class="headerlink" title="L3 스위치 동작의 핵심 정리"></a>L3 스위치 동작의 핵심 정리</h3><ul>
+<li>L3 스위치는 수신 패킷에 대해 항상 Source MAC 학습부터 수행한다.</li>
+<li>L3 스위치는 수신 패킷의 Destination MAC 주소가 L3 스위치의 MAC 주소이면 IP 라우팅시키고, 그렇지 않은 경우는 Ethernet 스위칭시킨다.</li>
+<li>L3 스위치는 IP 라우팅 과정에서 RIB/FIB에 명시된 OIF(Outgoing Interface)가 물리적 포트가 아닌 VLAN ID 정보가 될 수 있으므로, 실제 패킷을 송신할 출력 포트를 확인하기 위해서는 MAC 테이블을 참조해야한다. 즉,<ol>
+<li><strong>FIB</strong> lookup을 통해 <strong>Next Hop IP와 OIF</strong>를 알아내고</li>
+<li><strong>ARP 테이블</strong> lookup을 통해 Next Hop IP에 대한 <strong>MAC 주소</strong>를 알아내고 (만약 목적지가 L3 스위치와 바로 연결된 경우라면, Destination IP 주소에 대한 MAC 주소를 알아냄)</li>
+<li><strong>MAC 테이블</strong> lookup을 통해 MAC 주소에 대한 <strong>물리적 포트</strong>를 알아낸다 (만약 IP 라우팅 과정에서 MAC 테이블에 해당 엔트리가 존재하지 않으면, VLAN 테이블을 참조하여 OIF에 속한 모든 물리적 포트로 패킷을 Flooding 함)</li>
+</ol>
+</li>
+</ul>
+<br>
+<br>
+
+<span class="highlight-text yellow">해당 게시글에서 발생한 오탈자나 잘못된 내용에 대한 정정 댓글 격하게 환영합니다</span>😎
+
+<p><strong>Reference</strong></p>
+<ul>
+<li><a target="_blank" rel="external nofollow noopener noreferrer" href="https://www.netmanias.com/ko/?m=view&amp;id=blog&amp;no=5529">https://www.netmanias.com/ko/?m=view&amp;id=blog&amp;no=5529</a></li>
+</ul>
+
+            
+
+
+        </div>
+    </div>
+    <div id="post-footer" class="post-footer main-content-wrap">
+        
+            <div class="post-footer-tags">
+                <span class="text-color-light text-small">태그</span><br>
+                
+    <a class="tag tag--primary tag--small t-none-link" href="/tags/ARP-Reply/" rel="tag">ARP Reply</a> <a class="tag tag--primary tag--small t-none-link" href="/tags/ARP-Request/" rel="tag">ARP Request</a> <a class="tag tag--primary tag--small t-none-link" href="/tags/L3-%EC%8A%A4%EC%9C%84%EC%B9%98/" rel="tag">L3 스위치</a> <a class="tag tag--primary tag--small t-none-link" href="/tags/ip-routing/" rel="tag">ip routing</a> <a class="tag tag--primary tag--small t-none-link" href="/tags/ip-%EB%9D%BC%EC%9A%B0%ED%8C%85/" rel="tag">ip 라우팅</a>
+
+            </div>
+        
+        
+            <div class="post-actions-wrap">
+    <nav>
+        <ul class="post-actions post-action-nav">
+            <li class="post-action">
+                
+                    
+                <a class="post-action-btn btn btn--default tooltip--top" href="/2021/12/28/boost-io-context/" data-tooltip="boost io_context에 대한 고찰" aria-label="이전: boost io_context에 대한 고찰">
+                    
+                        <i class="fa fa-angle-left" aria-hidden="true"></i>
+                        <span class="hide-xs hide-sm text-small icon-ml">이전</span>
+                    </a>
+            </li>
+            <li class="post-action">
+                
+                    
+                <a class="post-action-btn btn btn--default tooltip--top" href="/2021/12/06/ethernet-switching-flow/" data-tooltip="Ethernet 스위칭 과정에 대해 알아보자" aria-label="다음: Ethernet 스위칭 과정에 대해 알아보자">
+                    
+                        <span class="hide-xs hide-sm text-small icon-mr">다음</span>
+                        <i class="fa fa-angle-right" aria-hidden="true"></i>
+                    </a>
+            </li>
+        </ul>
+    </nav>
+    <ul class="post-actions post-action-share">
+        <li class="post-action hide-lg hide-md hide-sm">
+            <a class="post-action-btn btn btn--default btn-open-shareoptions" href="#btn-open-shareoptions" aria-label="이 포스트 공유하기">
+                <i class="fa fa-share-alt" aria-hidden="true"></i>
+            </a>
+        </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a class="post-action-btn btn btn--default" target="_blank" href="https://www.facebook.com/sharer/sharer.php?u=https://chelseafandev.github.io/2021/12/06/ip-routing-flow/" title="Facebook에 공유하기" aria-label="Facebook에 공유하기" rel="external nofollow noopener noreferrer">
+                    <i class="fab fa-facebook" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a class="post-action-btn btn btn--default" target="_blank" href="https://twitter.com/intent/tweet?text=https://chelseafandev.github.io/2021/12/06/ip-routing-flow/" title="Twitter에 공유하기" aria-label="Twitter에 공유하기" rel="external nofollow noopener noreferrer">
+                    <i class="fab fa-twitter" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a class="post-action-btn btn btn--default" target="_blank" href="https://plus.google.com/share?url=https://chelseafandev.github.io/2021/12/06/ip-routing-flow/" title="Google+에 공유하기" aria-label="Google+에 공유하기" rel="external nofollow noopener noreferrer">
+                    <i class="fab fa-google-plus" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+        
+            
+        
+        <li class="post-action">
+            
+                <a class="post-action-btn btn btn--default" href="#table-of-contents" aria-label="목차">
+            
+                <i class="fa fa-list" aria-hidden="true"></i>
+            </a>
+        </li>
+    </ul>
+</div>
+
+
+        
+        
+            
+        
+    </div>
+</article>
+
+
+
+<!-- Comment -->
+<!--  utteranc comment -->
+
+<script src="https://utteranc.es/client.js" repo="chelseafandev/blog-comment" issue-term="title" label="Comment" theme="github-light" crossorigin="anonymous" async>
+</script>
+
+                <footer id="footer" class="main-content-wrap">
+    <span class="copyrights">
+        Copyrights &copy; 2024 첼시팬개발자. All Rights Reserved.
+    </span>
+</footer>
+
+            </div>
+            
+                <div id="bottom-bar" class="post-bottom-bar" data-behavior="4">
+                    <div class="post-actions-wrap">
+    <nav>
+        <ul class="post-actions post-action-nav">
+            <li class="post-action">
+                
+                    
+                <a class="post-action-btn btn btn--default tooltip--top" href="/2021/12/28/boost-io-context/" data-tooltip="boost io_context에 대한 고찰" aria-label="이전: boost io_context에 대한 고찰">
+                    
+                        <i class="fa fa-angle-left" aria-hidden="true"></i>
+                        <span class="hide-xs hide-sm text-small icon-ml">이전</span>
+                    </a>
+            </li>
+            <li class="post-action">
+                
+                    
+                <a class="post-action-btn btn btn--default tooltip--top" href="/2021/12/06/ethernet-switching-flow/" data-tooltip="Ethernet 스위칭 과정에 대해 알아보자" aria-label="다음: Ethernet 스위칭 과정에 대해 알아보자">
+                    
+                        <span class="hide-xs hide-sm text-small icon-mr">다음</span>
+                        <i class="fa fa-angle-right" aria-hidden="true"></i>
+                    </a>
+            </li>
+        </ul>
+    </nav>
+    <ul class="post-actions post-action-share">
+        <li class="post-action hide-lg hide-md hide-sm">
+            <a class="post-action-btn btn btn--default btn-open-shareoptions" href="#btn-open-shareoptions" aria-label="이 포스트 공유하기">
+                <i class="fa fa-share-alt" aria-hidden="true"></i>
+            </a>
+        </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a class="post-action-btn btn btn--default" target="_blank" href="https://www.facebook.com/sharer/sharer.php?u=https://chelseafandev.github.io/2021/12/06/ip-routing-flow/" title="Facebook에 공유하기" aria-label="Facebook에 공유하기" rel="external nofollow noopener noreferrer">
+                    <i class="fab fa-facebook" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a class="post-action-btn btn btn--default" target="_blank" href="https://twitter.com/intent/tweet?text=https://chelseafandev.github.io/2021/12/06/ip-routing-flow/" title="Twitter에 공유하기" aria-label="Twitter에 공유하기" rel="external nofollow noopener noreferrer">
+                    <i class="fab fa-twitter" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a class="post-action-btn btn btn--default" target="_blank" href="https://plus.google.com/share?url=https://chelseafandev.github.io/2021/12/06/ip-routing-flow/" title="Google+에 공유하기" aria-label="Google+에 공유하기" rel="external nofollow noopener noreferrer">
+                    <i class="fab fa-google-plus" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+        
+            
+        
+        <li class="post-action">
+            
+                <a class="post-action-btn btn btn--default" href="#table-of-contents" aria-label="목차">
+            
+                <i class="fa fa-list" aria-hidden="true"></i>
+            </a>
+        </li>
+    </ul>
+</div>
+
+
+                </div>
+                
+    <div id="share-options-bar" class="share-options-bar" data-behavior="4">
+        <i id="btn-close-shareoptions" class="fa fa-times"></i>
+        <ul class="share-options">
+            
+                
+                
+                <li class="share-option">
+                    <a class="share-option-btn" target="_blank" href="https://www.facebook.com/sharer/sharer.php?u=https://chelseafandev.github.io/2021/12/06/ip-routing-flow/" aria-label="Facebook에 공유하기" rel="external nofollow noopener noreferrer">
+                        <i class="fab fa-facebook" aria-hidden="true"></i><span>Facebook에 공유하기</span>
+                    </a>
+                </li>
+            
+                
+                
+                <li class="share-option">
+                    <a class="share-option-btn" target="_blank" href="https://twitter.com/intent/tweet?text=https://chelseafandev.github.io/2021/12/06/ip-routing-flow/" aria-label="Twitter에 공유하기" rel="external nofollow noopener noreferrer">
+                        <i class="fab fa-twitter" aria-hidden="true"></i><span>Twitter에 공유하기</span>
+                    </a>
+                </li>
+            
+                
+                
+                <li class="share-option">
+                    <a class="share-option-btn" target="_blank" href="https://plus.google.com/share?url=https://chelseafandev.github.io/2021/12/06/ip-routing-flow/" aria-label="Google+에 공유하기" rel="external nofollow noopener noreferrer">
+                        <i class="fab fa-google-plus" aria-hidden="true"></i><span>Google+에 공유하기</span>
+                    </a>
+                </li>
+            
+        </ul>
+    </div>
+
+
+            
+        </div>
+        
+
+
+    
+        
+    
+
+<div id="about">
+    <div id="about-card">
+        <div id="about-btn-close">
+            <i class="fa fa-times"></i>
+        </div>
+        
+            <img id="about-card-picture" src="/assets/images/chelsea_logo.png" alt="저자 이미지">
+        
+            <h4 id="about-card-name">첼시팬개발자</h4>
+        
+            <div id="about-card-bio"><p>조금 더디더라도 꾸준히</p>
+</div>
+        
+        
+            <div id="about-card-job">
+                <i class="fa fa-briefcase"></i>
+                <br>
+                <p>개발자</p>
+
+            </div>
+        
+        
+            <div id="about-card-location">
+                <i class="fa fa-map-marker-alt"></i>
+                <br>
+                서울, 대한민국
+            </div>
+        
+    </div>
+</div>
+
+        
+            <div id="algolia-search-modal" class="modal-container">
+    <div class="modal">
+        <div class="modal-header">
+            <span class="close-button"><i class="fa fa-times"></i></span>
+            <a href="https://algolia.com" target="_blank" rel="external nofollow noopener noreferrer" class="searchby-algolia text-color-light link-unstyled">
+                <span class="searchby-algolia-text text-color-light text-small">by</span>
+                <img class="searchby-algolia-logo" src="/assets/images/logo-algolia-nebula-blue-full.svg">
+            </a>
+            <i class="search-icon fa fa-search"></i>
+            <form id="algolia-search-form">
+                <input type="text" id="algolia-search-input" name="search" class="form-control input--large search-input" placeholder="Search ">
+            </form>
+        </div>
+        <div class="modal-body">
+            <div class="no-result text-color-light text-center">포스트가 없습니다.</div>
+            <div class="results">
+                
+                <div class="media">
+                    <!--  -->
+                    <div class="media-body">
+                        <a class="link-unstyled" href="https://chelseafandev.github.io/2021/07/08/hello-hexo/" aria-label=": Hexo Tranquilpeak 테마의 Markdown syntax">
+                            <h3 class="media-heading">Hexo Tranquilpeak 테마의 Markdown syntax</h3>
+                        </a>
+                        <span class="media-meta">
+                            <span class="media-date text-small">
+                                
+                                    2021년 7월 8일
+                                
+                            </span>
+                        </span>
+                        <div class="media-content hide-xs font-nanumsquareround"><p>Hexo 테마 중 하나인 <a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/LouisBarranqueiro/hexo-theme-tranquilpeak/blob/master/DOCUMENTATION.md">Tranquilpeak의 공식 문서</a>를 참조하여 Post시에 활용할 수 있는 다양한 Markdown syntax들을 사용해보았습니다.</p></div>
+                    </div>
+                    <div style="clear:both;"></div>
+                    <hr>
+                </div>
+                
+                <div class="media">
+                    <!-- 
+                    <div class="media-left">
+                        <a
+                            class="link-unstyled"
+                            href="https://chelseafandev.github.io/2021/07/10/tr-ruud-gullit/"
+                            aria-label=": (BBC 스포츠) 첼시 루드 굴리트 25년이 지난 지금 그의 프리미어그리 진출을 애정어린 시선으로 되돌아 보다"
+                        >
+                            <img class="media-image" src="https://chelseafandev.github.io/2021/07/10/tr-ruud-gullit/tr_ruud_gullit_picture_1.png" width="90" height="90"/>
+                        </a>
+                    </div>
+                     -->
+                    <div class="media-body">
+                        <a class="link-unstyled" href="https://chelseafandev.github.io/2021/07/10/tr-ruud-gullit/" aria-label=": (BBC 스포츠) 첼시 루드 굴리트 25년이 지난 지금 그의 프리미어그리 진출을 애정어린 시선으로 되돌아 보다">
+                            <h3 class="media-heading">(BBC 스포츠) 첼시 루드 굴리트 25년이 지난 지금 그의 프리미어그리 진출을 애정어린 시선으로 되돌아 보다</h3>
+                        </a>
+                        <span class="media-meta">
+                            <span class="media-date text-small">
+                                
+                                    2021년 7월 10일
+                                
+                            </span>
+                        </span>
+                        <div class="media-content hide-xs font-nanumsquareround"><p>피파 좀 한다는 사람이라면 모두가 다 알만한 그 분, X사기캐 굴리트😬<br>커리어 막바지에 첼시에서도 잠깐 활약했었네요.<br><a target="_blank" rel="external nofollow noopener noreferrer" href="https://www.bbc.com/sport/football/52904670">BBC Sport에 굴리트가 직접 기고한 회고록 느낌의 글</a>을 한번 번역해보았습니다.</p></div>
+                    </div>
+                    <div style="clear:both;"></div>
+                    <hr>
+                </div>
+                
+                <div class="media">
+                    <!--  -->
+                    <div class="media-body">
+                        <a class="link-unstyled" href="https://chelseafandev.github.io/2021/07/13/os-io-system/" aria-label=": I/O는 어떻게 처리될까?">
+                            <h3 class="media-heading">I/O는 어떻게 처리될까?</h3>
+                        </a>
+                        <span class="media-meta">
+                            <span class="media-date text-small">
+                                
+                                    2021년 7월 13일
+                                
+                            </span>
+                        </span>
+                        <div class="media-content hide-xs font-nanumsquareround"><p>운영 체제의 바이블 <a target="_blank" rel="external nofollow noopener noreferrer" href="https://www.wiley.com/en-us/Operating+System+Concepts%2C+10th+Edition-p-9781119320913">Operating System Concepts</a>(흔히 공룡책🦕이라고들 하죠)을 바탕으로 I/O 시스템에 대해 정리해보았습니다.</p></div>
+                    </div>
+                    <div style="clear:both;"></div>
+                    <hr>
+                </div>
+                
+                <div class="media">
+                    <!--  -->
+                    <div class="media-body">
+                        <a class="link-unstyled" href="https://chelseafandev.github.io/2021/07/22/tip-how-to-use-tmux-md/" aria-label=": 강력한 터미널 멀티플렉서 tmux를 활용해보자">
+                            <h3 class="media-heading">강력한 터미널 멀티플렉서 tmux를 활용해보자</h3>
+                        </a>
+                        <span class="media-meta">
+                            <span class="media-date text-small">
+                                
+                                    2021년 7월 22일
+                                
+                            </span>
+                        </span>
+                        <div class="media-content hide-xs font-nanumsquareround"><p>이번엔 익숙해지면 정말 강력한 터미널 멀티플렉서인 tmux에 대해 소개해보려고 합니다.</p></div>
+                    </div>
+                    <div style="clear:both;"></div>
+                    <hr>
+                </div>
+                
+                <div class="media">
+                    <!--  -->
+                    <div class="media-body">
+                        <a class="link-unstyled" href="https://chelseafandev.github.io/2021/08/02/os-sync-async-block-nonblock/" aria-label=": Blocking, Nonblocking, Sync, Async">
+                            <h3 class="media-heading">Blocking, Nonblocking, Sync, Async</h3>
+                        </a>
+                        <span class="media-meta">
+                            <span class="media-date text-small">
+                                
+                                    2021년 8월 2일
+                                
+                            </span>
+                        </span>
+                        <div class="media-content hide-xs font-nanumsquareround"><p>오늘은 공룡책🦕에 언급된 Blocking과 Nonblocking, Synchronous와 Asynchronous에 대해서 정리해보고자 합니다. Synchronous와 Asynchronous의 개념은 <strong>쓰레드</strong>와 <strong>I/O</strong>에서 등장하게 되는데요, 각각이 어떠한 의미로 사용되는지도 구분해서 살펴보도록 하겠습니다.</p></div>
+                    </div>
+                    <div style="clear:both;"></div>
+                    <hr>
+                </div>
+                
+                <div class="media">
+                    <!-- 
+                    <div class="media-left">
+                        <a
+                            class="link-unstyled"
+                            href="https://chelseafandev.github.io/2021/08/05/tr-lukaku-want-to-chelsea/"
+                            aria-label=": (BBC 스포츠) 첼시의 물망에 오른 루카쿠 적절한 오퍼가 온다면 인터 밀란을 떠나기 원해"
+                        >
+                            <img class="media-image" src="https://chelseafandev.github.io/2021/08/05/tr-lukaku-want-to-chelsea/tr-lukaku-want-to-chelsea.jpg" width="90" height="90"/>
+                        </a>
+                    </div>
+                     -->
+                    <div class="media-body">
+                        <a class="link-unstyled" href="https://chelseafandev.github.io/2021/08/05/tr-lukaku-want-to-chelsea/" aria-label=": (BBC 스포츠) 첼시의 물망에 오른 루카쿠 적절한 오퍼가 온다면 인터 밀란을 떠나기 원해">
+                            <h3 class="media-heading">(BBC 스포츠) 첼시의 물망에 오른 루카쿠 적절한 오퍼가 온다면 인터 밀란을 떠나기 원해</h3>
+                        </a>
+                        <span class="media-meta">
+                            <span class="media-date text-small">
+                                
+                                    2021년 8월 5일
+                                
+                            </span>
+                        </span>
+                        <div class="media-content hide-xs font-nanumsquareround"><p>오늘은 첼시 이적설이 가까워져가고 있는 루카쿠 관련 기사를 가져왔습니다. 베르너의 결정력이 너무나도 아쉬웠던 지난 시즌 첼시를 생각하면 꼭 필요한 영입이라고 생각되네요😁</p></div>
+                    </div>
+                    <div style="clear:both;"></div>
+                    <hr>
+                </div>
+                
+                <div class="media">
+                    <!-- 
+                    <div class="media-left">
+                        <a
+                            class="link-unstyled"
+                            href="https://chelseafandev.github.io/2021/08/12/tr-son-new-contract/"
+                            aria-label=": (BBC 스포츠) 토트넘 공격수 손흥민 4년 재계약 성사"
+                        >
+                            <img class="media-image" src="https://chelseafandev.github.io/2021/08/12/tr-son-new-contract/tr-son-new-contract-figure1.jpg" width="90" height="90"/>
+                        </a>
+                    </div>
+                     -->
+                    <div class="media-body">
+                        <a class="link-unstyled" href="https://chelseafandev.github.io/2021/08/12/tr-son-new-contract/" aria-label=": (BBC 스포츠) 토트넘 공격수 손흥민 4년 재계약 성사">
+                            <h3 class="media-heading">(BBC 스포츠) 토트넘 공격수 손흥민 4년 재계약 성사</h3>
+                        </a>
+                        <span class="media-meta">
+                            <span class="media-date text-small">
+                                
+                                    2021년 8월 12일
+                                
+                            </span>
+                        </span>
+                        <div class="media-content hide-xs font-nanumsquareround"><p>오늘은 현재 프리미어리그 토트넘 핫스퍼에서 활약 중인 손흥민 선수의 재계약 관련 기사를 가져왔습니다. 다음 시즌 누누감독이 이끌게 되는 토트넘, 쌉월클👍 손흥민선수와 함께 좋은 성적 거뒀으면 좋겠습니다.</p></div>
+                    </div>
+                    <div style="clear:both;"></div>
+                    <hr>
+                </div>
+                
+                <div class="media">
+                    <!--  -->
+                    <div class="media-body">
+                        <a class="link-unstyled" href="https://chelseafandev.github.io/2021/09/24/hyperscan-phase1/" aria-label=": 인텔 Hyperscan 레퍼런스 가이드 번역">
+                            <h3 class="media-heading">인텔 Hyperscan 레퍼런스 가이드 번역</h3>
+                        </a>
+                        <span class="media-meta">
+                            <span class="media-date text-small">
+                                
+                                    2021년 9월 24일
+                                
+                            </span>
+                        </span>
+                        <div class="media-content hide-xs font-nanumsquareround"><p>이번 포스팅에서는 인텔 Hyperscan의 <a target="_blank" rel="external nofollow noopener noreferrer" href="http://intel.github.io/hyperscan/dev-reference/index.html">공식 문서</a>를 통해 컴파일(compile)이나 스캔(scan)과 같은 Hyperscan의 기본적인 개념들에 대해 알아보도록 하겠습니다. 추후에는 Hyperscan API를 직접 사용하여 정규 표현식 패턴 매칭을 수행하는 샘플 코드도 업로드할 예정입니다.</p></div>
+                    </div>
+                    <div style="clear:both;"></div>
+                    <hr>
+                </div>
+                
+                <div class="media">
+                    <!--  -->
+                    <div class="media-body">
+                        <a class="link-unstyled" href="https://chelseafandev.github.io/2021/10/12/hyperscan-phase2/" aria-label=": 인텔 Hyperscan API 테스트 코드 작성">
+                            <h3 class="media-heading">인텔 Hyperscan API 테스트 코드 작성</h3>
+                        </a>
+                        <span class="media-meta">
+                            <span class="media-date text-small">
+                                
+                                    2021년 10월 12일
+                                
+                            </span>
+                        </span>
+                        <div class="media-content hide-xs font-nanumsquareround"><p>이번 포스팅에서는 <a href="https://chelseafandev.github.io/2021/09/24/hyperscan-phase1/">인텔 Hyperscan 레퍼런스 가이드 번역</a>에 이어서 Hyperscan API를 직접 사용하여 정규 표현식 패턴 매칭을 수행하는 샘플 코드를 작성하고 테스트 해보는 시간을 갖겠습니다.</p></div>
+                    </div>
+                    <div style="clear:both;"></div>
+                    <hr>
+                </div>
+                
+                <div class="media">
+                    <!--  -->
+                    <div class="media-body">
+                        <a class="link-unstyled" href="https://chelseafandev.github.io/2021/11/09/gdb-chapter4-program-crash/" aria-label=": Seg Fault는 왜 발생하는가?">
+                            <h3 class="media-heading">Seg Fault는 왜 발생하는가?</h3>
+                        </a>
+                        <span class="media-meta">
+                            <span class="media-date text-small">
+                                
+                                    2021년 11월 9일
+                                
+                            </span>
+                        </span>
+                        <div class="media-content hide-xs font-nanumsquareround"><p>이번 포스팅에서는 <a target="_blank" rel="external nofollow noopener noreferrer" href="https://nostarch.com/debugging.htm">The Art of Debugging with GDB, DDD and Eclipse</a>의 <strong>Chatper 4 WHEN A PROGRAM CRASHES</strong> 내용을 번역해보았습니다. 해당 챕터의 앞부분에서는 가상 주소 공간에서의 페이지(page)에 대한 개념을 소개하고 seg fault가 발생하는 원인을 페이지(page)와 연관지어 잘 설명해주고 있습니다.</p></div>
+                    </div>
+                    <div style="clear:both;"></div>
+                    <hr>
+                </div>
+                
+            </div>
+        </div>
+        <div class="modal-footer">
+            <p class="results-count text-medium" data-message-zero="포스트가 없습니다." data-message-one="1 개의 포스트가 있습니다." data-message-other="{n} 개의 포스트가 있습니다.">
+                27 개의 포스트가 있습니다.
+            </p>
+        </div>
+    </div>
+</div>
+
+        
+        
+<div id="cover" style="background-image:url('/assets/images/chelsea_cover.jpg');"></div>
+        <!--SCRIPTS-->
+
+<script src="/assets/js/jquery.js"></script>
+
+
+<script src="/assets/js/jquery.fancybox.js"></script>
+
+
+<script src="/assets/js/thumbs.js"></script>
+
+
+<script src="/assets/js/tranquilpeak.js"></script>
+
+<!--SCRIPTS END-->
+
+
+    
+
+
+
+    
+<script src="/assets/js/moment-with-locales.js"></script>
+
+    
+<script src="/assets/js/algoliasearch.js"></script>
+
+    <script>
+      var algoliaClient = algoliasearch('FDTOJ7KLS8', '935491408ac4c43d728c68858e4ea147');
+      var algoliaIndex = algoliaClient.initIndex('chelseafandev');
+    </script>
+
+
+    </body>
+</html>

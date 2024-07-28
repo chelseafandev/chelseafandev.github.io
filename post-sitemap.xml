@@ -1,0 +1,228 @@
+<?xml version="1.0" encoding="UTF-8"?><?xml-stylesheet type="text/xsl" href="sitemap.xsl"?>
+<urlset xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1" xsi:schemaLocation="http://www.sitemaps.org/schemas/sitemap/0.9 http://www.sitemaps.org/schemas/sitemap/0.9/sitemap.xsd" xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+
+    <url>
+        <loc>https://chelseafandev.github.io/</loc>
+        <changefreq>daily</changefreq>
+        <priority>1</priority>
+    </url>
+
+
+    <url>
+        <loc>https://chelseafandev.github.io/2024/07/28/my-golang-layout/</loc>
+        <lastmod>2024-07-28T07:04:34.529Z</lastmod>
+        <changefreq>weekly</changefreq>
+        <priority>0.6</priority>
+
+    </url>
+
+    <url>
+        <loc>https://chelseafandev.github.io/2023/09/12/what-is-strand/</loc>
+        <lastmod>2024-07-23T05:27:59.266Z</lastmod>
+        <changefreq>weekly</changefreq>
+        <priority>0.6</priority>
+
+    </url>
+
+    <url>
+        <loc>https://chelseafandev.github.io/2022/12/01/translate-packages-as-layers/</loc>
+        <lastmod>2023-07-02T13:23:21.670Z</lastmod>
+        <changefreq>weekly</changefreq>
+        <priority>0.6</priority>
+
+    </url>
+
+    <url>
+        <loc>https://chelseafandev.github.io/2023/01/30/unicode-encoding-utf8/</loc>
+        <lastmod>2023-07-02T13:23:21.670Z</lastmod>
+        <changefreq>weekly</changefreq>
+        <priority>0.6</priority>
+
+    </url>
+
+    <url>
+        <loc>https://chelseafandev.github.io/2022/09/06/translate-standard-package-layout-in-go/</loc>
+        <lastmod>2023-07-02T13:23:21.670Z</lastmod>
+        <changefreq>weekly</changefreq>
+        <priority>0.6</priority>
+
+    </url>
+
+    <url>
+        <loc>https://chelseafandev.github.io/2023/05/02/make-specific-memberfunc-to-templatefunc/</loc>
+        <lastmod>2023-07-02T13:23:21.669Z</lastmod>
+        <changefreq>weekly</changefreq>
+        <priority>0.6</priority>
+
+    </url>
+
+    <url>
+        <loc>https://chelseafandev.github.io/2023/05/19/multithreaded-execution/</loc>
+        <lastmod>2023-07-02T13:23:21.669Z</lastmod>
+        <changefreq>weekly</changefreq>
+        <priority>0.6</priority>
+
+    </url>
+
+    <url>
+        <loc>https://chelseafandev.github.io/2022/01/11/prevent-io-context-run-from-returning/</loc>
+        <lastmod>2023-07-02T13:23:21.669Z</lastmod>
+        <changefreq>weekly</changefreq>
+        <priority>0.6</priority>
+
+    </url>
+
+    <url>
+        <loc>https://chelseafandev.github.io/2023/01/26/seperate-header-and-impl-in-template-class/</loc>
+        <lastmod>2023-07-02T13:23:21.669Z</lastmod>
+        <changefreq>weekly</changefreq>
+        <priority>0.6</priority>
+
+    </url>
+
+    <url>
+        <loc>https://chelseafandev.github.io/2021/12/28/boost-io-context/</loc>
+        <lastmod>2023-07-02T13:23:21.668Z</lastmod>
+        <changefreq>weekly</changefreq>
+        <priority>0.6</priority>
+
+    </url>
+
+    <url>
+        <loc>https://chelseafandev.github.io/2023/01/26/caution-when-passing-instance-to-post/</loc>
+        <lastmod>2023-07-02T13:23:21.668Z</lastmod>
+        <changefreq>weekly</changefreq>
+        <priority>0.6</priority>
+
+    </url>
+
+    <url>
+        <loc>https://chelseafandev.github.io/2023/01/26/how-to-get-query-result-dynamically/</loc>
+        <lastmod>2023-07-02T13:23:21.668Z</lastmod>
+        <changefreq>weekly</changefreq>
+        <priority>0.6</priority>
+
+    </url>
+
+    <url>
+        <loc>https://chelseafandev.github.io/2023/05/12/impl-big-integer-in-cpp/</loc>
+        <lastmod>2023-07-02T13:23:21.668Z</lastmod>
+        <changefreq>weekly</changefreq>
+        <priority>0.6</priority>
+
+    </url>
+
+    <url>
+        <loc>https://chelseafandev.github.io/2021/08/12/tr-son-new-contract/</loc>
+        <lastmod>2023-06-09T05:02:43.805Z</lastmod>
+        <changefreq>weekly</changefreq>
+        <priority>0.6</priority>
+
+    </url>
+
+    <url>
+        <loc>https://chelseafandev.github.io/2023/02/10/tip-for-gdb-debugging/</loc>
+        <lastmod>2023-06-09T05:02:43.804Z</lastmod>
+        <changefreq>weekly</changefreq>
+        <priority>0.6</priority>
+
+    </url>
+
+    <url>
+        <loc>https://chelseafandev.github.io/2021/08/05/tr-lukaku-want-to-chelsea/</loc>
+        <lastmod>2023-06-09T05:02:43.804Z</lastmod>
+        <changefreq>weekly</changefreq>
+        <priority>0.6</priority>
+
+    </url>
+
+    <url>
+        <loc>https://chelseafandev.github.io/2021/07/22/tip-how-to-use-tmux-md/</loc>
+        <lastmod>2023-06-09T05:02:43.804Z</lastmod>
+        <changefreq>weekly</changefreq>
+        <priority>0.6</priority>
+
+    </url>
+
+    <url>
+        <loc>https://chelseafandev.github.io/2021/07/10/tr-ruud-gullit/</loc>
+        <lastmod>2023-06-09T05:02:43.804Z</lastmod>
+        <changefreq>weekly</changefreq>
+        <priority>0.6</priority>
+
+    </url>
+
+    <url>
+        <loc>https://chelseafandev.github.io/2021/12/06/ip-routing-flow/</loc>
+        <lastmod>2023-06-09T05:02:43.803Z</lastmod>
+        <changefreq>weekly</changefreq>
+        <priority>0.6</priority>
+
+    </url>
+
+    <url>
+        <loc>https://chelseafandev.github.io/2021/08/02/os-sync-async-block-nonblock/</loc>
+        <lastmod>2023-06-09T05:02:43.803Z</lastmod>
+        <changefreq>weekly</changefreq>
+        <priority>0.6</priority>
+
+    </url>
+
+    <url>
+        <loc>https://chelseafandev.github.io/2021/07/13/os-io-system/</loc>
+        <lastmod>2023-06-09T05:02:43.803Z</lastmod>
+        <changefreq>weekly</changefreq>
+        <priority>0.6</priority>
+
+    </url>
+
+    <url>
+        <loc>https://chelseafandev.github.io/2021/09/24/hyperscan-phase1/</loc>
+        <lastmod>2023-06-09T05:02:43.802Z</lastmod>
+        <changefreq>weekly</changefreq>
+        <priority>0.6</priority>
+
+    </url>
+
+    <url>
+        <loc>https://chelseafandev.github.io/2021/10/12/hyperscan-phase2/</loc>
+        <lastmod>2023-06-09T05:02:43.802Z</lastmod>
+        <changefreq>weekly</changefreq>
+        <priority>0.6</priority>
+
+    </url>
+
+    <url>
+        <loc>https://chelseafandev.github.io/2021/12/06/ethernet-switching-flow/</loc>
+        <lastmod>2023-06-09T05:02:43.801Z</lastmod>
+        <changefreq>weekly</changefreq>
+        <priority>0.6</priority>
+
+    </url>
+
+    <url>
+        <loc>https://chelseafandev.github.io/2021/07/08/hello-hexo/</loc>
+        <lastmod>2023-06-09T05:02:43.801Z</lastmod>
+        <changefreq>weekly</changefreq>
+        <priority>0.6</priority>
+
+    </url>
+
+    <url>
+        <loc>https://chelseafandev.github.io/2021/11/09/gdb-chapter4-program-crash/</loc>
+        <lastmod>2023-06-09T05:02:43.801Z</lastmod>
+        <changefreq>weekly</changefreq>
+        <priority>0.6</priority>
+
+    </url>
+
+    <url>
+        <loc>https://chelseafandev.github.io/2022/03/05/cmake-tutorial/</loc>
+        <lastmod>2023-06-09T05:02:43.801Z</lastmod>
+        <changefreq>weekly</changefreq>
+        <priority>0.6</priority>
+
+    </url>
+
+</urlset>
+<!-- XML Sitemap generated by Hexo SEO Friendly Sitemap Generator -->

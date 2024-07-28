@@ -1,0 +1,993 @@
+
+<!DOCTYPE html>
+<html lang="ko">
+    
+<head>
+    <meta name="google-site-verification" content="Ojz5tvI9WuN6pn2n6i1E_mOkMyRiSSOp4KXuYSyaUjs">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="generator" content="첼시팬 개발자 작업 공간">
+    <title>CMake에 대해 알아보자 - 첼시팬 개발자 작업 공간</title>
+    <meta name="author" content="첼시팬개발자">
+    
+    
+        <link rel="icon" href="https://chelseafandev.github.io/assets/images/chelsea_favicon.png">
+    
+    
+        
+            <link rel="alternate" type="application/rss+xml" title="RSS" href="/rss2.xml">
+        
+    
+    <script type="application/ld+json">{"@context":"http://schema.org","@type":"BlogPosting","author":{"@type":"Person","name":"첼시팬개발자","sameAs":[],"image":"chelsea_logo.png"},"articleBody":"뭐하는 놈인지는 알고 쓰자 시리즈의 세번째 주제는 CMake입니다.\n\n\n해당 포스팅에서는 CMake 공식 홈페이지의 튜토리얼 내용을 번역해보았습니다. CMake 공식 github에서 제공해주는 프로젝트 폴더 구성과 소스 코드를 참조하여 좀 더 상세히 CMake의 사용법에 대해 알아보는 시간을 갖도록 하겠습니다. (튜토리얼 관련 소스 코드는 이곳에서 확인 가능합니다.)\n한국어로 된 CMake 관련 설명이 필요하시다면 CMake 할때 쪼오오금 도움이 되는 문서도 굉장히 잘 정리되어있으니 참고하시기 바랍니다.\n\n\n\n\n\n\n\nCMake TutorialIntroductionCMake 튜토리얼은 일반적인 빌드 시스템 이슈를 처리하기 위한 단계별 가이드를 제공해줍니다. 예시로 제공되는 프로젝트에서 다양한 주제들이 함께 처리되는 방식을 살펴보는 것은 아주 큰 도움이 될 것입니다.\n\nThe CMake tutorial provides a step-by-step guide that covers common build system issues that CMake helps address. Seeing how various topics all work together in an example project can be very helpful.\n\n\nStep 1: A Basic Starting Point가장 기본적인 프로젝트는 소스 코드로부터 빌드되는 실행 파일입니다. 이 간단한 프로젝트에서는 CMakeLists.txt 파일에 단 3줄만이 필요합니다. 이것이 우리의 튜토리얼 시작 지점이 될 것입니다. 아래와 같이 작성된 CMakeLists.txt 파일을 Step1 디렉토리안에 생성해봅시다.\n\nThe most basic project is an executable built from source code files. For simple projects, a three line CMakeLists.txt file is all that is required. This will be the starting point for our tutorial. Create a CMakeLists.txt file in the Step1 directory that looks like:\n\n1234567cmake_minimum_required(VERSION 3.10)# set the project nameproject(Tutorial)# add the executableadd_executable(Tutorial tutorial.cxx)\n\n이 예제에서는 CMakeLists.txt 파일에 소문자로 이루어진 명령어를 사용한다는 것에 주목하기바랍니다. CMake에서는 대문자, 소문자 그리고 이 둘이 혼합된 명령어를 지원합니다. tutorial.cxx의 소스 코드는 Step1 디렉토리에서 확인가능하며 이 코드는 제곱근을 계산하기 위해 사용될 수 있습니다.\n\nNote that this example uses lower case commands in the CMakeLists.txt file. Upper, lower, and mixed case commands are supported by CMake. The source code for tutorial.cxx is provided in the Step1 directory and can be used to compute the square root of a number.\n\nBuild and Run이것이 필요한 모든것입니다 - 지금 당장에 우리의 프로젝트를 빌드하고 실행할 수 있습니다! 먼저, 프로젝트를 설정하기 위해 cmake 실행 파일 또는 cmake-gui 실행합니다. 그리고나서 여러분이 선택한 빌드 툴을 가지고 빌드합니다.\n\nThat’s all that is needed - we can build and run our project now! First, run the cmake executable or the cmake-gui to configure the project and then build it with your chosen build tool.\n\n예를 들어, 여러분은 커맨드 라인에서 CMake 소스 코드 트리의 Help/guide/tutorial 경로로 이동할 수 있고 아래 명령어를 입력하여 빌드 디렉토리를 생성할 수 있습니다:\n\nFor example, from the command line we could navigate to the Help/guide/tutorial directory of the CMake source code tree and create a build directory:\n\n1mkdir Step1_build\n\n다음으로, 생성한 빌드 디렉토리로 이동한 뒤 프로젝트를 설정하고 네이티브 빌드 시스템을 생성하기 위해 CMake를 실행합니다:\n\nNext, navigate to the build directory and run CMake to configure the project and generate a native build system:\n\n12cd Step1_buildcmake ../Step1\n\n그리고나서 실질적으로 프로젝트를 컴파일하고 링크하기 위해 빌드 시스템을 호출합니다:\n\nThen call that build system to actually compile/link the project:\n\n1cmake --build\n\n마지막으로, 아래 명령어들을 통해 빌드된 Tutorial을 사용해봅시다:\n\nFinally, try to use the newly built Tutorial with these commands:\n\n123Tutorial 4294967296Tutorial 10Tutorial\n\nAdding a Version Number and Configured Header File우리가 추가하게 될 첫번째 기능은 우리의 실행 파일과 프로젝트에 버전 번호를 제공하는 것입니다. 버전 번호를 소스 코드 상에 추가하는 것도 하나의 방법이지만 CMakeLists.txt의 사용은 이를 좀 더 유연하게 해줍니다.\n\nThe first feature we will add is to provide our executable and project with a version number. While we could do this exclusively in the source code, using CMakeLists.txt provides more flexibility.\n\n먼저, 프로젝트의 이름과 버전 번호를 설정하기 위한 명령어인 project()를 사용하기 위해 CMakeLists.txt 파일을 수정합니다.\n\nFirst, modify the CMakeLists.txt file to use the project() command to set the project name and version number.\n\n1234cmake_minimum_required(VERSION 3.10)# set the project name and versionproject(Tutorial VERSION 1.0)\n\n그리고나서, 버전 번호를 소스 코드로 전달하기 위해 헤더 파일을 설정합니다.\n\nThen, configure a header file to pass the version number to the source code:\n\n1configure_file(TutorialConfig.h.in TutorialConfig.h)\n\n설정된 파일은 바이너리 트리 안에 작성될 것이기때문에 포함 파일을 찾기 위해 경로 리스트에 해당 디렉토리를 추가해주어야합니다. CMakeLists.txt 파일의 끝에 아래 라인을 추가해줍니다.\n\nSince the configured file will be written into the binary tree, we must add that directory to the list of paths to search for include files. Add the following lines to the end of the CMakeLists.txt file:\n\n1target_include_directories(Tutorial PUBLIC &quot;$&#123;PROJECT_BINARY_DIR&#125;&quot;)\n\n여러분이 선호하는 편집기를 사용하여 아래 내용을 포함하고 있는 TutorialConfig.h.in 파일을 소스 디렉토리에 생성해줍시다.\n\nUsing your favorite editor, create TutorialConfig.h.in in the source directory with the following contents:\n\n123// the configured options and settings for Tutorial#define Tutorial_VERSION_MAJOR @Tutorial_VERSION_MAJOR@#define Tutorial_VERSION_MINOR @Tutorial_VERSION_MINOR@\n\nCMake가 이 헤더 파일을 설정하는 동안 @Tutorial_VERSION_MAJOR@와 @Tutorial_VERSION_MINOR@ 값은 대체될 것입니다.\n\nWhen CMake configures this header file the values for @Tutorial_VERSION_MAJOR@ and @Tutorial_VERSION_MINOR@ will be replaced.\n\n다음으로 설정된 헤더 파일인 TutorialConfig.h를 포함하기 위해 tutorial.cxx 파일을 수정합시다.\n\nNext modify tutorial.cxx to include the configured header file, TutorialConfig.h.\n\n마지막으로, 아래와 같이 tutorial.cxx 파일을 수정해서 실행 파일의 이름과 버전 번호를 출력해봅시다.\n\nFinally, let’s print out the executable name and version number by updating tutorial.cxx as follows:\n\n1234567if (argc &lt; 2) &#123;    // report version    std::cout &lt;&lt; argv[0] &lt;&lt; &quot; Version &quot; &lt;&lt; Tutorial_VERSION_MAJOR &lt;&lt; &quot;.&quot;              &lt;&lt; Tutorial_VERSION_MINOR &lt;&lt; std::endl;    std::cout &lt;&lt; &quot;Usage: &quot; &lt;&lt; argv[0] &lt;&lt; &quot; number&quot; &lt;&lt; std::endl;    return 1;&#125;\n\nSpecify the C++ Standard다음으로 tutorial.cxx 소스 내에 atof를 std::stod로 변경함으로써 C++11 기능을 우리 프로젝트에 추가해봅시다. 동시에 #include &lt;cstdlib&gt; 선언도 제거해줍니다.\n\nNext let’s add some C++11 features to our project by replacing atof with std::stod in tutorial.cxx. At the same time, remove #include &lt;cstdlib&gt;.\n\n우리는 올바른 플래그 값을 사용하도록 CMake 코드에 명시적으로 언급할 필요가 있을것입니다. CMake에서 특정 C++ 버전을 지원하도록 하는 가장 쉬운 방법은 CMAKE_CXX_STANDARD 변수를 사용하는 것입니다. 현재 튜토리얼에서는 CMakeLists.txt 파일의 CMAKE_CXX_STANDARD 변수를 11로 설정하고, CMAKE_CXX_STANDARD_REQUIRED 변수를 True로 설정해보겠습니다. CMAKE_CXX_STANDARD는 add_executable 명령어 호출 이전에 선언되어야한다는 것을 잊지말기 바랍니다.\n\nWe will need to explicitly state in the CMake code that it should use the correct flags. The easiest way to enable support for a specific C++ standard in CMake is by using the CMAKE_CXX_STANDARD variable. For this tutorial, set the CMAKE_CXX_STANDARD variable in the CMakeLists.txt file to 11 and CMAKE_CXX_STANDARD_REQUIRED to True. Make sure to add the CMAKE_CXX_STANDARD declarations above the call to add_executable.\n\n12345678cmake_minimum_required(VERSION 3.10)# set the project name and versionproject(Tutorial VERSION 1.0)# specify the C++ standardset(CMAKE_CXX_STANDARD 11)set(CMAKE_CXX_STANDARD_REQUIRED True)\n\nRebuild우리의 프로젝트를 다시 빌드해봅시다. 우리는 이미 빌드 디렉토리 생성했고 CMake를 실행했기때문에 빌드 과정으로 건너뛸 수 있습니다:\n\nLet’s build our project again. We already created a build directory and ran CMake, so we can skip to the build step:\n\n12cd Step1_buildcmake --build .\n\n이제 이전과 동일한 명령어를 통해 새롭게 빌드된 Tutorial을 실행해볼 수 있습니다.\n\nNow we can try to use the newly built Tutorial with same commands as before:\n\n123Tutorial 4294967296Tutorial 10Tutorial\n\n인자 없이 실행 파일을 구동 할때 버전 번호가 출력되는지 확인해보시길 바랍니다.\n\nCheck that the version number is now reported when running the executable without any arguments.\n\n\nStep 2: Adding a Library이제 우리의 프로젝트에 라이브러리를 추가해볼 것입니다. 이 라이브러리는 제곱근 계산을 직접 구현한 내용이 포함되어 있을 것입니다. 해당 라이브러리를 추가한 이후에는 실행 파일이 컴파일러가 제공하는 일반적인 제곱근 함수 대신에 이 라이브러리를 사용할 수 있게됩니다.\n\nNow we will add a library to our project. This library will contain our own implementation for computing the square root of a number. The executable can then use this library instead of the standard square root function provided by the compiler.\n\n이번 튜토리얼에서는 해당 라이브러리를 MathFunctions이라는 하위 디렉토리에 포함시킬 것입니다. 이 디렉토리에는 헤더 파일인 MathFunctions.h와 소스 파일인 mysqrt.cxx가 포함되어 있습니다. 소스 파일에는 컴파일러의 sqrt 함수와 유사한 기능을 제공하는 mysqrt라는 함수가 존재합니다.\n\nFor this tutorial we will put the library into a subdirectory called MathFunctions. This directory already contains a header file, MathFunctions.h, and a source file mysqrt.cxx. The source file has one function called mysqrt that provides similar functionality to the compiler’s sqrt function.\n\nMathFunctions 디렉토리의 CMakeLists.txt 파일에 아래와 같이 한 줄을 추가합니다.\n\nAdd the following one line CMakeLists.txt file to the MathFunctions directory:\n\n1add_library(MathFunctions mysqrt.cxx)\n\n새롭게 추가한 라이브러리를 사용하기 위해 ①최상위 CMakeLists.txt 파일에 add_subdirectory() 호출을 추가할 것이며, 이 호출을 통해 라이브러리가 빌드될 것 입니다. ②실행 파일에 새로운 라이브러리를 추가하고 mysqrt.h ③헤더 파일을 참조할 수 있도록 MathFunctions를 포함 디렉토리로 추가합니다. 이제 최상위 CMakeLists.txt 파일의 마지막 몇 개의 라인은 아래와 같아야 합니다:\n\nTo make use of the new library we will add an add_subdirectory() call in the top-level CMakeLists.txt file so that the library will get built. We add the new library to the executable, and add MathFunctions as an include directory so that the mysqrt.h header file can be found. The last few lines of the top-level CMakeLists.txt file should now look like:\n\n1234567891011121314# ① add the MathFunctions libraryadd_subdirectory(MathFunctions)# add the executableadd_executable(Tutorial tutorial.cxx)# ② add the new library(= MathFUnction) to the executabletarget_link_libraries(Tutorial PUBLIC MathFunctions)# ③ add the binary tree to the search path for include files so that we will find TutorialConfig.htarget_include_directories(Tutorial PUBLIC                            &quot;$&#123;PROJECT_BINARY_DIR&#125;&quot;                           &quot;$&#123;PROJECT_SOURCE_DIR&#125;/MathFunctions&quot;                          )\n\n이번엔 MathFunctions 라이브러리를 옵션화해봅시다. 이번 튜토리얼을 진행하는데 있어서 이 작업이 반드시 필요한 것은 아니지만, 규모가 더 큰 프로젝트들에서 이러한 옵션화 작업은 일반적입니다. 가장 먼저 최상위 CMakeLists.txt 파일에 option을 추가합니다.\n\nNow let us make the MathFunctions library optional. While for the tutorial there really isn’t any need to do so, for larger projects this is a common occurrence. The first step is to add an option to the top-level CMakeLists.txt file.\n\n12345option(USE_MYMATH &quot;Use tutorial provided math implementation&quot; ON)# configure a header file to pass some of the CMake settings# to the source codeconfigure_file(TutorialConfig.h.in TutorialConfig.h)\n\n이 옵션은 cmake-gui와 ccmake에서 기본 값인 ON으로 보여지게 될 것이며 이 값은 사용자가 변경할 수 있습니다. 이 설정은 캐시에 저장될 것이기 때문에 사용자는 빌드 디렉토리에서 CMake를 실행할 때마다 이 값을 설정할 필요가 없습니다.\n\nThis option will be displayed in the cmake-gui and ccmake with a default value of ON that can be changed by the user. This setting will be stored in the cache so that the user does not need to set the value each time they run CMake on a build directory.\n\n다음 변화는 MathFunctions 라이브러리를 조건에 따라 빌드하고 링킹하도록 만드는 것입니다. 이를 위해 옵션 값을 체크하는 if 구문을 생성할 것입니다. if 블록 내부에 라이브러리를 링크하기 위해 필요한 정보를 저장하고 하위 디렉토리를 튜토리얼 타겟의 포함 디렉토리로 추가하기 위한 list 명령어와 함께  add_subdirectory() 명령어를 추가합시다.\n\nThe next change is to make building and linking the MathFunctions library conditional. To do this, we will create an if statement which checks the value of the option. Inside the if block, put the add_subdirectory() command from above with some additional list commands to store information needed to link to the library and add the subdirectory as an include directory in the Tutorial target. The end of the top-level CMakeLists.txt file will now look like the following:\n\n1234567891011121314151617if(USE_MYMATH)  add_subdirectory(MathFunctions)  list(APPEND EXTRA_LIBS MathFunctions)  list(APPEND EXTRA_INCLUDES &quot;$&#123;PROJECT_SOURCE_DIR&#125;/MathFunctions&quot;)endif()# add the executableadd_executable(Tutorial tutorial.cxx)target_link_libraries(Tutorial PUBLIC $&#123;EXTRA_LIBS&#125;)# add the binary tree to the search path for include files# so that we will find TutorialConfig.htarget_include_directories(Tutorial PUBLIC                            &quot;$&#123;PROJECT_BINARY_DIR&#125;&quot;                           $&#123;EXTRA_INCLUDES&#125;                          )\n\n나중에 실행파일에 링크되는 옵션화된 라이브러리들을 모으기 위해 EXTRA_LIBS 라는 변수를 사용하는 것을 주목하기 바랍니다. EXTRA_INCLUDES 변수는 옵션화된 헤더 파일을 대상으로 이와 유사하게 사용됩니다. 이것은 많은 옵션 컴포넌트들을 처리하기 위한 고전적인 방식이며, 다음 단계에서 현대적인 접근 방식에 대해 살펴볼 것입니다.\n\nNote the use of the variable EXTRA_LIBS to collect up any optional libraries to later be linked into the executable. The variable EXTRA_INCLUDES is used similarly for optional header files. This is a classic approach when dealing with many optional components, we will cover the modern approach in the next step.\n\n위 작업에 따른 소스 코드 상의 변경점은 꽤 간단합니다. 먼저, 필요 시에 tutorial.cxx에서 MathFunctions.h를 포함시켜줍니다.\n\nThe corresponding changes to the source code are fairly straightforward. First, in tutorial.cxx, include the MathFunctions.h header if we need it:\n\n123#ifdef USE_MYMATH#  include &quot;MathFunctions.h&quot;#endif\n\n그리고 나서, USE_MYMATH를 제곱근 함수가 사용되는 조건으로 만들어줍니다.\n\nThen, in the same file, make USE_MYMATH control which square root function is used:\n\n12345#ifdef USE_MYMATH  const double outputValue = mysqrt(inputValue);#else  const double outputValue = sqrt(inputValue);#endif\n\n이제 소스 코드에서 USE_MYMATH 변수를 요구하고 있기때문에 이 값을 TutorialConfig.h.in 파일에 아래와 같이 추가할 수 있습니다:\n\nSince the source code now requires USE_MYMATH we can add it to TutorialConfig.h.in with the following line:\n\n1#cmakedefine USE_MYMATH\n\n프로젝트를 설정(configure)하기 위해 cmake 실행 파일 또는 cmake-gui를 실행시키고 여러분의 빌드 도구에 맞게 빌드합니다. 그리고 빌드된 Tutorial 실행 파일을 실행합니다.\n\nRun the cmake executable or the cmake-gui to configure the project and then build it with your chosen build tool. Then run the built Tutorial executable.\n\n이제 USE_MYMATH 값을 업데이트 해봅시다. 가장 쉬운 방법은 cmake-gui를 사용하거나 터미널 환경이라면 ccmake를 사용하는 것입니다. 또는 command-line의 옵션을 변경하기를 원한다면 아래와 같이 시도해보시기 바랍니다:\n\nNow let’s update the value of USE_MYMATH. The easiest way is to use the cmake-gui or ccmake if you’re in the terminal. Or, alternatively, if you want to change the option from the command-line, try:\n\n1cmake ../Step2 -DUSE_MYMATH=OFF\n\n\nStep 3: Adding Usage Requirements for a Library사용 요구 사항을 통해 라이브러리 또는 실행 파일의 링크 및 포함 라인을 훨씬 더 잘 제어할 수 있으며 CMake 내 대상의 전이 속성을 더 많이 제어할 수 있습니다. 사용 요구 사항을 활용하는 기본 명령은 다음과 같습니다:\n\nUsage requirements allow for far better control over a library or executable’s link and include line while also giving more control over the transitive property of targets inside CMake. The primary commands that leverage usage requirements are:\n\ntarget_compile_definitions()\ntarget_compile_options()\ntarget_include_directories()\ntarget_link_libraries()\n\n\n사용 요구 사항의 현대적인 CMake 접근 방식을 사용하기 위해 앞선 챕터였던 Adding a Library에서 사용한 소스 코드를 리팩토링 해보겠습니다. 먼저 MathFunctions 라이브러리를 링킹하고자 한다면 현재 소스 디렉토리를 포함해야하지만 MathFunctions 자체는 포함하지 않습니다. 따라서 이것인 INTERFACE 사용 요구사항이 될 수 있습니다.\n\nLet’s refactor our code from Adding a Library to use the modern CMake approach of usage requirements. We first state that anybody linking to MathFunctions needs to include the current source directory, while MathFunctions itself doesn’t. So this can become an INTERFACE usage requirement.\n\nINTERFACE는 소비자가 필요로 하지만 생산자는 그렇지 않다는 것을 기억하기 바랍니다. MathFunctions/CMakeLists.txt 파일의 끝에 아래 라인을 추가합니다.\n\nRemember INTERFACE means things that consumers require but the producer doesn’t. Add the following lines to the end of MathFunctions/CMakeLists.txt:\n\n123target_include_directories(MathFunctions          INTERFACE $&#123;CMAKE_CURRENT_SOURCE_DIR&#125;          )\n\n이제 MathFunctions에 대한 사용 요구 사항을 명시했으므로 최상위 CMakeLists.txt에서 EXTRA_INCLUDES변수 사용을 안전하게 제거할 수 있습니다:\n\nNow that we’ve specified usage requirements for MathFunctions we can safely remove our uses of the EXTRA_INCLUDES variable from the top-level CMakeLists.txt, here:\n\n1234if(USE_MYMATH)  add_subdirectory(MathFunctions)  list(APPEND EXTRA_LIBS MathFunctions)endif()\n\n\nAnd here:\n\n123target_include_directories(Tutorial PUBLIC                           &quot;$&#123;PROJECT_BINARY_DIR&#125;&quot;                           )\n\n위와 같이 수정을 완료하였다면 프로젝트를 설정(configure)하기 위해 cmake 실행 파일 또는 cmake-gui를 실행시키고 여러분의 빌드 도구에 맞게 빌드하거나 빌드 디렉토리에서 cmake --build를 사용하여 빌드합니다.\n\nOnce this is done, run the cmake executable or the cmake-gui to configure the project and then build it with your chosen build tool or by using cmake --build . from the build directory.\n\n\n\n\n해당 게시글에서 발생한 오탈자나 잘못된 내용에 대한 정정 댓글 격하게 환영합니다😎\n\nreference\n\nhttps://cmake.org/cmake/help/v3.22/guide/tutorial/index.html\nhttps://github.com/Kitware/CMake/tree/master/Help/guide/tutorial\nhttps://gist.github.com/luncliff/6e2d4eb7ca29a0afd5b592f72b80cb5c\n\n","dateCreated":"2022-03-05T22:24:52+09:00","dateModified":"2023-06-09T14:02:43+09:00","datePublished":"2022-03-05T22:24:52+09:00","description":"뭐하는 놈인지는 알고 쓰자 시리즈의 세번째 주제는 CMake입니다.","headline":"CMake에 대해 알아보자","image":[],"mainEntityOfPage":{"@type":"WebPage","@id":"https://chelseafandev.github.io/2022/03/05/cmake-tutorial/"},"publisher":{"@type":"Organization","name":"첼시팬개발자","sameAs":[],"image":"chelsea_logo.png","logo":{"@type":"ImageObject","url":"chelsea_logo.png"}},"url":"https://chelseafandev.github.io/2022/03/05/cmake-tutorial/","keywords":"cmake, CMakeFile.txt, CMake tutorial"}</script>
+    <meta name="description" content="뭐하는 놈인지는 알고 쓰자 시리즈의 세번째 주제는 CMake입니다.">
+<meta property="og:type" content="blog">
+<meta property="og:title" content="CMake에 대해 알아보자">
+<meta property="og:url" content="https://chelseafandev.github.io/2022/03/05/cmake-tutorial/index.html">
+<meta property="og:site_name" content="첼시팬 개발자 작업 공간">
+<meta property="og:description" content="뭐하는 놈인지는 알고 쓰자 시리즈의 세번째 주제는 CMake입니다.">
+<meta property="og:locale" content="ko_KR">
+<meta property="article:published_time" content="2022-03-05T13:24:52.000Z">
+<meta property="article:modified_time" content="2023-06-09T05:02:43.801Z">
+<meta property="article:author" content="첼시팬개발자">
+<meta property="article:tag" content="cmake">
+<meta property="article:tag" content="CMakeFile.txt">
+<meta property="article:tag" content="CMake tutorial">
+<meta name="twitter:card" content="summary">
+    
+    
+        
+    
+    
+        <meta property="og:image" content="https://chelseafandev.github.io/assets/images/chelsea_logo.png">
+    
+    
+    
+    
+    <!--STYLES-->
+    
+<link rel="stylesheet" href="/assets/css/all.css">
+
+    
+<link rel="stylesheet" href="/assets/css/jquery.fancybox.css">
+
+    
+<link rel="stylesheet" href="/assets/css/thumbs.css">
+
+    
+<link rel="stylesheet" href="/assets/css/tranquilpeak.css">
+
+    <!--STYLES END-->
+    
+
+    
+
+    
+        
+    
+    <link rel="canonical" href="https://chelseafandev.github.io/2022/03/05/cmake-tutorial/">
+</head>
+
+    <body>
+        <div id="blog">
+            <!-- Define author's picture -->
+
+
+    
+        
+            
+        
+    
+
+<header id="header" data-behavior="4">
+    <i id="btn-open-sidebar" class="fa fa-lg fa-bars"></i>
+    <div class="header-title">
+        <a class="header-title-link" href="/" aria-label>
+            첼시팬 개발자 작업 공간
+        </a>
+    </div>
+    
+        
+            <a class="header-right-picture " href="#about" aria-label="링크 열기: /#about">
+        
+        
+            <img class="header-picture" src="/assets/images/chelsea_logo.png" alt="저자 이미지">
+        
+        </a>
+    
+</header>
+
+            <!-- Define author's picture -->
+
+
+
+        
+    
+
+<nav id="sidebar" data-behavior="4" style="border-top-width: 100px;padding-top: 150px;">
+    <div class="sidebar-container">
+        
+            <div class="sidebar-profile">
+                <a href="/#about" aria-label="저자에 대해 더 알아보기">
+                    <img class="sidebar-profile-picture" src="/assets/images/chelsea_logo.png" alt="저자 이미지">
+                </a>
+                <h4 class="sidebar-profile-name">첼시팬개발자</h4>
+                
+                    <h5 class="sidebar-profile-bio"><p>조금 더디더라도 꾸준히</p>
+</h5>
+                
+            </div>
+        
+        
+            <ul class="sidebar-buttons">
+            
+                <li class="sidebar-button">
+                    
+                        <a class="sidebar-button-link " href="/" rel="noopener" title="전체글">
+                        <i class="sidebar-button-icon fas fa-list-ul" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">전체글</span>
+                    </a>
+            </li>
+            
+                <li class="sidebar-button">
+                    
+                        <a class="sidebar-button-link " href="/all-categories" rel="noopener" title="카테고리">
+                        <i class="sidebar-button-icon fa fa-bookmark" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">카테고리</span>
+                    </a>
+            </li>
+            
+                <li class="sidebar-button">
+                    
+                        <a class="sidebar-button-link " href="/all-tags" rel="noopener" title="태그">
+                        <i class="sidebar-button-icon fa fa-tags" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">태그</span>
+                    </a>
+            </li>
+            
+                <li class="sidebar-button">
+                    
+                        <a class="sidebar-button-link " href="/all-archives" rel="noopener" title="아카이브">
+                        <i class="sidebar-button-icon fa fa-archive" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">아카이브</span>
+                    </a>
+            </li>
+            
+                <li class="sidebar-button">
+                    
+                        <a class="sidebar-button-link " href="https://github.com/chelseafandev" target="_blank" rel="external nofollow noopener noreferrer" title="GitHub">
+                        <i class="sidebar-button-icon fab fa-github" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">GitHub</span>
+                    </a>
+            </li>
+            
+                <li class="sidebar-button">
+                    
+                        <a class="sidebar-button-link " href="/rss2.xml" rel="noopener" title="RSS">
+                        <i class="sidebar-button-icon fa fa-rss" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">RSS</span>
+                    </a>
+            </li>
+            
+        </ul>
+        
+    </div>
+</nav>
+
+            
+            <div id="main" data-behavior="4" class="
+                        hasCoverMetaIn
+                        ">
+                
+<article class="post">
+    
+    
+        <div class="post-header main-content-wrap text-left">
+    
+        <h1 class="post-title">
+            CMake에 대해 알아보자
+        </h1>
+    
+    
+        <div class="post-meta">
+    <time datetime="2022-03-05T22:24:52+09:00">
+	
+		    2022/03/05 22:24:52
+    	
+    </time>
+    
+        <span>카테고리 </span>
+        
+    <a class="category-link" href="/categories/C/">C++</a>
+
+
+    
+    
+        -
+        <span class="reading-time">⏱</span>
+        
+            읽는데 16 분 정도 소요 예상
+        
+        
+    
+</div>
+
+    
+</div>
+
+    
+    <div class="post-content markdown">
+        <div class="main-content-wrap">
+            <p><em><strong>뭐하는 놈인지는 알고 쓰자</strong></em> 시리즈의 세번째 주제는 <code>CMake</code>입니다.</p>
+<span id="more"></span>
+
+<p>해당 포스팅에서는 <a target="_blank" rel="external nofollow noopener noreferrer" href="https://cmake.org/cmake/help/v3.22/guide/tutorial/index.html">CMake 공식 홈페이지</a>의 튜토리얼 내용을 번역해보았습니다. <a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/Kitware/CMake">CMake 공식 github</a>에서 제공해주는 프로젝트 폴더 구성과 소스 코드를 참조하여 좀 더 상세히 CMake의 사용법에 대해 알아보는 시간을 갖도록 하겠습니다. (튜토리얼 관련 소스 코드는 <a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/Kitware/CMake/tree/master/Help/guide/tutorial">이곳</a>에서 확인 가능합니다.)</p>
+<p>한국어로 된 CMake 관련 설명이 필요하시다면 <a target="_blank" rel="external nofollow noopener noreferrer" href="https://gist.github.com/luncliff/6e2d4eb7ca29a0afd5b592f72b80cb5c">CMake 할때 쪼오오금 도움이 되는 문서</a>도 굉장히 잘 정리되어있으니 참고하시기 바랍니다.</p>
+<br>
+
+<h1 id="table-of-contents">목차</h1><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#CMake-Tutorial"><span class="toc-number">1.</span> <span class="toc-text">CMake Tutorial</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#Introduction"><span class="toc-number">1.1.</span> <span class="toc-text">Introduction</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Step-1-A-Basic-Starting-Point"><span class="toc-number">1.2.</span> <span class="toc-text">Step 1: A Basic Starting Point</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#Build-and-Run"><span class="toc-number">1.2.1.</span> <span class="toc-text">Build and Run</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#Adding-a-Version-Number-and-Configured-Header-File"><span class="toc-number">1.2.2.</span> <span class="toc-text">Adding a Version Number and Configured Header File</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#Specify-the-C-Standard"><span class="toc-number">1.2.3.</span> <span class="toc-text">Specify the C++ Standard</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#Rebuild"><span class="toc-number">1.2.4.</span> <span class="toc-text">Rebuild</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Step-2-Adding-a-Library"><span class="toc-number">1.3.</span> <span class="toc-text">Step 2: Adding a Library</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Step-3-Adding-Usage-Requirements-for-a-Library"><span class="toc-number">1.4.</span> <span class="toc-text">Step 3: Adding Usage Requirements for a Library</span></a></li></ol></li></ol>
+
+<br>
+
+<hr>
+<h1 id="CMake-Tutorial"><a href="#CMake-Tutorial" class="headerlink" title="CMake Tutorial"></a>CMake Tutorial</h1><h2 id="Introduction"><a href="#Introduction" class="headerlink" title="Introduction"></a>Introduction</h2><p>CMake 튜토리얼은 일반적인 빌드 시스템 이슈를 처리하기 위한 단계별 가이드를 제공해줍니다. 예시로 제공되는 프로젝트에서 다양한 주제들이 함께 처리되는 방식을 살펴보는 것은 아주 큰 도움이 될 것입니다.</p>
+<blockquote>
+<p>The CMake tutorial provides a step-by-step guide that covers common build system issues that CMake helps address. Seeing how various topics all work together in an example project can be very helpful.</p>
+</blockquote>
+<hr>
+<h2 id="Step-1-A-Basic-Starting-Point"><a href="#Step-1-A-Basic-Starting-Point" class="headerlink" title="Step 1: A Basic Starting Point"></a>Step 1: A Basic Starting Point</h2><p>가장 기본적인 프로젝트는 소스 코드로부터 빌드되는 실행 파일입니다. 이 간단한 프로젝트에서는 <code>CMakeLists.txt</code> 파일에 단 3줄만이 필요합니다. 이것이 우리의 튜토리얼 시작 지점이 될 것입니다. 아래와 같이 작성된 <code>CMakeLists.txt</code> 파일을 <code>Step1</code> 디렉토리안에 생성해봅시다.</p>
+<blockquote>
+<p>The most basic project is an executable built from source code files. For simple projects, a three line <code>CMakeLists.txt</code> file is all that is required. This will be the starting point for our tutorial. Create a <code>CMakeLists.txt</code> file in the <code>Step1</code> directory that looks like:</p>
+</blockquote>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">cmake_minimum_required(VERSION 3.10)</span><br><span class="line"></span><br><span class="line"># set the project name</span><br><span class="line">project(Tutorial)</span><br><span class="line"></span><br><span class="line"># add the executable</span><br><span class="line">add_executable(Tutorial tutorial.cxx)</span><br></pre></td></tr></table></figure>
+
+<p>이 예제에서는 <code>CMakeLists.txt</code> 파일에 소문자로 이루어진 명령어를 사용한다는 것에 주목하기바랍니다. CMake에서는 대문자, 소문자 그리고 이 둘이 혼합된 명령어를 지원합니다. <code>tutorial.cxx</code>의 소스 코드는 <code>Step1</code> 디렉토리에서 확인가능하며 이 코드는 제곱근을 계산하기 위해 사용될 수 있습니다.</p>
+<blockquote>
+<p>Note that this example uses lower case commands in the <code>CMakeLists.txt</code> file. Upper, lower, and mixed case commands are supported by CMake. The source code for <code>tutorial.cxx</code> is provided in the <code>Step1</code> directory and can be used to compute the square root of a number.</p>
+</blockquote>
+<h3 id="Build-and-Run"><a href="#Build-and-Run" class="headerlink" title="Build and Run"></a>Build and Run</h3><p>이것이 필요한 모든것입니다 - 지금 당장에 우리의 프로젝트를 빌드하고 실행할 수 있습니다! 먼저, 프로젝트를 설정하기 위해 <code>cmake</code> 실행 파일 또는 <code>cmake-gui</code> 실행합니다. 그리고나서 여러분이 선택한 빌드 툴을 가지고 빌드합니다.</p>
+<blockquote>
+<p>That’s all that is needed - we can build and run our project now! First, run the <code>cmake</code> executable or the <code>cmake-gui</code> to configure the project and then build it with your chosen build tool.</p>
+</blockquote>
+<p>예를 들어, 여러분은 커맨드 라인에서 CMake 소스 코드 트리의 <code>Help/guide/tutorial</code> 경로로 이동할 수 있고 아래 명령어를 입력하여 빌드 디렉토리를 생성할 수 있습니다:</p>
+<blockquote>
+<p>For example, from the command line we could navigate to the <code>Help/guide/tutorial</code> directory of the CMake source code tree and create a build directory:</p>
+</blockquote>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">mkdir Step1_build</span><br></pre></td></tr></table></figure>
+
+<p>다음으로, 생성한 빌드 디렉토리로 이동한 뒤 프로젝트를 설정하고 네이티브 빌드 시스템을 생성하기 위해 CMake를 실행합니다:</p>
+<blockquote>
+<p>Next, navigate to the build directory and run CMake to configure the project and generate a native build system:</p>
+</blockquote>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">cd Step1_build</span><br><span class="line">cmake ../Step1</span><br></pre></td></tr></table></figure>
+
+<p>그리고나서 실질적으로 프로젝트를 컴파일하고 링크하기 위해 빌드 시스템을 호출합니다:</p>
+<blockquote>
+<p>Then call that build system to actually compile/link the project:</p>
+</blockquote>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">cmake --build</span><br></pre></td></tr></table></figure>
+
+<p>마지막으로, 아래 명령어들을 통해 빌드된 <code>Tutorial</code>을 사용해봅시다:</p>
+<blockquote>
+<p>Finally, try to use the newly built <code>Tutorial</code> with these commands:</p>
+</blockquote>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">Tutorial 4294967296</span><br><span class="line">Tutorial 10</span><br><span class="line">Tutorial</span><br></pre></td></tr></table></figure>
+
+<h3 id="Adding-a-Version-Number-and-Configured-Header-File"><a href="#Adding-a-Version-Number-and-Configured-Header-File" class="headerlink" title="Adding a Version Number and Configured Header File"></a>Adding a Version Number and Configured Header File</h3><p>우리가 추가하게 될 첫번째 기능은 우리의 실행 파일과 프로젝트에 버전 번호를 제공하는 것입니다. 버전 번호를 소스 코드 상에 추가하는 것도 하나의 방법이지만 <code>CMakeLists.txt</code>의 사용은 이를 좀 더 유연하게 해줍니다.</p>
+<blockquote>
+<p>The first feature we will add is to provide our executable and project with a version number. While we could do this exclusively in the source code, using <code>CMakeLists.txt</code> provides more flexibility.</p>
+</blockquote>
+<p>먼저, 프로젝트의 이름과 버전 번호를 설정하기 위한 명령어인 project()를 사용하기 위해 <code>CMakeLists.txt</code> 파일을 수정합니다.</p>
+<blockquote>
+<p>First, modify the <code>CMakeLists.txt</code> file to use the project() command to set the project name and version number.</p>
+</blockquote>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">cmake_minimum_required(VERSION 3.10)</span><br><span class="line"></span><br><span class="line"># set the project name and version</span><br><span class="line">project(Tutorial VERSION 1.0)</span><br></pre></td></tr></table></figure>
+
+<p>그리고나서, 버전 번호를 소스 코드로 전달하기 위해 헤더 파일을 설정합니다.</p>
+<blockquote>
+<p>Then, configure a header file to pass the version number to the source code:</p>
+</blockquote>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">configure_file(TutorialConfig.h.in TutorialConfig.h)</span><br></pre></td></tr></table></figure>
+
+<p>설정된 파일은 바이너리 트리 안에 작성될 것이기때문에 포함 파일을 찾기 위해 경로 리스트에 해당 디렉토리를 추가해주어야합니다. <code>CMakeLists.txt</code> 파일의 끝에 아래 라인을 추가해줍니다.</p>
+<blockquote>
+<p>Since the configured file will be written into the binary tree, we must add that directory to the list of paths to search for include files. Add the following lines to the end of the <code>CMakeLists.txt</code> file:</p>
+</blockquote>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">target_include_directories(Tutorial PUBLIC &quot;$&#123;PROJECT_BINARY_DIR&#125;&quot;)</span><br></pre></td></tr></table></figure>
+
+<p>여러분이 선호하는 편집기를 사용하여 아래 내용을 포함하고 있는 <code>TutorialConfig.h.in</code> 파일을 소스 디렉토리에 생성해줍시다.</p>
+<blockquote>
+<p>Using your favorite editor, create <code>TutorialConfig.h.in</code> in the source directory with the following contents:</p>
+</blockquote>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">// the configured options and settings for Tutorial</span><br><span class="line">#define Tutorial_VERSION_MAJOR @Tutorial_VERSION_MAJOR@</span><br><span class="line">#define Tutorial_VERSION_MINOR @Tutorial_VERSION_MINOR@</span><br></pre></td></tr></table></figure>
+
+<p>CMake가 이 헤더 파일을 설정하는 동안 <code>@Tutorial_VERSION_MAJOR@</code>와 <code>@Tutorial_VERSION_MINOR@</code> 값은 대체될 것입니다.</p>
+<blockquote>
+<p>When CMake configures this header file the values for <code>@Tutorial_VERSION_MAJOR@</code> and <code>@Tutorial_VERSION_MINOR@</code> will be replaced.</p>
+</blockquote>
+<p>다음으로 설정된 헤더 파일인 <code>TutorialConfig.h</code>를 포함하기 위해 <code>tutorial.cxx</code> 파일을 수정합시다.</p>
+<blockquote>
+<p>Next modify <code>tutorial.cxx</code> to include the configured header file, <code>TutorialConfig.h</code>.</p>
+</blockquote>
+<p>마지막으로, 아래와 같이 <code>tutorial.cxx</code> 파일을 수정해서 실행 파일의 이름과 버전 번호를 출력해봅시다.</p>
+<blockquote>
+<p>Finally, let’s print out the executable name and version number by updating <code>tutorial.cxx</code> as follows:</p>
+</blockquote>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">if (argc &lt; 2) &#123;</span><br><span class="line">    // report version</span><br><span class="line">    std::cout &lt;&lt; argv[0] &lt;&lt; &quot; Version &quot; &lt;&lt; Tutorial_VERSION_MAJOR &lt;&lt; &quot;.&quot;</span><br><span class="line">              &lt;&lt; Tutorial_VERSION_MINOR &lt;&lt; std::endl;</span><br><span class="line">    std::cout &lt;&lt; &quot;Usage: &quot; &lt;&lt; argv[0] &lt;&lt; &quot; number&quot; &lt;&lt; std::endl;</span><br><span class="line">    return 1;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="Specify-the-C-Standard"><a href="#Specify-the-C-Standard" class="headerlink" title="Specify the C++ Standard"></a>Specify the C++ Standard</h3><p>다음으로 <code>tutorial.cxx</code> 소스 내에 <code>atof</code>를 <code>std::stod</code>로 변경함으로써 C++11 기능을 우리 프로젝트에 추가해봅시다. 동시에 <code>#include &lt;cstdlib&gt;</code> 선언도 제거해줍니다.</p>
+<blockquote>
+<p>Next let’s add some C++11 features to our project by replacing <code>atof</code> with <code>std::stod</code> in <code>tutorial.cxx</code>. At the same time, remove <code>#include &lt;cstdlib&gt;</code>.</p>
+</blockquote>
+<p>우리는 올바른 플래그 값을 사용하도록 CMake 코드에 명시적으로 언급할 필요가 있을것입니다. CMake에서 특정 C++ 버전을 지원하도록 하는 가장 쉬운 방법은 CMAKE_CXX_STANDARD 변수를 사용하는 것입니다. 현재 튜토리얼에서는 <code>CMakeLists.txt</code> 파일의 CMAKE_CXX_STANDARD 변수를 <code>11</code>로 설정하고, CMAKE_CXX_STANDARD_REQUIRED 변수를 <code>True</code>로 설정해보겠습니다. <code>CMAKE_CXX_STANDARD</code>는 <code>add_executable</code> 명령어 호출 이전에 선언되어야한다는 것을 잊지말기 바랍니다.</p>
+<blockquote>
+<p>We will need to explicitly state in the CMake code that it should use the correct flags. The easiest way to enable support for a specific C++ standard in CMake is by using the CMAKE_CXX_STANDARD variable. For this tutorial, set the CMAKE_CXX_STANDARD variable in the <code>CMakeLists.txt</code> file to <code>11</code> and CMAKE_CXX_STANDARD_REQUIRED to <code>True</code>. Make sure to add the <code>CMAKE_CXX_STANDARD</code> declarations above the call to <code>add_executable</code>.</p>
+</blockquote>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">cmake_minimum_required(VERSION 3.10)</span><br><span class="line"></span><br><span class="line"># set the project name and version</span><br><span class="line">project(Tutorial VERSION 1.0)</span><br><span class="line"></span><br><span class="line"># specify the C++ standard</span><br><span class="line">set(CMAKE_CXX_STANDARD 11)</span><br><span class="line">set(CMAKE_CXX_STANDARD_REQUIRED True)</span><br></pre></td></tr></table></figure>
+
+<h3 id="Rebuild"><a href="#Rebuild" class="headerlink" title="Rebuild"></a>Rebuild</h3><p>우리의 프로젝트를 다시 빌드해봅시다. 우리는 이미 빌드 디렉토리 생성했고 CMake를 실행했기때문에 빌드 과정으로 건너뛸 수 있습니다:</p>
+<blockquote>
+<p>Let’s build our project again. We already created a build directory and ran CMake, so we can skip to the build step:</p>
+</blockquote>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">cd Step1_build</span><br><span class="line">cmake --build .</span><br></pre></td></tr></table></figure>
+
+<p>이제 이전과 동일한 명령어를 통해 새롭게 빌드된 <code>Tutorial</code>을 실행해볼 수 있습니다.</p>
+<blockquote>
+<p>Now we can try to use the newly built <code>Tutorial</code> with same commands as before:</p>
+</blockquote>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">Tutorial 4294967296</span><br><span class="line">Tutorial 10</span><br><span class="line">Tutorial</span><br></pre></td></tr></table></figure>
+
+<p>인자 없이 실행 파일을 구동 할때 버전 번호가 출력되는지 확인해보시길 바랍니다.</p>
+<blockquote>
+<p>Check that the version number is now reported when running the executable without any arguments.</p>
+</blockquote>
+<hr>
+<h2 id="Step-2-Adding-a-Library"><a href="#Step-2-Adding-a-Library" class="headerlink" title="Step 2: Adding a Library"></a>Step 2: Adding a Library</h2><p>이제 우리의 프로젝트에 라이브러리를 추가해볼 것입니다. 이 라이브러리는 제곱근 계산을 직접 구현한 내용이 포함되어 있을 것입니다. 해당 라이브러리를 추가한 이후에는 실행 파일이 컴파일러가 제공하는 일반적인 제곱근 함수 대신에 이 라이브러리를 사용할 수 있게됩니다.</p>
+<blockquote>
+<p>Now we will add a library to our project. This library will contain our own implementation for computing the square root of a number. The executable can then use this library instead of the standard square root function provided by the compiler.</p>
+</blockquote>
+<p>이번 튜토리얼에서는 해당 라이브러리를 <code>MathFunctions</code>이라는 하위 디렉토리에 포함시킬 것입니다. 이 디렉토리에는 헤더 파일인 <code>MathFunctions.h</code>와 소스 파일인 <code>mysqrt.cxx</code>가 포함되어 있습니다. 소스 파일에는 컴파일러의 sqrt 함수와 유사한 기능을 제공하는 <code>mysqrt</code>라는 함수가 존재합니다.</p>
+<blockquote>
+<p>For this tutorial we will put the library into a subdirectory called <code>MathFunctions</code>. This directory already contains a header file, <code>MathFunctions.h</code>, and a source file <code>mysqrt.cxx</code>. The source file has one function called <code>mysqrt</code> that provides similar functionality to the compiler’s sqrt function.</p>
+</blockquote>
+<p><code>MathFunctions</code> 디렉토리의 <code>CMakeLists.txt</code> 파일에 아래와 같이 한 줄을 추가합니다.</p>
+<blockquote>
+<p>Add the following one line <code>CMakeLists.txt</code> file to the <code>MathFunctions</code> directory:</p>
+</blockquote>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">add_library(MathFunctions mysqrt.cxx)</span><br></pre></td></tr></table></figure>
+
+<p>새롭게 추가한 라이브러리를 사용하기 위해 <u>①최상위 <code>CMakeLists.txt</code> 파일에 <strong>add_subdirectory()</strong> 호출을 추가</u>할 것이며, 이 호출을 통해 라이브러리가 빌드될 것 입니다. <u>②실행 파일에 새로운 라이브러리를 추가</u>하고 <code>mysqrt.h</code> <u>③헤더 파일을 참조할 수 있도록 <code>MathFunctions</code>를 포함 디렉토리로 추가</u>합니다. 이제 최상위 <code>CMakeLists.txt</code> 파일의 마지막 몇 개의 라인은 아래와 같아야 합니다:</p>
+<blockquote>
+<p>To make use of the new library we will add an <strong>add_subdirectory()</strong> call in the top-level <code>CMakeLists.txt</code> file so that the library will get built. We add the new library to the executable, and add <code>MathFunctions</code> as an include directory so that the <code>mysqrt.h</code> header file can be found. The last few lines of the top-level <code>CMakeLists.txt</code> file should now look like:</p>
+</blockquote>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"># ① add the MathFunctions library</span><br><span class="line">add_subdirectory(MathFunctions)</span><br><span class="line"></span><br><span class="line"># add the executable</span><br><span class="line">add_executable(Tutorial tutorial.cxx)</span><br><span class="line"></span><br><span class="line"># ② add the new library(= MathFUnction) to the executable</span><br><span class="line">target_link_libraries(Tutorial PUBLIC MathFunctions)</span><br><span class="line"></span><br><span class="line"># ③ add the binary tree to the search path for include files so that we will find TutorialConfig.h</span><br><span class="line">target_include_directories(Tutorial PUBLIC </span><br><span class="line">                           &quot;$&#123;PROJECT_BINARY_DIR&#125;&quot;</span><br><span class="line">                           &quot;$&#123;PROJECT_SOURCE_DIR&#125;/MathFunctions&quot;</span><br><span class="line">                          )</span><br></pre></td></tr></table></figure>
+
+<p>이번엔 <code>MathFunctions</code> 라이브러리를 옵션화해봅시다. 이번 튜토리얼을 진행하는데 있어서 이 작업이 반드시 필요한 것은 아니지만, 규모가 더 큰 프로젝트들에서 이러한 옵션화 작업은 일반적입니다. 가장 먼저 최상위 <code>CMakeLists.txt</code> 파일에 option을 추가합니다.</p>
+<blockquote>
+<p>Now let us make the <code>MathFunctions</code> library optional. While for the tutorial there really isn’t any need to do so, for larger projects this is a common occurrence. The first step is to add an option to the top-level <code>CMakeLists.txt</code> file.</p>
+</blockquote>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">option(USE_MYMATH &quot;Use tutorial provided math implementation&quot; ON)</span><br><span class="line"></span><br><span class="line"># configure a header file to pass some of the CMake settings</span><br><span class="line"># to the source code</span><br><span class="line">configure_file(TutorialConfig.h.in TutorialConfig.h)</span><br></pre></td></tr></table></figure>
+
+<p>이 옵션은 <strong>cmake-gui</strong>와 <strong>ccmake</strong>에서 기본 값인 <code>ON</code>으로 보여지게 될 것이며 이 값은 사용자가 변경할 수 있습니다. 이 설정은 캐시에 저장될 것이기 때문에 사용자는 빌드 디렉토리에서 CMake를 실행할 때마다 이 값을 설정할 필요가 없습니다.</p>
+<blockquote>
+<p>This option will be displayed in the <strong>cmake-gui</strong> and <strong>ccmake</strong> with a default value of <code>ON</code> that can be changed by the user. This setting will be stored in the cache so that the user does not need to set the value each time they run CMake on a build directory.</p>
+</blockquote>
+<p>다음 변화는 <code>MathFunctions</code> 라이브러리를 조건에 따라 빌드하고 링킹하도록 만드는 것입니다. 이를 위해 옵션 값을 체크하는 if 구문을 생성할 것입니다. if 블록 내부에 라이브러리를 링크하기 위해 필요한 정보를 저장하고 하위 디렉토리를 튜토리얼 타겟의 포함 디렉토리로 추가하기 위한 list 명령어와 함께  <strong>add_subdirectory()</strong> 명령어를 추가합시다.</p>
+<blockquote>
+<p>The next change is to make building and linking the <code>MathFunctions</code> library conditional. To do this, we will create an <code>if</code> statement which checks the value of the option. Inside the if block, put the <strong>add_subdirectory()</strong> command from above with some additional list commands to store information needed to link to the library and add the subdirectory as an include directory in the <code>Tutorial</code> target. The end of the top-level <code>CMakeLists.txt</code> file will now look like the following:</p>
+</blockquote>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">if(USE_MYMATH)</span><br><span class="line">  add_subdirectory(MathFunctions)</span><br><span class="line">  list(APPEND EXTRA_LIBS MathFunctions)</span><br><span class="line">  list(APPEND EXTRA_INCLUDES &quot;$&#123;PROJECT_SOURCE_DIR&#125;/MathFunctions&quot;)</span><br><span class="line">endif()</span><br><span class="line"></span><br><span class="line"># add the executable</span><br><span class="line">add_executable(Tutorial tutorial.cxx)</span><br><span class="line"></span><br><span class="line">target_link_libraries(Tutorial PUBLIC $&#123;EXTRA_LIBS&#125;)</span><br><span class="line"></span><br><span class="line"># add the binary tree to the search path for include files</span><br><span class="line"># so that we will find TutorialConfig.h</span><br><span class="line">target_include_directories(Tutorial PUBLIC </span><br><span class="line">                           &quot;$&#123;PROJECT_BINARY_DIR&#125;&quot;</span><br><span class="line">                           $&#123;EXTRA_INCLUDES&#125;</span><br><span class="line">                          )</span><br></pre></td></tr></table></figure>
+
+<p>나중에 실행파일에 링크되는 옵션화된 라이브러리들을 모으기 위해 <code>EXTRA_LIBS</code> 라는 변수를 사용하는 것을 주목하기 바랍니다. <code>EXTRA_INCLUDES</code> 변수는 옵션화된 헤더 파일을 대상으로 이와 유사하게 사용됩니다. 이것은 많은 옵션 컴포넌트들을 처리하기 위한 고전적인 방식이며, 다음 단계에서 현대적인 접근 방식에 대해 살펴볼 것입니다.</p>
+<blockquote>
+<p>Note the use of the variable <code>EXTRA_LIBS</code> to collect up any optional libraries to later be linked into the executable. The variable <code>EXTRA_INCLUDES</code> is used similarly for optional header files. This is a classic approach when dealing with many optional components, we will cover the modern approach in the next step.</p>
+</blockquote>
+<p>위 작업에 따른 소스 코드 상의 변경점은 꽤 간단합니다. 먼저, 필요 시에 <code>tutorial.cxx</code>에서 <code>MathFunctions.h</code>를 포함시켜줍니다.</p>
+<blockquote>
+<p>The corresponding changes to the source code are fairly straightforward. First, in <code>tutorial.cxx</code>, include the <code>MathFunctions.h</code> header if we need it:</p>
+</blockquote>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">#ifdef USE_MYMATH</span><br><span class="line">#  include &quot;MathFunctions.h&quot;</span><br><span class="line">#endif</span><br></pre></td></tr></table></figure>
+
+<p>그리고 나서, <code>USE_MYMATH</code>를 제곱근 함수가 사용되는 조건으로 만들어줍니다.</p>
+<blockquote>
+<p>Then, in the same file, make <code>USE_MYMATH</code> control which square root function is used:</p>
+</blockquote>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">#ifdef USE_MYMATH</span><br><span class="line">  const double outputValue = mysqrt(inputValue);</span><br><span class="line">#else</span><br><span class="line">  const double outputValue = sqrt(inputValue);</span><br><span class="line">#endif</span><br></pre></td></tr></table></figure>
+
+<p>이제 소스 코드에서 <code>USE_MYMATH</code> 변수를 요구하고 있기때문에 이 값을 <code>TutorialConfig.h.in</code> 파일에 아래와 같이 추가할 수 있습니다:</p>
+<blockquote>
+<p>Since the source code now requires <code>USE_MYMATH</code> we can add it to <code>TutorialConfig.h.in</code> with the following line:</p>
+</blockquote>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">#cmakedefine USE_MYMATH</span><br></pre></td></tr></table></figure>
+
+<p>프로젝트를 설정(configure)하기 위해 <strong>cmake</strong> 실행 파일 또는 <strong>cmake-gui</strong>를 실행시키고 여러분의 빌드 도구에 맞게 빌드합니다. 그리고 빌드된 Tutorial 실행 파일을 실행합니다.</p>
+<blockquote>
+<p>Run the <strong>cmake</strong> executable or the <strong>cmake-gui</strong> to configure the project and then build it with your chosen build tool. Then run the built Tutorial executable.</p>
+</blockquote>
+<p>이제 <code>USE_MYMATH</code> 값을 업데이트 해봅시다. 가장 쉬운 방법은 <strong>cmake-gui</strong>를 사용하거나 터미널 환경이라면 <strong>ccmake</strong>를 사용하는 것입니다. 또는 command-line의 옵션을 변경하기를 원한다면 아래와 같이 시도해보시기 바랍니다:</p>
+<blockquote>
+<p>Now let’s update the value of <code>USE_MYMATH</code>. The easiest way is to use the <strong>cmake-gui</strong> or <strong>ccmake</strong> if you’re in the terminal. Or, alternatively, if you want to change the option from the command-line, try:</p>
+</blockquote>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">cmake ../Step2 -DUSE_MYMATH=OFF</span><br></pre></td></tr></table></figure>
+
+<hr>
+<h2 id="Step-3-Adding-Usage-Requirements-for-a-Library"><a href="#Step-3-Adding-Usage-Requirements-for-a-Library" class="headerlink" title="Step 3: Adding Usage Requirements for a Library"></a>Step 3: Adding Usage Requirements for a Library</h2><p>사용 요구 사항을 통해 라이브러리 또는 실행 파일의 링크 및 포함 라인을 훨씬 더 잘 제어할 수 있으며 CMake 내 대상의 전이 속성을 더 많이 제어할 수 있습니다. 사용 요구 사항을 활용하는 기본 명령은 다음과 같습니다:</p>
+<blockquote>
+<p>Usage requirements allow for far better control over a library or executable’s link and include line while also giving more control over the transitive property of targets inside CMake. The primary commands that leverage usage requirements are:</p>
+<ul>
+<li>target_compile_definitions()</li>
+<li>target_compile_options()</li>
+<li>target_include_directories()</li>
+<li>target_link_libraries()</li>
+</ul>
+</blockquote>
+<p>사용 요구 사항의 현대적인 CMake 접근 방식을 사용하기 위해 앞선 챕터였던 <strong>Adding a Library</strong>에서 사용한 소스 코드를 리팩토링 해보겠습니다. 먼저 <code>MathFunctions</code> 라이브러리를 링킹하고자 한다면 현재 소스 디렉토리를 포함해야하지만 <code>MathFunctions</code> 자체는 포함하지 않습니다. 따라서 이것인 <code>INTERFACE</code> 사용 요구사항이 될 수 있습니다.</p>
+<blockquote>
+<p>Let’s refactor our code from <strong>Adding a Library</strong> to use the modern CMake approach of usage requirements. We first state that anybody linking to <code>MathFunctions</code> needs to include the current source directory, while <code>MathFunctions</code> itself doesn’t. So this can become an <code>INTERFACE</code> usage requirement.</p>
+</blockquote>
+<p><code>INTERFACE</code>는 소비자가 필요로 하지만 생산자는 그렇지 않다는 것을 기억하기 바랍니다. <code>MathFunctions/CMakeLists.txt</code> 파일의 끝에 아래 라인을 추가합니다.</p>
+<blockquote>
+<p>Remember <code>INTERFACE</code> means things that consumers require but the producer doesn’t. Add the following lines to the end of <code>MathFunctions/CMakeLists.txt</code>:</p>
+</blockquote>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">target_include_directories(MathFunctions</span><br><span class="line">          INTERFACE $&#123;CMAKE_CURRENT_SOURCE_DIR&#125;</span><br><span class="line">          )</span><br></pre></td></tr></table></figure>
+
+<p>이제 <code>MathFunctions</code>에 대한 사용 요구 사항을 명시했으므로 최상위 <code>CMakeLists.txt</code>에서 <code>EXTRA_INCLUDES</code>변수 사용을 안전하게 제거할 수 있습니다:</p>
+<blockquote>
+<p>Now that we’ve specified usage requirements for <code>MathFunctions</code> we can safely remove our uses of the <code>EXTRA_INCLUDES</code> variable from the top-level <code>CMakeLists.txt</code>, here:</p>
+</blockquote>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">if(USE_MYMATH)</span><br><span class="line">  add_subdirectory(MathFunctions)</span><br><span class="line">  list(APPEND EXTRA_LIBS MathFunctions)</span><br><span class="line">endif()</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p>And here:</p>
+</blockquote>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">target_include_directories(Tutorial PUBLIC</span><br><span class="line">                           &quot;$&#123;PROJECT_BINARY_DIR&#125;&quot;</span><br><span class="line">                           )</span><br></pre></td></tr></table></figure>
+
+<p>위와 같이 수정을 완료하였다면 프로젝트를 설정(configure)하기 위해 <strong>cmake</strong> 실행 파일 또는 <strong>cmake-gui</strong>를 실행시키고 여러분의 빌드 도구에 맞게 빌드하거나 빌드 디렉토리에서 <code>cmake --build</code>를 사용하여 빌드합니다.</p>
+<blockquote>
+<p>Once this is done, run the <strong>cmake</strong> executable or the <strong>cmake-gui</strong> to configure the project and then build it with your chosen build tool or by using <code>cmake --build .</code> from the build directory.</p>
+</blockquote>
+<br>
+<br>
+
+<span class="highlight-text yellow">해당 게시글에서 발생한 오탈자나 잘못된 내용에 대한 정정 댓글 격하게 환영합니다</span>😎
+
+<p><strong>reference</strong></p>
+<ul>
+<li><a target="_blank" rel="external nofollow noopener noreferrer" href="https://cmake.org/cmake/help/v3.22/guide/tutorial/index.html">https://cmake.org/cmake/help/v3.22/guide/tutorial/index.html</a></li>
+<li><a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/Kitware/CMake/tree/master/Help/guide/tutorial">https://github.com/Kitware/CMake/tree/master/Help/guide/tutorial</a></li>
+<li><a target="_blank" rel="external nofollow noopener noreferrer" href="https://gist.github.com/luncliff/6e2d4eb7ca29a0afd5b592f72b80cb5c">https://gist.github.com/luncliff/6e2d4eb7ca29a0afd5b592f72b80cb5c</a></li>
+</ul>
+
+            
+
+
+        </div>
+    </div>
+    <div id="post-footer" class="post-footer main-content-wrap">
+        
+            <div class="post-footer-tags">
+                <span class="text-color-light text-small">태그</span><br>
+                
+    <a class="tag tag--primary tag--small t-none-link" href="/tags/CMake-tutorial/" rel="tag">CMake tutorial</a> <a class="tag tag--primary tag--small t-none-link" href="/tags/CMakeFile-txt/" rel="tag">CMakeFile.txt</a> <a class="tag tag--primary tag--small t-none-link" href="/tags/cmake/" rel="tag">cmake</a>
+
+            </div>
+        
+        
+            <div class="post-actions-wrap">
+    <nav>
+        <ul class="post-actions post-action-nav">
+            <li class="post-action">
+                
+                    
+                <a class="post-action-btn btn btn--default tooltip--top" href="/2022/09/06/translate-standard-package-layout-in-go/" data-tooltip="어떠한 방식으로 Go 코드를 구조화해야 하는가?" aria-label="이전: 어떠한 방식으로 Go 코드를 구조화해야 하는가?">
+                    
+                        <i class="fa fa-angle-left" aria-hidden="true"></i>
+                        <span class="hide-xs hide-sm text-small icon-ml">이전</span>
+                    </a>
+            </li>
+            <li class="post-action">
+                
+                    
+                <a class="post-action-btn btn btn--default tooltip--top" href="/2022/01/11/prevent-io-context-run-from-returning/" data-tooltip="io_context::run 함수가 반환되는 것을 막는 방법" aria-label="다음: io_context::run 함수가 반환되는 것을 막는 방법">
+                    
+                        <span class="hide-xs hide-sm text-small icon-mr">다음</span>
+                        <i class="fa fa-angle-right" aria-hidden="true"></i>
+                    </a>
+            </li>
+        </ul>
+    </nav>
+    <ul class="post-actions post-action-share">
+        <li class="post-action hide-lg hide-md hide-sm">
+            <a class="post-action-btn btn btn--default btn-open-shareoptions" href="#btn-open-shareoptions" aria-label="이 포스트 공유하기">
+                <i class="fa fa-share-alt" aria-hidden="true"></i>
+            </a>
+        </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a class="post-action-btn btn btn--default" target="_blank" href="https://www.facebook.com/sharer/sharer.php?u=https://chelseafandev.github.io/2022/03/05/cmake-tutorial/" title="Facebook에 공유하기" aria-label="Facebook에 공유하기" rel="external nofollow noopener noreferrer">
+                    <i class="fab fa-facebook" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a class="post-action-btn btn btn--default" target="_blank" href="https://twitter.com/intent/tweet?text=https://chelseafandev.github.io/2022/03/05/cmake-tutorial/" title="Twitter에 공유하기" aria-label="Twitter에 공유하기" rel="external nofollow noopener noreferrer">
+                    <i class="fab fa-twitter" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a class="post-action-btn btn btn--default" target="_blank" href="https://plus.google.com/share?url=https://chelseafandev.github.io/2022/03/05/cmake-tutorial/" title="Google+에 공유하기" aria-label="Google+에 공유하기" rel="external nofollow noopener noreferrer">
+                    <i class="fab fa-google-plus" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+        
+            
+        
+        <li class="post-action">
+            
+                <a class="post-action-btn btn btn--default" href="#table-of-contents" aria-label="목차">
+            
+                <i class="fa fa-list" aria-hidden="true"></i>
+            </a>
+        </li>
+    </ul>
+</div>
+
+
+        
+        
+            
+        
+    </div>
+</article>
+
+
+
+<!-- Comment -->
+<!--  utteranc comment -->
+
+<script src="https://utteranc.es/client.js" repo="chelseafandev/blog-comment" issue-term="title" label="Comment" theme="github-light" crossorigin="anonymous" async>
+</script>
+
+                <footer id="footer" class="main-content-wrap">
+    <span class="copyrights">
+        Copyrights &copy; 2024 첼시팬개발자. All Rights Reserved.
+    </span>
+</footer>
+
+            </div>
+            
+                <div id="bottom-bar" class="post-bottom-bar" data-behavior="4">
+                    <div class="post-actions-wrap">
+    <nav>
+        <ul class="post-actions post-action-nav">
+            <li class="post-action">
+                
+                    
+                <a class="post-action-btn btn btn--default tooltip--top" href="/2022/09/06/translate-standard-package-layout-in-go/" data-tooltip="어떠한 방식으로 Go 코드를 구조화해야 하는가?" aria-label="이전: 어떠한 방식으로 Go 코드를 구조화해야 하는가?">
+                    
+                        <i class="fa fa-angle-left" aria-hidden="true"></i>
+                        <span class="hide-xs hide-sm text-small icon-ml">이전</span>
+                    </a>
+            </li>
+            <li class="post-action">
+                
+                    
+                <a class="post-action-btn btn btn--default tooltip--top" href="/2022/01/11/prevent-io-context-run-from-returning/" data-tooltip="io_context::run 함수가 반환되는 것을 막는 방법" aria-label="다음: io_context::run 함수가 반환되는 것을 막는 방법">
+                    
+                        <span class="hide-xs hide-sm text-small icon-mr">다음</span>
+                        <i class="fa fa-angle-right" aria-hidden="true"></i>
+                    </a>
+            </li>
+        </ul>
+    </nav>
+    <ul class="post-actions post-action-share">
+        <li class="post-action hide-lg hide-md hide-sm">
+            <a class="post-action-btn btn btn--default btn-open-shareoptions" href="#btn-open-shareoptions" aria-label="이 포스트 공유하기">
+                <i class="fa fa-share-alt" aria-hidden="true"></i>
+            </a>
+        </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a class="post-action-btn btn btn--default" target="_blank" href="https://www.facebook.com/sharer/sharer.php?u=https://chelseafandev.github.io/2022/03/05/cmake-tutorial/" title="Facebook에 공유하기" aria-label="Facebook에 공유하기" rel="external nofollow noopener noreferrer">
+                    <i class="fab fa-facebook" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a class="post-action-btn btn btn--default" target="_blank" href="https://twitter.com/intent/tweet?text=https://chelseafandev.github.io/2022/03/05/cmake-tutorial/" title="Twitter에 공유하기" aria-label="Twitter에 공유하기" rel="external nofollow noopener noreferrer">
+                    <i class="fab fa-twitter" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a class="post-action-btn btn btn--default" target="_blank" href="https://plus.google.com/share?url=https://chelseafandev.github.io/2022/03/05/cmake-tutorial/" title="Google+에 공유하기" aria-label="Google+에 공유하기" rel="external nofollow noopener noreferrer">
+                    <i class="fab fa-google-plus" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+        
+            
+        
+        <li class="post-action">
+            
+                <a class="post-action-btn btn btn--default" href="#table-of-contents" aria-label="목차">
+            
+                <i class="fa fa-list" aria-hidden="true"></i>
+            </a>
+        </li>
+    </ul>
+</div>
+
+
+                </div>
+                
+    <div id="share-options-bar" class="share-options-bar" data-behavior="4">
+        <i id="btn-close-shareoptions" class="fa fa-times"></i>
+        <ul class="share-options">
+            
+                
+                
+                <li class="share-option">
+                    <a class="share-option-btn" target="_blank" href="https://www.facebook.com/sharer/sharer.php?u=https://chelseafandev.github.io/2022/03/05/cmake-tutorial/" aria-label="Facebook에 공유하기" rel="external nofollow noopener noreferrer">
+                        <i class="fab fa-facebook" aria-hidden="true"></i><span>Facebook에 공유하기</span>
+                    </a>
+                </li>
+            
+                
+                
+                <li class="share-option">
+                    <a class="share-option-btn" target="_blank" href="https://twitter.com/intent/tweet?text=https://chelseafandev.github.io/2022/03/05/cmake-tutorial/" aria-label="Twitter에 공유하기" rel="external nofollow noopener noreferrer">
+                        <i class="fab fa-twitter" aria-hidden="true"></i><span>Twitter에 공유하기</span>
+                    </a>
+                </li>
+            
+                
+                
+                <li class="share-option">
+                    <a class="share-option-btn" target="_blank" href="https://plus.google.com/share?url=https://chelseafandev.github.io/2022/03/05/cmake-tutorial/" aria-label="Google+에 공유하기" rel="external nofollow noopener noreferrer">
+                        <i class="fab fa-google-plus" aria-hidden="true"></i><span>Google+에 공유하기</span>
+                    </a>
+                </li>
+            
+        </ul>
+    </div>
+
+
+            
+        </div>
+        
+
+
+    
+        
+    
+
+<div id="about">
+    <div id="about-card">
+        <div id="about-btn-close">
+            <i class="fa fa-times"></i>
+        </div>
+        
+            <img id="about-card-picture" src="/assets/images/chelsea_logo.png" alt="저자 이미지">
+        
+            <h4 id="about-card-name">첼시팬개발자</h4>
+        
+            <div id="about-card-bio"><p>조금 더디더라도 꾸준히</p>
+</div>
+        
+        
+            <div id="about-card-job">
+                <i class="fa fa-briefcase"></i>
+                <br>
+                <p>개발자</p>
+
+            </div>
+        
+        
+            <div id="about-card-location">
+                <i class="fa fa-map-marker-alt"></i>
+                <br>
+                서울, 대한민국
+            </div>
+        
+    </div>
+</div>
+
+        
+            <div id="algolia-search-modal" class="modal-container">
+    <div class="modal">
+        <div class="modal-header">
+            <span class="close-button"><i class="fa fa-times"></i></span>
+            <a href="https://algolia.com" target="_blank" rel="external nofollow noopener noreferrer" class="searchby-algolia text-color-light link-unstyled">
+                <span class="searchby-algolia-text text-color-light text-small">by</span>
+                <img class="searchby-algolia-logo" src="/assets/images/logo-algolia-nebula-blue-full.svg">
+            </a>
+            <i class="search-icon fa fa-search"></i>
+            <form id="algolia-search-form">
+                <input type="text" id="algolia-search-input" name="search" class="form-control input--large search-input" placeholder="Search ">
+            </form>
+        </div>
+        <div class="modal-body">
+            <div class="no-result text-color-light text-center">포스트가 없습니다.</div>
+            <div class="results">
+                
+                <div class="media">
+                    <!--  -->
+                    <div class="media-body">
+                        <a class="link-unstyled" href="https://chelseafandev.github.io/2021/07/08/hello-hexo/" aria-label=": Hexo Tranquilpeak 테마의 Markdown syntax">
+                            <h3 class="media-heading">Hexo Tranquilpeak 테마의 Markdown syntax</h3>
+                        </a>
+                        <span class="media-meta">
+                            <span class="media-date text-small">
+                                
+                                    2021년 7월 8일
+                                
+                            </span>
+                        </span>
+                        <div class="media-content hide-xs font-nanumsquareround"><p>Hexo 테마 중 하나인 <a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/LouisBarranqueiro/hexo-theme-tranquilpeak/blob/master/DOCUMENTATION.md">Tranquilpeak의 공식 문서</a>를 참조하여 Post시에 활용할 수 있는 다양한 Markdown syntax들을 사용해보았습니다.</p></div>
+                    </div>
+                    <div style="clear:both;"></div>
+                    <hr>
+                </div>
+                
+                <div class="media">
+                    <!-- 
+                    <div class="media-left">
+                        <a
+                            class="link-unstyled"
+                            href="https://chelseafandev.github.io/2021/07/10/tr-ruud-gullit/"
+                            aria-label=": (BBC 스포츠) 첼시 루드 굴리트 25년이 지난 지금 그의 프리미어그리 진출을 애정어린 시선으로 되돌아 보다"
+                        >
+                            <img class="media-image" src="https://chelseafandev.github.io/2021/07/10/tr-ruud-gullit/tr_ruud_gullit_picture_1.png" width="90" height="90"/>
+                        </a>
+                    </div>
+                     -->
+                    <div class="media-body">
+                        <a class="link-unstyled" href="https://chelseafandev.github.io/2021/07/10/tr-ruud-gullit/" aria-label=": (BBC 스포츠) 첼시 루드 굴리트 25년이 지난 지금 그의 프리미어그리 진출을 애정어린 시선으로 되돌아 보다">
+                            <h3 class="media-heading">(BBC 스포츠) 첼시 루드 굴리트 25년이 지난 지금 그의 프리미어그리 진출을 애정어린 시선으로 되돌아 보다</h3>
+                        </a>
+                        <span class="media-meta">
+                            <span class="media-date text-small">
+                                
+                                    2021년 7월 10일
+                                
+                            </span>
+                        </span>
+                        <div class="media-content hide-xs font-nanumsquareround"><p>피파 좀 한다는 사람이라면 모두가 다 알만한 그 분, X사기캐 굴리트😬<br>커리어 막바지에 첼시에서도 잠깐 활약했었네요.<br><a target="_blank" rel="external nofollow noopener noreferrer" href="https://www.bbc.com/sport/football/52904670">BBC Sport에 굴리트가 직접 기고한 회고록 느낌의 글</a>을 한번 번역해보았습니다.</p></div>
+                    </div>
+                    <div style="clear:both;"></div>
+                    <hr>
+                </div>
+                
+                <div class="media">
+                    <!--  -->
+                    <div class="media-body">
+                        <a class="link-unstyled" href="https://chelseafandev.github.io/2021/07/13/os-io-system/" aria-label=": I/O는 어떻게 처리될까?">
+                            <h3 class="media-heading">I/O는 어떻게 처리될까?</h3>
+                        </a>
+                        <span class="media-meta">
+                            <span class="media-date text-small">
+                                
+                                    2021년 7월 13일
+                                
+                            </span>
+                        </span>
+                        <div class="media-content hide-xs font-nanumsquareround"><p>운영 체제의 바이블 <a target="_blank" rel="external nofollow noopener noreferrer" href="https://www.wiley.com/en-us/Operating+System+Concepts%2C+10th+Edition-p-9781119320913">Operating System Concepts</a>(흔히 공룡책🦕이라고들 하죠)을 바탕으로 I/O 시스템에 대해 정리해보았습니다.</p></div>
+                    </div>
+                    <div style="clear:both;"></div>
+                    <hr>
+                </div>
+                
+                <div class="media">
+                    <!--  -->
+                    <div class="media-body">
+                        <a class="link-unstyled" href="https://chelseafandev.github.io/2021/07/22/tip-how-to-use-tmux-md/" aria-label=": 강력한 터미널 멀티플렉서 tmux를 활용해보자">
+                            <h3 class="media-heading">강력한 터미널 멀티플렉서 tmux를 활용해보자</h3>
+                        </a>
+                        <span class="media-meta">
+                            <span class="media-date text-small">
+                                
+                                    2021년 7월 22일
+                                
+                            </span>
+                        </span>
+                        <div class="media-content hide-xs font-nanumsquareround"><p>이번엔 익숙해지면 정말 강력한 터미널 멀티플렉서인 tmux에 대해 소개해보려고 합니다.</p></div>
+                    </div>
+                    <div style="clear:both;"></div>
+                    <hr>
+                </div>
+                
+                <div class="media">
+                    <!--  -->
+                    <div class="media-body">
+                        <a class="link-unstyled" href="https://chelseafandev.github.io/2021/08/02/os-sync-async-block-nonblock/" aria-label=": Blocking, Nonblocking, Sync, Async">
+                            <h3 class="media-heading">Blocking, Nonblocking, Sync, Async</h3>
+                        </a>
+                        <span class="media-meta">
+                            <span class="media-date text-small">
+                                
+                                    2021년 8월 2일
+                                
+                            </span>
+                        </span>
+                        <div class="media-content hide-xs font-nanumsquareround"><p>오늘은 공룡책🦕에 언급된 Blocking과 Nonblocking, Synchronous와 Asynchronous에 대해서 정리해보고자 합니다. Synchronous와 Asynchronous의 개념은 <strong>쓰레드</strong>와 <strong>I/O</strong>에서 등장하게 되는데요, 각각이 어떠한 의미로 사용되는지도 구분해서 살펴보도록 하겠습니다.</p></div>
+                    </div>
+                    <div style="clear:both;"></div>
+                    <hr>
+                </div>
+                
+                <div class="media">
+                    <!-- 
+                    <div class="media-left">
+                        <a
+                            class="link-unstyled"
+                            href="https://chelseafandev.github.io/2021/08/05/tr-lukaku-want-to-chelsea/"
+                            aria-label=": (BBC 스포츠) 첼시의 물망에 오른 루카쿠 적절한 오퍼가 온다면 인터 밀란을 떠나기 원해"
+                        >
+                            <img class="media-image" src="https://chelseafandev.github.io/2021/08/05/tr-lukaku-want-to-chelsea/tr-lukaku-want-to-chelsea.jpg" width="90" height="90"/>
+                        </a>
+                    </div>
+                     -->
+                    <div class="media-body">
+                        <a class="link-unstyled" href="https://chelseafandev.github.io/2021/08/05/tr-lukaku-want-to-chelsea/" aria-label=": (BBC 스포츠) 첼시의 물망에 오른 루카쿠 적절한 오퍼가 온다면 인터 밀란을 떠나기 원해">
+                            <h3 class="media-heading">(BBC 스포츠) 첼시의 물망에 오른 루카쿠 적절한 오퍼가 온다면 인터 밀란을 떠나기 원해</h3>
+                        </a>
+                        <span class="media-meta">
+                            <span class="media-date text-small">
+                                
+                                    2021년 8월 5일
+                                
+                            </span>
+                        </span>
+                        <div class="media-content hide-xs font-nanumsquareround"><p>오늘은 첼시 이적설이 가까워져가고 있는 루카쿠 관련 기사를 가져왔습니다. 베르너의 결정력이 너무나도 아쉬웠던 지난 시즌 첼시를 생각하면 꼭 필요한 영입이라고 생각되네요😁</p></div>
+                    </div>
+                    <div style="clear:both;"></div>
+                    <hr>
+                </div>
+                
+                <div class="media">
+                    <!-- 
+                    <div class="media-left">
+                        <a
+                            class="link-unstyled"
+                            href="https://chelseafandev.github.io/2021/08/12/tr-son-new-contract/"
+                            aria-label=": (BBC 스포츠) 토트넘 공격수 손흥민 4년 재계약 성사"
+                        >
+                            <img class="media-image" src="https://chelseafandev.github.io/2021/08/12/tr-son-new-contract/tr-son-new-contract-figure1.jpg" width="90" height="90"/>
+                        </a>
+                    </div>
+                     -->
+                    <div class="media-body">
+                        <a class="link-unstyled" href="https://chelseafandev.github.io/2021/08/12/tr-son-new-contract/" aria-label=": (BBC 스포츠) 토트넘 공격수 손흥민 4년 재계약 성사">
+                            <h3 class="media-heading">(BBC 스포츠) 토트넘 공격수 손흥민 4년 재계약 성사</h3>
+                        </a>
+                        <span class="media-meta">
+                            <span class="media-date text-small">
+                                
+                                    2021년 8월 12일
+                                
+                            </span>
+                        </span>
+                        <div class="media-content hide-xs font-nanumsquareround"><p>오늘은 현재 프리미어리그 토트넘 핫스퍼에서 활약 중인 손흥민 선수의 재계약 관련 기사를 가져왔습니다. 다음 시즌 누누감독이 이끌게 되는 토트넘, 쌉월클👍 손흥민선수와 함께 좋은 성적 거뒀으면 좋겠습니다.</p></div>
+                    </div>
+                    <div style="clear:both;"></div>
+                    <hr>
+                </div>
+                
+                <div class="media">
+                    <!--  -->
+                    <div class="media-body">
+                        <a class="link-unstyled" href="https://chelseafandev.github.io/2021/09/24/hyperscan-phase1/" aria-label=": 인텔 Hyperscan 레퍼런스 가이드 번역">
+                            <h3 class="media-heading">인텔 Hyperscan 레퍼런스 가이드 번역</h3>
+                        </a>
+                        <span class="media-meta">
+                            <span class="media-date text-small">
+                                
+                                    2021년 9월 24일
+                                
+                            </span>
+                        </span>
+                        <div class="media-content hide-xs font-nanumsquareround"><p>이번 포스팅에서는 인텔 Hyperscan의 <a target="_blank" rel="external nofollow noopener noreferrer" href="http://intel.github.io/hyperscan/dev-reference/index.html">공식 문서</a>를 통해 컴파일(compile)이나 스캔(scan)과 같은 Hyperscan의 기본적인 개념들에 대해 알아보도록 하겠습니다. 추후에는 Hyperscan API를 직접 사용하여 정규 표현식 패턴 매칭을 수행하는 샘플 코드도 업로드할 예정입니다.</p></div>
+                    </div>
+                    <div style="clear:both;"></div>
+                    <hr>
+                </div>
+                
+                <div class="media">
+                    <!--  -->
+                    <div class="media-body">
+                        <a class="link-unstyled" href="https://chelseafandev.github.io/2021/10/12/hyperscan-phase2/" aria-label=": 인텔 Hyperscan API 테스트 코드 작성">
+                            <h3 class="media-heading">인텔 Hyperscan API 테스트 코드 작성</h3>
+                        </a>
+                        <span class="media-meta">
+                            <span class="media-date text-small">
+                                
+                                    2021년 10월 12일
+                                
+                            </span>
+                        </span>
+                        <div class="media-content hide-xs font-nanumsquareround"><p>이번 포스팅에서는 <a href="https://chelseafandev.github.io/2021/09/24/hyperscan-phase1/">인텔 Hyperscan 레퍼런스 가이드 번역</a>에 이어서 Hyperscan API를 직접 사용하여 정규 표현식 패턴 매칭을 수행하는 샘플 코드를 작성하고 테스트 해보는 시간을 갖겠습니다.</p></div>
+                    </div>
+                    <div style="clear:both;"></div>
+                    <hr>
+                </div>
+                
+                <div class="media">
+                    <!--  -->
+                    <div class="media-body">
+                        <a class="link-unstyled" href="https://chelseafandev.github.io/2021/11/09/gdb-chapter4-program-crash/" aria-label=": Seg Fault는 왜 발생하는가?">
+                            <h3 class="media-heading">Seg Fault는 왜 발생하는가?</h3>
+                        </a>
+                        <span class="media-meta">
+                            <span class="media-date text-small">
+                                
+                                    2021년 11월 9일
+                                
+                            </span>
+                        </span>
+                        <div class="media-content hide-xs font-nanumsquareround"><p>이번 포스팅에서는 <a target="_blank" rel="external nofollow noopener noreferrer" href="https://nostarch.com/debugging.htm">The Art of Debugging with GDB, DDD and Eclipse</a>의 <strong>Chatper 4 WHEN A PROGRAM CRASHES</strong> 내용을 번역해보았습니다. 해당 챕터의 앞부분에서는 가상 주소 공간에서의 페이지(page)에 대한 개념을 소개하고 seg fault가 발생하는 원인을 페이지(page)와 연관지어 잘 설명해주고 있습니다.</p></div>
+                    </div>
+                    <div style="clear:both;"></div>
+                    <hr>
+                </div>
+                
+            </div>
+        </div>
+        <div class="modal-footer">
+            <p class="results-count text-medium" data-message-zero="포스트가 없습니다." data-message-one="1 개의 포스트가 있습니다." data-message-other="{n} 개의 포스트가 있습니다.">
+                27 개의 포스트가 있습니다.
+            </p>
+        </div>
+    </div>
+</div>
+
+        
+        
+<div id="cover" style="background-image:url('/assets/images/chelsea_cover.jpg');"></div>
+        <!--SCRIPTS-->
+
+<script src="/assets/js/jquery.js"></script>
+
+
+<script src="/assets/js/jquery.fancybox.js"></script>
+
+
+<script src="/assets/js/thumbs.js"></script>
+
+
+<script src="/assets/js/tranquilpeak.js"></script>
+
+<!--SCRIPTS END-->
+
+
+    
+
+
+
+    
+<script src="/assets/js/moment-with-locales.js"></script>
+
+    
+<script src="/assets/js/algoliasearch.js"></script>
+
+    <script>
+      var algoliaClient = algoliasearch('FDTOJ7KLS8', '935491408ac4c43d728c68858e4ea147');
+      var algoliaIndex = algoliaClient.initIndex('chelseafandev');
+    </script>
+
+
+    </body>
+</html>

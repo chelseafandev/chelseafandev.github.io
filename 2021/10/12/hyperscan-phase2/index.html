@@ -1,0 +1,827 @@
+
+<!DOCTYPE html>
+<html lang="ko">
+    
+<head>
+    <meta name="google-site-verification" content="Ojz5tvI9WuN6pn2n6i1E_mOkMyRiSSOp4KXuYSyaUjs">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="generator" content="첼시팬 개발자 작업 공간">
+    <title>인텔 Hyperscan API 테스트 코드 작성 - 첼시팬 개발자 작업 공간</title>
+    <meta name="author" content="첼시팬개발자">
+    
+    
+        <link rel="icon" href="https://chelseafandev.github.io/assets/images/chelsea_favicon.png">
+    
+    
+        
+            <link rel="alternate" type="application/rss+xml" title="RSS" href="/rss2.xml">
+        
+    
+    <script type="application/ld+json">{"@context":"http://schema.org","@type":"BlogPosting","author":{"@type":"Person","name":"첼시팬개발자","sameAs":[],"image":"chelsea_logo.png"},"articleBody":"이번 포스팅에서는 인텔 Hyperscan 레퍼런스 가이드 번역에 이어서 Hyperscan API를 직접 사용하여 정규 표현식 패턴 매칭을 수행하는 샘플 코드를 작성하고 테스트 해보는 시간을 갖겠습니다.\n\n\n해당 포스팅의 Hyperscan 설치 및 테스트 환경은 Ubuntu 18.04.5 LTS 기준입니다. 다른 OS에서 Hyperscan 테스트 코드를 작성하고자 하시는 분들은 Hyperscan 공식 홈페이지에 명시된 요구사항 정보를 확인해주시기 바랍니다. \n\n\n\n\n\n\n아래 그림은 Hyperscan 라이브러리를 컴파일하기 위해 미리 설치되어야할 소프트웨어 목록과 최소 버전 정보입니다. Pcap은 hyperscan에서 제공하는 샘플 코드를 사용하지 않을거라면 굳이 설치할 필요는 없기때문에 제외하도록 하겠습니다. (설치 과정에서 발생하는 오류 댓글로 남겨주시면 피드백드리겠습니다😁)\n\n\n\n\nCMake 설치12$ sudo apt-get update$ sudo apt-get install cmake\n\n\n\nRagel 설치12$ sudo apt-get update$ sudo apt-get install ragel\n\n\n\nPython 설치12$ sudo apt-get update$ sudo apt-get install python\n\n\n\nBoost 설치Boost 공식 홈페이지를 참조하여 최신 버전(21.10.11 기준 1.77.0) 설치를 수행합니다.\n12345$ wget https://boostorg.jfrog.io/artifactory/main/release/1.77.0/source/boost_1_77_0.tar.bz2$ tar xvf boost_1_77_0.tar.bz2$ cd boost_1_77_0$ sudo ./bootstrap.sh$ sudo ./b2 install\n\n\n\nHyperscan 소스 빌드해당 링크에서 Hyperscan 최신 소스 코드(21.10.11 기준 5.4.0)를 다운로드 받으실 수 있습니다.\n12345678$ tar xvf v5.4.0.tar.gz$ cd hyperscan-5.4.0$ mkdir build$ cd build$ cmake -DBUILD_STATIC_AND_SHARED=1 ../$ sudo make$ sudo make installln -s /usr/local/include/boost &lt;hyperscan-source-path&gt;/include/boost\n\n\n\n테스트코드 작성테스트코드에 대한 설명은 코드 내 주석으로 대신하겠습니다.\nHyperscan API test codecpp123456789101112131415161718192021222324252627282930313233343536373839404142434445464748495051525354555657585960616263646566676869707172737475767778798081828384858687888990919293949596979899100101102103104105106107108109110111112113114115116117118119120121122123124125126127128129130131132133134135136137138139140141142143144145146147148149150151152153154155156157158159160161162163164165166167168169170171172173174175176177178179180181182183184185186187188189190191192193194195196197198199200201202203204205206207208209210211212213214215216217218219220221222223224225226227228229230231232233234#include &lt;iostream&gt;#include &lt;fstream&gt;#include &lt;vector&gt;#include &lt;hs.h&gt;class HyperscanTest{public:\tHyperscanTest()\t{\t\tdb_ = nullptr;\t\tscratch_ = nullptr;\t}\t~HyperscanTest()\t{\t\ths_free_scratch(scratch_);\t\ths_free_database(db_);\t}\t// 정규표현식 샘플 패턴이 저장된 파일을 Hyperscan Pattern DB를 컴파일하기 위한 형태로 파싱해주는 함수입니다.\t//\t// 파싱하는 파일의 구조는 &lt;id&gt;:/&lt;pattern&gt;/&lt;flags&gt; 형태이며, \t// id/pattern/flags를 각각 멤버 변수인 ids_, patterns_, flags_에 저장합니다.\tbool parseFile(const std::string &amp;filename)\t{\t\tstd::ifstream inFile(filename, std::ifstream::in);\t\tif (!inFile.good())\t\t{\t\t\tstd::cout &lt;&lt; \"ERROR: unable to open file \\\"\" &lt;&lt; filename &lt;&lt; \"\\\"\" &lt;&lt; std::endl;\t\t\treturn false;\t\t}\t\tfor (int i = 1; !inFile.eof(); i++)\t\t{\t\t\tstd::string line;\t\t\tgetline(inFile, line);\t\t\tif (line.empty() || line[0] == '#')\t\t\t{\t\t\t\tcontinue;\t\t\t}\t\t\tsize_t colonIdx = line.find_first_of(':');\t\t\tif (colonIdx == std::string::npos)\t\t\t{\t\t\t\tstd::cout &lt;&lt; \"ERROR: Could not parse line \" &lt;&lt; i &lt;&lt; std::endl;\t\t\t\tinFile.close();\t\t\t\treturn false;\t\t\t}\t\t\tunsigned int id = std::stoi(line.substr(0, colonIdx).c_str());\t\t\tconst std::string expr(line.substr(colonIdx + 1));\t\t\tsize_t flagsStart = expr.find_last_of('/');\t\t\tif (flagsStart == std::string::npos)\t\t\t{\t\t\t\tstd::cout &lt;&lt; \"ERROR: no trailing '/' char\" &lt;&lt; std::endl;\t\t\t\tinFile.close();\t\t\t\treturn false;\t\t\t}\t\t\tstd::string pcre(expr.substr(1, flagsStart - 1));\t\t\tstd::string flagsStr(expr.substr(flagsStart + 1, expr.size() - flagsStart));\t\t\tunsigned int flag = parseFlags(flagsStr);\t\t\tpatterns_.push_back(pcre);\t\t\tflags_.push_back(flag);\t\t\tids_.push_back(id);\t\t}\t\tinFile.close();\t\treturn true;\t}\t// 파싱된 데이터들을 활용하여 Hyperscan에서 사용하는 Pattern DB를 컴파일하는 함수입니다.\tbool compileDatabase()\t{\t\ths_database_t *db = nullptr;\t\ths_compile_error_t *compileErr;\t\tstd::vector&lt;const char *&gt; cstrPatterns;\t\tcstrPatterns.reserve(patterns_.size());\t\tfor (const auto &amp;pattern : patterns_)\t\t{\t\t\tcstrPatterns.push_back(pattern.c_str());\t\t}\t\ths_error_t err_compile = hs_compile_multi(cstrPatterns.data(), flags_.data(), ids_.data(), cstrPatterns.size(), HS_MODE_BLOCK, nullptr, &amp;db, &amp;compileErr);\t\tif (err_compile != HS_SUCCESS)\t\t{\t\t\tif (compileErr-&gt;expression &lt; 0)\t\t\t{\t\t\t\tstd::cout &lt;&lt; \"ERROR: \" &lt;&lt; compileErr-&gt;message &lt;&lt; std::endl;\t\t\t\ths_free_compile_error(compileErr);\t\t\t\treturn false;\t\t\t}\t\t\telse\t\t\t{\t\t\t\tstd::cout &lt;&lt; \"ERROR: Pattern '\" &lt;&lt; patterns_[compileErr-&gt;expression] &lt;&lt; \"' failed with error '\" &lt;&lt; compileErr-&gt;message &lt;&lt; \"'\" &lt;&lt; std::endl;\t\t\t\ths_free_compile_error(compileErr);\t\t\t\treturn false;\t\t\t}\t\t}\t\tif (db_ != nullptr)\t\t\ths_free_database(db_);\t\tdb_ = db;\t\ths_error_t err_scratch = hs_alloc_scratch(db_, &amp;scratch_);\t\tif (err_scratch != HS_SUCCESS)\t\t{\t\t\tstd::cout &lt;&lt; \"ERROR: hs_alloc_scratch failed.\" &lt;&lt; std::endl;\t\t\treturn false;\t\t}\t\treturn true;\t}\t// 인자로 전달된 패턴 정보가 Hyperscan Pattern DB에 존재하는지 여부를 반환하는 함수입니다.\tbool scanPattern(std::string pattern)\t{\t\tunsigned int match_count = 0;\t\t// 매칭되는 패턴이 Hyperscan Pattern DB에 존재한다면 hs_scan 함수의 6번째 인자로 등록되는 \t\t// 콜백 함수(해당 코드에서는 람다 함수로 구현)를 통해 결과를 확인할 수 있으며,\t\t// 5번째 인자인 ctx를 통해 hs_scan 외부의 변수에 콜백 함수의 결과를 저장할 수도 있습니다.\t\tif (hs_scan(\t\t\t\tdb_,\t\t\t\tpattern.c_str(),\t\t\t\tpattern.length(),\t\t\t\t0,\t\t\t\tscratch_,\t\t\t\t[](unsigned int id, unsigned long long from, unsigned long long to, unsigned int flags, void *ctx) -&gt; int\t\t\t\t{\t\t\t\t\tsize_t *matches = (size_t *)ctx;\t\t\t\t\t(*matches)++;\t\t\t\t\tstd::cout &lt;&lt; \"id: \" &lt;&lt; id &lt;&lt; \" from: \" &lt;&lt; from &lt;&lt; \" to: \" &lt;&lt; to &lt;&lt; \" flags: \" &lt;&lt; flags &lt;&lt; std::endl;\t\t\t\t\treturn 0;\t\t\t\t},\t\t\t\t&amp;match_count) != HS_SUCCESS)\t\t{\t\t\tstd::cout &lt;&lt; \"hs_scan failed.\" &lt;&lt; std::endl;\t\t\treturn false;\t\t}\t\tstd::cout &lt;&lt; \"match count: \" &lt;&lt; match_count &lt;&lt; std::endl;\t\treturn true;\t}private:\ths_database_t *db_;   \ths_stream_t *stream_;   \ths_scratch_t *scratch_;\tstd::vector&lt;unsigned int&gt; ids_;   \tstd::vector&lt;std::string&gt; patterns_;   \tstd::vector&lt;unsigned int&gt; flags_;\t// parseFile 함수에서 호출하며 파일에 등록된 flags 정보를 Hyperscan에서 정의한 상수 값으로 변환하는 작업을 합니다.\tint parseFlags(const std::string &amp;flagsStr)\t{\t\tunsigned int flags = 0;\t\tfor (const auto &amp;c : flagsStr)\t\t{\t\t\tswitch (c)\t\t\t{\t\t\tcase 'i':\t\t\t\tflags |= HS_FLAG_CASELESS;\t\t\t\tbreak;\t\t\tcase 'm':\t\t\t\tflags |= HS_FLAG_MULTILINE;\t\t\t\tbreak;\t\t\tcase 's':\t\t\t\tflags |= HS_FLAG_DOTALL;\t\t\t\tbreak;\t\t\tcase 'H':\t\t\t\tflags |= HS_FLAG_SINGLEMATCH;\t\t\t\tbreak;\t\t\tcase 'V':\t\t\t\tflags |= HS_FLAG_ALLOWEMPTY;\t\t\t\tbreak;\t\t\tcase '8':\t\t\t\tflags |= HS_FLAG_UTF8;\t\t\t\tbreak;\t\t\tcase 'W':\t\t\t\tflags |= HS_FLAG_UCP;\t\t\t\tbreak;\t\t\tcase '\\r': // stray carriage-return\t\t\t\tbreak;\t\t\t}\t\t}\t\treturn flags;\t}};int main(){   \tHyperscanTest hst;\t// 1. 정규표현식 샘플 패턴들이 등록된 파일을 Hyperscan에서 사용 가능한 형태로 파싱\tif(!hst.parseFile(\"./pattern.db\"))\t{\t\tstd::cout &lt;&lt; \"parseFile failed.\" &lt;&lt; std::endl;\t\treturn 0;\t}\t// 2. Hyperscan Pattern DB 컴파일\tif(!hst.compileDatabase())\t{\t\tstd::cout &lt;&lt; \"compileDatabase failed.\" &lt;&lt; std::endl;\t\treturn 0;\t}\tdo   \t{    \tstd::string pattren = \"\";    \tstd::cout &lt;&lt; \"체크할 패턴을 입력하세요 &gt;&gt; \";    \tgetline(std::cin, pattren);\t\t// 3. 컴파일된 Hyperscan Pattern DB를 기반으로 패턴 체크\t\tif(!hst.scanPattern(pattren))\t\t{\t\t\tstd::cout &lt;&lt; \"scanPattern failed.\" &lt;&lt; std::endl;\t\t}   \t} while (true);\treturn 0;}\n\n\n\n정규표현식 샘플 패턴 등록아래 예시는 (순서대로) 이메일, 전화번호, 휴대폰번호, 우편번호, 주민등록번호에 대한 정규표현식 샘플 패턴이며, 생성한 pattern.db는 테스트코드 빌드 결과 생성되는 실행 파일(example)과 동일한 경로에 위치시키면 됩니다.\n1234567$ vim pattern.db1:/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]&#123;2,4&#125;$/2:/^(070|02|031|032|033|041|042|043|051|052|053|054|055|061|062|063|064)-\\d&#123;3,4&#125;-\\d&#123;4&#125;$/3:/^(010|011|016|017|018|019)-\\d&#123;3,4&#125;-\\d&#123;4&#125;$/4:/^\\d&#123;3&#125;-?\\d&#123;3&#125;$/5:/^\\d&#123;2&#125;[0-1]\\d[0-3]\\d-?[1-6]\\d&#123;6&#125;$/\n\n\n\n빌드 및 테스트123456789101112$ c++ -I /usr/local/include/hs example.cpp -o example -L &lt;hyperscan-source-path&gt;/build/lib -lhs$ ./example체크할 패턴을 입력하세요 &gt;&gt; 900101-1234567id: 5 from: 0 to: 14 flags: 0match count: 1체크할 패턴을 입력하세요 &gt;&gt; 010-1234-5678id: 3 from: 0 to: 13 flags: 0match count: 1체크할 패턴을 입력하세요 &gt;&gt; bluetomorrow90@gmail.comid: 1 from: 0 to: 24 flags: 0match count: 1체크할 패턴을 입력하세요 &gt;&gt; \n\nexample 실행 시 libhs.so를 참조하지 못하는 경우에는 아래 명령어를 통해 라이브러리 참조 경로를 직접 지정해줍니다.\n1$ export LD_LIBRARY_PATH=&lt;hyperscan-source-path&gt;/build/lib\n\n\n\n마치며지금까지 Hyperscan 소스 빌드 과정과 정규표현식 샘플 패턴을 체크하기 위한 테스트 코드 작성에 대해 알아보았습니다. 해당 포스팅에서는 Hyperscan API의 가장 기본적인 동작들만을 살펴보았구요, Hyperscan 공식 문서를 살펴보면 멀티쓰레드 환경(“main” thread에서 pattern db를 compile하고 2개 이상의 “worker” thread에서 scan을 수행)에서도 사용이 가능하다고 하니 어떤식으로 구현해야할지 함께 고민해보면 좋을 것 같습니다. 긴 글 읽어주셔서 감사합니다🙂\n\nIn a scenario where a set of expressions are compiled by a single “main” thread and data will be scanned by multiple “worker” threads, the convenience function hs_clone_scratch() allows multiple copies of an existing scratch space to be made for each thread (rather than forcing the caller to pass all the compiled databases through hs_alloc_scratch() multiple times).\n\n\n\n해당 게시글에서 발생한 오탈자나 잘못된 내용에 대한 정정 댓글 격하게 환영합니다😎\n\nReference\n\nhttps://intel.github.io/hyperscan/dev-reference/getting_started.html\nhttps://www.boost.org/doc/libs/1_77_0/more/getting_started/unix-variants.html\nhttps://github.com/intel/hyperscan\nhttps://myeonguni.tistory.com/1555\n\n","dateCreated":"2021-10-12T21:20:27+09:00","dateModified":"2023-06-09T14:02:43+09:00","datePublished":"2021-10-12T21:20:27+09:00","description":"이번 포스팅에서는 인텔 Hyperscan 레퍼런스 가이드 번역에 이어서 Hyperscan API를 직접 사용하여 정규 표현식 패턴 매칭을 수행하는 샘플 코드를 작성하고 테스트 해보는 시간을 갖겠습니다.","headline":"인텔 Hyperscan API 테스트 코드 작성","image":[],"mainEntityOfPage":{"@type":"WebPage","@id":"https://chelseafandev.github.io/2021/10/12/hyperscan-phase2/"},"publisher":{"@type":"Organization","name":"첼시팬개발자","sameAs":[],"image":"chelsea_logo.png","logo":{"@type":"ImageObject","url":"chelsea_logo.png"}},"url":"https://chelseafandev.github.io/2021/10/12/hyperscan-phase2/","keywords":"hyperscan, regex, regular expression, 인텔 하이퍼스캔, 정규표현식 패턴 매칭"}</script>
+    <meta name="description" content="이번 포스팅에서는 인텔 Hyperscan 레퍼런스 가이드 번역에 이어서 Hyperscan API를 직접 사용하여 정규 표현식 패턴 매칭을 수행하는 샘플 코드를 작성하고 테스트 해보는 시간을 갖겠습니다.">
+<meta property="og:type" content="blog">
+<meta property="og:title" content="인텔 Hyperscan API 테스트 코드 작성">
+<meta property="og:url" content="https://chelseafandev.github.io/2021/10/12/hyperscan-phase2/index.html">
+<meta property="og:site_name" content="첼시팬 개발자 작업 공간">
+<meta property="og:description" content="이번 포스팅에서는 인텔 Hyperscan 레퍼런스 가이드 번역에 이어서 Hyperscan API를 직접 사용하여 정규 표현식 패턴 매칭을 수행하는 샘플 코드를 작성하고 테스트 해보는 시간을 갖겠습니다.">
+<meta property="og:locale" content="ko_KR">
+<meta property="og:image" content="https://chelseafandev.github.io/assets/images/hyperscan_dependency.png">
+<meta property="article:published_time" content="2021-10-12T12:20:27.000Z">
+<meta property="article:modified_time" content="2023-06-09T05:02:43.802Z">
+<meta property="article:author" content="첼시팬개발자">
+<meta property="article:tag" content="hyperscan">
+<meta property="article:tag" content="regex">
+<meta property="article:tag" content="regular expression">
+<meta property="article:tag" content="인텔 하이퍼스캔">
+<meta property="article:tag" content="정규표현식 패턴 매칭">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://chelseafandev.github.io/assets/images/hyperscan_dependency.png">
+    
+    
+        
+    
+    
+        <meta property="og:image" content="https://chelseafandev.github.io/assets/images/chelsea_logo.png">
+    
+    
+    
+    
+    <!--STYLES-->
+    
+<link rel="stylesheet" href="/assets/css/all.css">
+
+    
+<link rel="stylesheet" href="/assets/css/jquery.fancybox.css">
+
+    
+<link rel="stylesheet" href="/assets/css/thumbs.css">
+
+    
+<link rel="stylesheet" href="/assets/css/tranquilpeak.css">
+
+    <!--STYLES END-->
+    
+
+    
+
+    
+        
+    
+    <link rel="canonical" href="https://chelseafandev.github.io/2021/10/12/hyperscan-phase2/">
+</head>
+
+    <body>
+        <div id="blog">
+            <!-- Define author's picture -->
+
+
+    
+        
+            
+        
+    
+
+<header id="header" data-behavior="4">
+    <i id="btn-open-sidebar" class="fa fa-lg fa-bars"></i>
+    <div class="header-title">
+        <a class="header-title-link" href="/" aria-label>
+            첼시팬 개발자 작업 공간
+        </a>
+    </div>
+    
+        
+            <a class="header-right-picture " href="#about" aria-label="링크 열기: /#about">
+        
+        
+            <img class="header-picture" src="/assets/images/chelsea_logo.png" alt="저자 이미지">
+        
+        </a>
+    
+</header>
+
+            <!-- Define author's picture -->
+
+
+
+        
+    
+
+<nav id="sidebar" data-behavior="4" style="border-top-width: 100px;padding-top: 150px;">
+    <div class="sidebar-container">
+        
+            <div class="sidebar-profile">
+                <a href="/#about" aria-label="저자에 대해 더 알아보기">
+                    <img class="sidebar-profile-picture" src="/assets/images/chelsea_logo.png" alt="저자 이미지">
+                </a>
+                <h4 class="sidebar-profile-name">첼시팬개발자</h4>
+                
+                    <h5 class="sidebar-profile-bio"><p>조금 더디더라도 꾸준히</p>
+</h5>
+                
+            </div>
+        
+        
+            <ul class="sidebar-buttons">
+            
+                <li class="sidebar-button">
+                    
+                        <a class="sidebar-button-link " href="/" rel="noopener" title="전체글">
+                        <i class="sidebar-button-icon fas fa-list-ul" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">전체글</span>
+                    </a>
+            </li>
+            
+                <li class="sidebar-button">
+                    
+                        <a class="sidebar-button-link " href="/all-categories" rel="noopener" title="카테고리">
+                        <i class="sidebar-button-icon fa fa-bookmark" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">카테고리</span>
+                    </a>
+            </li>
+            
+                <li class="sidebar-button">
+                    
+                        <a class="sidebar-button-link " href="/all-tags" rel="noopener" title="태그">
+                        <i class="sidebar-button-icon fa fa-tags" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">태그</span>
+                    </a>
+            </li>
+            
+                <li class="sidebar-button">
+                    
+                        <a class="sidebar-button-link " href="/all-archives" rel="noopener" title="아카이브">
+                        <i class="sidebar-button-icon fa fa-archive" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">아카이브</span>
+                    </a>
+            </li>
+            
+                <li class="sidebar-button">
+                    
+                        <a class="sidebar-button-link " href="https://github.com/chelseafandev" target="_blank" rel="external nofollow noopener noreferrer" title="GitHub">
+                        <i class="sidebar-button-icon fab fa-github" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">GitHub</span>
+                    </a>
+            </li>
+            
+                <li class="sidebar-button">
+                    
+                        <a class="sidebar-button-link " href="/rss2.xml" rel="noopener" title="RSS">
+                        <i class="sidebar-button-icon fa fa-rss" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">RSS</span>
+                    </a>
+            </li>
+            
+        </ul>
+        
+    </div>
+</nav>
+
+            
+            <div id="main" data-behavior="4" class="
+                        hasCoverMetaIn
+                        ">
+                
+<article class="post">
+    
+    
+        <div class="post-header main-content-wrap text-left">
+    
+        <h1 class="post-title">
+            인텔 Hyperscan API 테스트 코드 작성
+        </h1>
+    
+    
+        <div class="post-meta">
+    <time datetime="2021-10-12T21:20:27+09:00">
+	
+		    2021/10/12 21:20:27
+    	
+    </time>
+    
+        <span>카테고리 </span>
+        
+    <a class="category-link" href="/categories/%EA%B8%B0%EC%88%A0%EB%AC%B8%EC%84%9C-%EB%B2%88%EC%97%AD/">기술문서 번역</a>
+
+
+    
+    
+        -
+        <span class="reading-time">⏱</span>
+        
+            읽는데 8 분 정도 소요 예상
+        
+        
+    
+</div>
+
+    
+</div>
+
+    
+    <div class="post-content markdown">
+        <div class="main-content-wrap">
+            <p>이번 포스팅에서는 <a href="https://chelseafandev.github.io/2021/09/24/hyperscan-phase1/">인텔 Hyperscan 레퍼런스 가이드 번역</a>에 이어서 Hyperscan API를 직접 사용하여 정규 표현식 패턴 매칭을 수행하는 샘플 코드를 작성하고 테스트 해보는 시간을 갖겠습니다.</p>
+<span id="more"></span>
+
+<p>해당 포스팅의 Hyperscan 설치 및 테스트 환경은 <span class="highlight-text yellow">Ubuntu 18.04.5 LTS 기준</span>입니다. 다른 OS에서 Hyperscan 테스트 코드를 작성하고자 하시는 분들은 <a target="_blank" rel="external nofollow noopener noreferrer" href="http://intel.github.io/hyperscan/dev-reference/getting_started.html#requirements">Hyperscan 공식 홈페이지에 명시된 요구사항 정보</a>를 확인해주시기 바랍니다. </p>
+<br>
+
+<h1 id="table-of-contents">목차</h1><ol class="toc"><li class="toc-item toc-level-3"><a class="toc-link" href="#CMake-%EC%84%A4%EC%B9%98"><span class="toc-number">1.</span> <span class="toc-text">CMake 설치</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#Ragel-%EC%84%A4%EC%B9%98"><span class="toc-number">2.</span> <span class="toc-text">Ragel 설치</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#Python-%EC%84%A4%EC%B9%98"><span class="toc-number">3.</span> <span class="toc-text">Python 설치</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#Boost-%EC%84%A4%EC%B9%98"><span class="toc-number">4.</span> <span class="toc-text">Boost 설치</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#Hyperscan-%EC%86%8C%EC%8A%A4-%EB%B9%8C%EB%93%9C"><span class="toc-number">5.</span> <span class="toc-text">Hyperscan 소스 빌드</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%ED%85%8C%EC%8A%A4%ED%8A%B8%EC%BD%94%EB%93%9C-%EC%9E%91%EC%84%B1"><span class="toc-number">6.</span> <span class="toc-text">테스트코드 작성</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%EC%A0%95%EA%B7%9C%ED%91%9C%ED%98%84%EC%8B%9D-%EC%83%98%ED%94%8C-%ED%8C%A8%ED%84%B4-%EB%93%B1%EB%A1%9D"><span class="toc-number">7.</span> <span class="toc-text">정규표현식 샘플 패턴 등록</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%EB%B9%8C%EB%93%9C-%EB%B0%8F-%ED%85%8C%EC%8A%A4%ED%8A%B8"><span class="toc-number">8.</span> <span class="toc-text">빌드 및 테스트</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%EB%A7%88%EC%B9%98%EB%A9%B0"><span class="toc-number">9.</span> <span class="toc-text">마치며</span></a></li></ol>
+
+<br>
+
+<p>아래 그림은 Hyperscan 라이브러리를 컴파일하기 위해 미리 설치되어야할 소프트웨어 목록과 최소 버전 정보입니다. Pcap은 hyperscan에서 제공하는 샘플 코드를 사용하지 않을거라면 굳이 설치할 필요는 없기때문에 제외하도록 하겠습니다. (설치 과정에서 발생하는 오류 댓글로 남겨주시면 피드백드리겠습니다😁)</p>
+<div class="figure center" style="width:;"><img class="fig-img" src="/assets/images/hyperscan_dependency.png" alt></div>
+
+<br>
+
+<h3 id="CMake-설치"><a href="#CMake-설치" class="headerlink" title="CMake 설치"></a>CMake 설치</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">$ sudo apt-get update</span><br><span class="line">$ sudo apt-get install cmake</span><br></pre></td></tr></table></figure>
+
+<br>
+
+<h3 id="Ragel-설치"><a href="#Ragel-설치" class="headerlink" title="Ragel 설치"></a>Ragel 설치</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">$ sudo apt-get update</span><br><span class="line">$ sudo apt-get install ragel</span><br></pre></td></tr></table></figure>
+
+<br>
+
+<h3 id="Python-설치"><a href="#Python-설치" class="headerlink" title="Python 설치"></a>Python 설치</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">$ sudo apt-get update</span><br><span class="line">$ sudo apt-get install python</span><br></pre></td></tr></table></figure>
+
+<br>
+
+<h3 id="Boost-설치"><a href="#Boost-설치" class="headerlink" title="Boost 설치"></a>Boost 설치</h3><p><a target="_blank" rel="external nofollow noopener noreferrer" href="https://www.boost.org/doc/libs/1_77_0/more/getting_started/unix-variants.html">Boost 공식 홈페이지</a>를 참조하여 최신 버전(21.10.11 기준 1.77.0) 설치를 수행합니다.</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">$ wget https://boostorg.jfrog.io/artifactory/main/release/1.77.0/source/boost_1_77_0.tar.bz2</span><br><span class="line">$ tar xvf boost_1_77_0.tar.bz2</span><br><span class="line">$ cd boost_1_77_0</span><br><span class="line">$ sudo ./bootstrap.sh</span><br><span class="line">$ sudo ./b2 install</span><br></pre></td></tr></table></figure>
+
+<br>
+
+<h3 id="Hyperscan-소스-빌드"><a href="#Hyperscan-소스-빌드" class="headerlink" title="Hyperscan 소스 빌드"></a>Hyperscan 소스 빌드</h3><p><a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/intel/hyperscan">해당 링크</a>에서 Hyperscan 최신 소스 코드(21.10.11 기준 5.4.0)를 다운로드 받으실 수 있습니다.</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">$ tar xvf v5.4.0.tar.gz</span><br><span class="line">$ cd hyperscan-5.4.0</span><br><span class="line">$ mkdir build</span><br><span class="line">$ cd build</span><br><span class="line">$ cmake -DBUILD_STATIC_AND_SHARED=1 ../</span><br><span class="line">$ sudo make</span><br><span class="line">$ sudo make install</span><br><span class="line">ln -s /usr/local/include/boost &lt;hyperscan-source-path&gt;/include/boost</span><br></pre></td></tr></table></figure>
+
+<br>
+
+<h3 id="테스트코드-작성"><a href="#테스트코드-작성" class="headerlink" title="테스트코드 작성"></a>테스트코드 작성</h3><p>테스트코드에 대한 설명은 코드 내 주석으로 대신하겠습니다.</p>
+<figure class="codeblock codeblock--tabbed"><figcaption><span>Hyperscan API test code</span><ul class="tabs"><li class="tab active">cpp</li></ul></figcaption><div class="tabs-content"><figure class="highlight cpp" style="display: block;"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br><span class="line">113</span><br><span class="line">114</span><br><span class="line">115</span><br><span class="line">116</span><br><span class="line">117</span><br><span class="line">118</span><br><span class="line">119</span><br><span class="line">120</span><br><span class="line">121</span><br><span class="line">122</span><br><span class="line">123</span><br><span class="line">124</span><br><span class="line">125</span><br><span class="line">126</span><br><span class="line">127</span><br><span class="line">128</span><br><span class="line">129</span><br><span class="line">130</span><br><span class="line">131</span><br><span class="line">132</span><br><span class="line">133</span><br><span class="line">134</span><br><span class="line">135</span><br><span class="line">136</span><br><span class="line">137</span><br><span class="line">138</span><br><span class="line">139</span><br><span class="line">140</span><br><span class="line">141</span><br><span class="line">142</span><br><span class="line">143</span><br><span class="line">144</span><br><span class="line">145</span><br><span class="line">146</span><br><span class="line">147</span><br><span class="line">148</span><br><span class="line">149</span><br><span class="line">150</span><br><span class="line">151</span><br><span class="line">152</span><br><span class="line">153</span><br><span class="line">154</span><br><span class="line">155</span><br><span class="line">156</span><br><span class="line">157</span><br><span class="line">158</span><br><span class="line">159</span><br><span class="line">160</span><br><span class="line">161</span><br><span class="line">162</span><br><span class="line">163</span><br><span class="line">164</span><br><span class="line">165</span><br><span class="line">166</span><br><span class="line">167</span><br><span class="line">168</span><br><span class="line">169</span><br><span class="line">170</span><br><span class="line">171</span><br><span class="line">172</span><br><span class="line">173</span><br><span class="line">174</span><br><span class="line">175</span><br><span class="line">176</span><br><span class="line">177</span><br><span class="line">178</span><br><span class="line">179</span><br><span class="line">180</span><br><span class="line">181</span><br><span class="line">182</span><br><span class="line">183</span><br><span class="line">184</span><br><span class="line">185</span><br><span class="line">186</span><br><span class="line">187</span><br><span class="line">188</span><br><span class="line">189</span><br><span class="line">190</span><br><span class="line">191</span><br><span class="line">192</span><br><span class="line">193</span><br><span class="line">194</span><br><span class="line">195</span><br><span class="line">196</span><br><span class="line">197</span><br><span class="line">198</span><br><span class="line">199</span><br><span class="line">200</span><br><span class="line">201</span><br><span class="line">202</span><br><span class="line">203</span><br><span class="line">204</span><br><span class="line">205</span><br><span class="line">206</span><br><span class="line">207</span><br><span class="line">208</span><br><span class="line">209</span><br><span class="line">210</span><br><span class="line">211</span><br><span class="line">212</span><br><span class="line">213</span><br><span class="line">214</span><br><span class="line">215</span><br><span class="line">216</span><br><span class="line">217</span><br><span class="line">218</span><br><span class="line">219</span><br><span class="line">220</span><br><span class="line">221</span><br><span class="line">222</span><br><span class="line">223</span><br><span class="line">224</span><br><span class="line">225</span><br><span class="line">226</span><br><span class="line">227</span><br><span class="line">228</span><br><span class="line">229</span><br><span class="line">230</span><br><span class="line">231</span><br><span class="line">232</span><br><span class="line">233</span><br><span class="line">234</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;iostream&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;fstream&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;vector&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;hs.h&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">HyperscanTest</span></span></span><br><span class="line"><span class="class">{</span></span><br><span class="line"><span class="keyword">public</span>:</span><br><span class="line">	HyperscanTest()</span><br><span class="line">	{</span><br><span class="line">		db_ = <span class="literal">nullptr</span>;</span><br><span class="line">		scratch_ = <span class="literal">nullptr</span>;</span><br><span class="line">	}</span><br><span class="line"></span><br><span class="line">	~HyperscanTest()</span><br><span class="line">	{</span><br><span class="line">		hs_free_scratch(scratch_);</span><br><span class="line">		hs_free_database(db_);</span><br><span class="line">	}</span><br><span class="line"></span><br><span class="line">	<span class="comment">// 정규표현식 샘플 패턴이 저장된 파일을 Hyperscan Pattern DB를 컴파일하기 위한 형태로 파싱해주는 함수입니다.</span></span><br><span class="line">	<span class="comment">//</span></span><br><span class="line">	<span class="comment">// 파싱하는 파일의 구조는 &lt;id&gt;:/&lt;pattern&gt;/&lt;flags&gt; 형태이며, </span></span><br><span class="line">	<span class="comment">// id/pattern/flags를 각각 멤버 변수인 ids_, patterns_, flags_에 저장합니다.</span></span><br><span class="line">	<span class="function"><span class="keyword">bool</span> <span class="title">parseFile</span><span class="params">(<span class="keyword">const</span> <span class="built_in">std</span>::<span class="built_in">string</span> &amp;filename)</span></span></span><br><span class="line"><span class="function">	</span>{</span><br><span class="line">		<span class="function"><span class="built_in">std</span>::ifstream <span class="title">inFile</span><span class="params">(filename, <span class="built_in">std</span>::ifstream::in)</span></span>;</span><br><span class="line">		<span class="keyword">if</span> (!inFile.good())</span><br><span class="line">		{</span><br><span class="line">			<span class="built_in">std</span>::<span class="built_in">cout</span> &lt;&lt; <span class="string">"ERROR: unable to open file \""</span> &lt;&lt; filename &lt;&lt; <span class="string">"\""</span> &lt;&lt; <span class="built_in">std</span>::<span class="built_in">endl</span>;</span><br><span class="line">			<span class="keyword">return</span> <span class="literal">false</span>;</span><br><span class="line">		}</span><br><span class="line"></span><br><span class="line">		<span class="keyword">for</span> (<span class="keyword">int</span> i = <span class="number">1</span>; !inFile.eof(); i++)</span><br><span class="line">		{</span><br><span class="line">			<span class="built_in">std</span>::<span class="built_in">string</span> line;</span><br><span class="line">			getline(inFile, line);</span><br><span class="line"></span><br><span class="line">			<span class="keyword">if</span> (line.empty() || line[<span class="number">0</span>] == <span class="string">'#'</span>)</span><br><span class="line">			{</span><br><span class="line">				<span class="keyword">continue</span>;</span><br><span class="line">			}</span><br><span class="line"></span><br><span class="line">			<span class="keyword">size_t</span> colonIdx = line.find_first_of(<span class="string">':'</span>);</span><br><span class="line">			<span class="keyword">if</span> (colonIdx == <span class="built_in">std</span>::<span class="built_in">string</span>::npos)</span><br><span class="line">			{</span><br><span class="line">				<span class="built_in">std</span>::<span class="built_in">cout</span> &lt;&lt; <span class="string">"ERROR: Could not parse line "</span> &lt;&lt; i &lt;&lt; <span class="built_in">std</span>::<span class="built_in">endl</span>;</span><br><span class="line">				inFile.close();</span><br><span class="line">				<span class="keyword">return</span> <span class="literal">false</span>;</span><br><span class="line">			}</span><br><span class="line"></span><br><span class="line">			<span class="keyword">unsigned</span> <span class="keyword">int</span> id = <span class="built_in">std</span>::stoi(line.substr(<span class="number">0</span>, colonIdx).c_str());</span><br><span class="line"></span><br><span class="line">			<span class="function"><span class="keyword">const</span> <span class="built_in">std</span>::<span class="built_in">string</span> <span class="title">expr</span><span class="params">(line.substr(colonIdx + <span class="number">1</span>))</span></span>;</span><br><span class="line"></span><br><span class="line">			<span class="keyword">size_t</span> flagsStart = expr.find_last_of(<span class="string">'/'</span>);</span><br><span class="line">			<span class="keyword">if</span> (flagsStart == <span class="built_in">std</span>::<span class="built_in">string</span>::npos)</span><br><span class="line">			{</span><br><span class="line">				<span class="built_in">std</span>::<span class="built_in">cout</span> &lt;&lt; <span class="string">"ERROR: no trailing '/' char"</span> &lt;&lt; <span class="built_in">std</span>::<span class="built_in">endl</span>;</span><br><span class="line">				inFile.close();</span><br><span class="line">				<span class="keyword">return</span> <span class="literal">false</span>;</span><br><span class="line">			}</span><br><span class="line"></span><br><span class="line">			<span class="function"><span class="built_in">std</span>::<span class="built_in">string</span> <span class="title">pcre</span><span class="params">(expr.substr(<span class="number">1</span>, flagsStart - <span class="number">1</span>))</span></span>;</span><br><span class="line">			<span class="function"><span class="built_in">std</span>::<span class="built_in">string</span> <span class="title">flagsStr</span><span class="params">(expr.substr(flagsStart + <span class="number">1</span>, expr.size() - flagsStart))</span></span>;</span><br><span class="line">			<span class="keyword">unsigned</span> <span class="keyword">int</span> flag = parseFlags(flagsStr);</span><br><span class="line"></span><br><span class="line">			patterns_.push_back(pcre);</span><br><span class="line">			flags_.push_back(flag);</span><br><span class="line">			ids_.push_back(id);</span><br><span class="line">		}</span><br><span class="line"></span><br><span class="line">		inFile.close();</span><br><span class="line">		<span class="keyword">return</span> <span class="literal">true</span>;</span><br><span class="line">	}</span><br><span class="line"></span><br><span class="line">	<span class="comment">// 파싱된 데이터들을 활용하여 Hyperscan에서 사용하는 Pattern DB를 컴파일하는 함수입니다.</span></span><br><span class="line">	<span class="function"><span class="keyword">bool</span> <span class="title">compileDatabase</span><span class="params">()</span></span></span><br><span class="line"><span class="function">	</span>{</span><br><span class="line">		<span class="keyword">hs_database_t</span> *db = <span class="literal">nullptr</span>;</span><br><span class="line">		<span class="keyword">hs_compile_error_t</span> *compileErr;</span><br><span class="line"></span><br><span class="line">		<span class="built_in">std</span>::<span class="built_in">vector</span>&lt;<span class="keyword">const</span> <span class="keyword">char</span> *&gt; cstrPatterns;</span><br><span class="line">		cstrPatterns.reserve(patterns_.size());</span><br><span class="line">		<span class="keyword">for</span> (<span class="keyword">const</span> <span class="keyword">auto</span> &amp;pattern : patterns_)</span><br><span class="line">		{</span><br><span class="line">			cstrPatterns.push_back(pattern.c_str());</span><br><span class="line">		}</span><br><span class="line"></span><br><span class="line">		<span class="keyword">hs_error_t</span> err_compile = hs_compile_multi(cstrPatterns.data(), flags_.data(), ids_.data(), cstrPatterns.size(), HS_MODE_BLOCK, <span class="literal">nullptr</span>, &amp;db, &amp;compileErr);</span><br><span class="line">		<span class="keyword">if</span> (err_compile != HS_SUCCESS)</span><br><span class="line">		{</span><br><span class="line">			<span class="keyword">if</span> (compileErr-&gt;expression &lt; <span class="number">0</span>)</span><br><span class="line">			{</span><br><span class="line">				<span class="built_in">std</span>::<span class="built_in">cout</span> &lt;&lt; <span class="string">"ERROR: "</span> &lt;&lt; compileErr-&gt;message &lt;&lt; <span class="built_in">std</span>::<span class="built_in">endl</span>;</span><br><span class="line">				hs_free_compile_error(compileErr);</span><br><span class="line">				<span class="keyword">return</span> <span class="literal">false</span>;</span><br><span class="line">			}</span><br><span class="line">			<span class="keyword">else</span></span><br><span class="line">			{</span><br><span class="line">				<span class="built_in">std</span>::<span class="built_in">cout</span> &lt;&lt; <span class="string">"ERROR: Pattern '"</span> &lt;&lt; patterns_[compileErr-&gt;expression] &lt;&lt; <span class="string">"' failed with error '"</span> &lt;&lt; compileErr-&gt;message &lt;&lt; <span class="string">"'"</span> &lt;&lt; <span class="built_in">std</span>::<span class="built_in">endl</span>;</span><br><span class="line">				hs_free_compile_error(compileErr);</span><br><span class="line">				<span class="keyword">return</span> <span class="literal">false</span>;</span><br><span class="line">			}</span><br><span class="line">		}</span><br><span class="line"></span><br><span class="line">		<span class="keyword">if</span> (db_ != <span class="literal">nullptr</span>)</span><br><span class="line">			hs_free_database(db_);</span><br><span class="line"></span><br><span class="line">		db_ = db;</span><br><span class="line"></span><br><span class="line">		<span class="keyword">hs_error_t</span> err_scratch = hs_alloc_scratch(db_, &amp;scratch_);</span><br><span class="line">		<span class="keyword">if</span> (err_scratch != HS_SUCCESS)</span><br><span class="line">		{</span><br><span class="line">			<span class="built_in">std</span>::<span class="built_in">cout</span> &lt;&lt; <span class="string">"ERROR: hs_alloc_scratch failed."</span> &lt;&lt; <span class="built_in">std</span>::<span class="built_in">endl</span>;</span><br><span class="line">			<span class="keyword">return</span> <span class="literal">false</span>;</span><br><span class="line">		}</span><br><span class="line"></span><br><span class="line">		<span class="keyword">return</span> <span class="literal">true</span>;</span><br><span class="line">	}</span><br><span class="line"></span><br><span class="line">	<span class="comment">// 인자로 전달된 패턴 정보가 Hyperscan Pattern DB에 존재하는지 여부를 반환하는 함수입니다.</span></span><br><span class="line">	<span class="function"><span class="keyword">bool</span> <span class="title">scanPattern</span><span class="params">(<span class="built_in">std</span>::<span class="built_in">string</span> pattern)</span></span></span><br><span class="line"><span class="function">	</span>{</span><br><span class="line">		<span class="keyword">unsigned</span> <span class="keyword">int</span> match_count = <span class="number">0</span>;</span><br><span class="line"></span><br><span class="line">		<span class="comment">// 매칭되는 패턴이 Hyperscan Pattern DB에 존재한다면 hs_scan 함수의 6번째 인자로 등록되는 </span></span><br><span class="line">		<span class="comment">// 콜백 함수(해당 코드에서는 람다 함수로 구현)를 통해 결과를 확인할 수 있으며,</span></span><br><span class="line">		<span class="comment">// 5번째 인자인 ctx를 통해 hs_scan 외부의 변수에 콜백 함수의 결과를 저장할 수도 있습니다.</span></span><br><span class="line">		<span class="keyword">if</span> (hs_scan(</span><br><span class="line">				db_,</span><br><span class="line">				pattern.c_str(),</span><br><span class="line">				pattern.length(),</span><br><span class="line">				<span class="number">0</span>,</span><br><span class="line">				scratch_,</span><br><span class="line">				[](<span class="keyword">unsigned</span> <span class="keyword">int</span> id, <span class="keyword">unsigned</span> <span class="keyword">long</span> <span class="keyword">long</span> from, <span class="keyword">unsigned</span> <span class="keyword">long</span> <span class="keyword">long</span> to, <span class="keyword">unsigned</span> <span class="keyword">int</span> flags, <span class="keyword">void</span> *ctx) -&gt; <span class="keyword">int</span></span><br><span class="line">				{</span><br><span class="line">					<span class="keyword">size_t</span> *matches = (<span class="keyword">size_t</span> *)ctx;</span><br><span class="line">					(*matches)++;</span><br><span class="line">					<span class="built_in">std</span>::<span class="built_in">cout</span> &lt;&lt; <span class="string">"id: "</span> &lt;&lt; id &lt;&lt; <span class="string">" from: "</span> &lt;&lt; from &lt;&lt; <span class="string">" to: "</span> &lt;&lt; to &lt;&lt; <span class="string">" flags: "</span> &lt;&lt; flags &lt;&lt; <span class="built_in">std</span>::<span class="built_in">endl</span>;</span><br><span class="line">					<span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">				},</span><br><span class="line">				&amp;match_count) != HS_SUCCESS)</span><br><span class="line">		{</span><br><span class="line">			<span class="built_in">std</span>::<span class="built_in">cout</span> &lt;&lt; <span class="string">"hs_scan failed."</span> &lt;&lt; <span class="built_in">std</span>::<span class="built_in">endl</span>;</span><br><span class="line">			<span class="keyword">return</span> <span class="literal">false</span>;</span><br><span class="line">		}</span><br><span class="line"></span><br><span class="line">		<span class="built_in">std</span>::<span class="built_in">cout</span> &lt;&lt; <span class="string">"match count: "</span> &lt;&lt; match_count &lt;&lt; <span class="built_in">std</span>::<span class="built_in">endl</span>;</span><br><span class="line">		<span class="keyword">return</span> <span class="literal">true</span>;</span><br><span class="line">	}</span><br><span class="line"></span><br><span class="line"><span class="keyword">private</span>:</span><br><span class="line">	<span class="keyword">hs_database_t</span> *db_;</span><br><span class="line">   	<span class="keyword">hs_stream_t</span> *stream_;</span><br><span class="line">   	<span class="keyword">hs_scratch_t</span> *scratch_;</span><br><span class="line"></span><br><span class="line">	<span class="built_in">std</span>::<span class="built_in">vector</span>&lt;<span class="keyword">unsigned</span> <span class="keyword">int</span>&gt; ids_;</span><br><span class="line">   	<span class="built_in">std</span>::<span class="built_in">vector</span>&lt;<span class="built_in">std</span>::<span class="built_in">string</span>&gt; patterns_;</span><br><span class="line">   	<span class="built_in">std</span>::<span class="built_in">vector</span>&lt;<span class="keyword">unsigned</span> <span class="keyword">int</span>&gt; flags_;</span><br><span class="line"></span><br><span class="line">	<span class="comment">// parseFile 함수에서 호출하며 파일에 등록된 flags 정보를 Hyperscan에서 정의한 상수 값으로 변환하는 작업을 합니다.</span></span><br><span class="line">	<span class="function"><span class="keyword">int</span> <span class="title">parseFlags</span><span class="params">(<span class="keyword">const</span> <span class="built_in">std</span>::<span class="built_in">string</span> &amp;flagsStr)</span></span></span><br><span class="line"><span class="function">	</span>{</span><br><span class="line">		<span class="keyword">unsigned</span> <span class="keyword">int</span> flags = <span class="number">0</span>;</span><br><span class="line"></span><br><span class="line">		<span class="keyword">for</span> (<span class="keyword">const</span> <span class="keyword">auto</span> &amp;c : flagsStr)</span><br><span class="line">		{</span><br><span class="line">			<span class="keyword">switch</span> (c)</span><br><span class="line">			{</span><br><span class="line">			<span class="keyword">case</span> <span class="string">'i'</span>:</span><br><span class="line">				flags |= HS_FLAG_CASELESS;</span><br><span class="line">				<span class="keyword">break</span>;</span><br><span class="line">			<span class="keyword">case</span> <span class="string">'m'</span>:</span><br><span class="line">				flags |= HS_FLAG_MULTILINE;</span><br><span class="line">				<span class="keyword">break</span>;</span><br><span class="line">			<span class="keyword">case</span> <span class="string">'s'</span>:</span><br><span class="line">				flags |= HS_FLAG_DOTALL;</span><br><span class="line">				<span class="keyword">break</span>;</span><br><span class="line">			<span class="keyword">case</span> <span class="string">'H'</span>:</span><br><span class="line">				flags |= HS_FLAG_SINGLEMATCH;</span><br><span class="line">				<span class="keyword">break</span>;</span><br><span class="line">			<span class="keyword">case</span> <span class="string">'V'</span>:</span><br><span class="line">				flags |= HS_FLAG_ALLOWEMPTY;</span><br><span class="line">				<span class="keyword">break</span>;</span><br><span class="line">			<span class="keyword">case</span> <span class="string">'8'</span>:</span><br><span class="line">				flags |= HS_FLAG_UTF8;</span><br><span class="line">				<span class="keyword">break</span>;</span><br><span class="line">			<span class="keyword">case</span> <span class="string">'W'</span>:</span><br><span class="line">				flags |= HS_FLAG_UCP;</span><br><span class="line">				<span class="keyword">break</span>;</span><br><span class="line">			<span class="keyword">case</span> <span class="string">'\r'</span>: <span class="comment">// stray carriage-return</span></span><br><span class="line">				<span class="keyword">break</span>;</span><br><span class="line">			}</span><br><span class="line">		}</span><br><span class="line"></span><br><span class="line">		<span class="keyword">return</span> flags;</span><br><span class="line">	}</span><br><span class="line">};</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">main</span><span class="params">()</span></span></span><br><span class="line"><span class="function"></span>{</span><br><span class="line">   	HyperscanTest hst;</span><br><span class="line"></span><br><span class="line">	<span class="comment">// 1. 정규표현식 샘플 패턴들이 등록된 파일을 Hyperscan에서 사용 가능한 형태로 파싱</span></span><br><span class="line">	<span class="keyword">if</span>(!hst.parseFile(<span class="string">"./pattern.db"</span>))</span><br><span class="line">	{</span><br><span class="line">		<span class="built_in">std</span>::<span class="built_in">cout</span> &lt;&lt; <span class="string">"parseFile failed."</span> &lt;&lt; <span class="built_in">std</span>::<span class="built_in">endl</span>;</span><br><span class="line">		<span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">	}</span><br><span class="line"></span><br><span class="line">	<span class="comment">// 2. Hyperscan Pattern DB 컴파일</span></span><br><span class="line">	<span class="keyword">if</span>(!hst.compileDatabase())</span><br><span class="line">	{</span><br><span class="line">		<span class="built_in">std</span>::<span class="built_in">cout</span> &lt;&lt; <span class="string">"compileDatabase failed."</span> &lt;&lt; <span class="built_in">std</span>::<span class="built_in">endl</span>;</span><br><span class="line">		<span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">	}</span><br><span class="line"></span><br><span class="line">	<span class="keyword">do</span></span><br><span class="line">   	{</span><br><span class="line">    	<span class="built_in">std</span>::<span class="built_in">string</span> pattren = <span class="string">""</span>;</span><br><span class="line">    	<span class="built_in">std</span>::<span class="built_in">cout</span> &lt;&lt; <span class="string">"체크할 패턴을 입력하세요 &gt;&gt; "</span>;</span><br><span class="line">    	getline(<span class="built_in">std</span>::<span class="built_in">cin</span>, pattren);</span><br><span class="line"></span><br><span class="line">		<span class="comment">// 3. 컴파일된 Hyperscan Pattern DB를 기반으로 패턴 체크</span></span><br><span class="line">		<span class="keyword">if</span>(!hst.scanPattern(pattren))</span><br><span class="line">		{</span><br><span class="line">			<span class="built_in">std</span>::<span class="built_in">cout</span> &lt;&lt; <span class="string">"scanPattern failed."</span> &lt;&lt; <span class="built_in">std</span>::<span class="built_in">endl</span>;</span><br><span class="line">		}</span><br><span class="line">   	} <span class="keyword">while</span> (<span class="literal">true</span>);</span><br><span class="line"></span><br><span class="line">	<span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></figure></div></figure>
+
+<br>
+
+<h3 id="정규표현식-샘플-패턴-등록"><a href="#정규표현식-샘플-패턴-등록" class="headerlink" title="정규표현식 샘플 패턴 등록"></a>정규표현식 샘플 패턴 등록</h3><p>아래 예시는 (순서대로) 이메일, 전화번호, 휴대폰번호, 우편번호, 주민등록번호에 대한 정규표현식 샘플 패턴이며, 생성한 pattern.db는 테스트코드 빌드 결과 생성되는 실행 파일(example)과 동일한 경로에 위치시키면 됩니다.</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">$ vim pattern.db</span><br><span class="line"></span><br><span class="line">1:/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]&#123;2,4&#125;$/</span><br><span class="line">2:/^(070|02|031|032|033|041|042|043|051|052|053|054|055|061|062|063|064)-\d&#123;3,4&#125;-\d&#123;4&#125;$/</span><br><span class="line">3:/^(010|011|016|017|018|019)-\d&#123;3,4&#125;-\d&#123;4&#125;$/</span><br><span class="line">4:/^\d&#123;3&#125;-?\d&#123;3&#125;$/</span><br><span class="line">5:/^\d&#123;2&#125;[0-1]\d[0-3]\d-?[1-6]\d&#123;6&#125;$/</span><br></pre></td></tr></table></figure>
+
+<br>
+
+<h3 id="빌드-및-테스트"><a href="#빌드-및-테스트" class="headerlink" title="빌드 및 테스트"></a>빌드 및 테스트</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">$ c++ -I /usr/local/include/hs example.cpp -o example -L &lt;hyperscan-source-path&gt;/build/lib -lhs</span><br><span class="line">$ ./example</span><br><span class="line">체크할 패턴을 입력하세요 &gt;&gt; 900101-1234567</span><br><span class="line">id: 5 from: 0 to: 14 flags: 0</span><br><span class="line">match count: 1</span><br><span class="line">체크할 패턴을 입력하세요 &gt;&gt; 010-1234-5678</span><br><span class="line">id: 3 from: 0 to: 13 flags: 0</span><br><span class="line">match count: 1</span><br><span class="line">체크할 패턴을 입력하세요 &gt;&gt; bluetomorrow90@gmail.com</span><br><span class="line">id: 1 from: 0 to: 24 flags: 0</span><br><span class="line">match count: 1</span><br><span class="line">체크할 패턴을 입력하세요 &gt;&gt; </span><br></pre></td></tr></table></figure>
+
+<div class="alert info"><p>example 실행 시 libhs.so를 참조하지 못하는 경우에는 아래 명령어를 통해 라이브러리 참조 경로를 직접 지정해줍니다.</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ export LD_LIBRARY_PATH=&lt;hyperscan-source-path&gt;/build/lib</span><br></pre></td></tr></table></figure></div>
+
+<br>
+
+<h3 id="마치며"><a href="#마치며" class="headerlink" title="마치며"></a>마치며</h3><p>지금까지 Hyperscan 소스 빌드 과정과 정규표현식 샘플 패턴을 체크하기 위한 테스트 코드 작성에 대해 알아보았습니다. 해당 포스팅에서는 Hyperscan API의 가장 기본적인 동작들만을 살펴보았구요, Hyperscan 공식 문서를 살펴보면 멀티쓰레드 환경(“main” thread에서 pattern db를 compile하고 2개 이상의 “worker” thread에서 scan을 수행)에서도 사용이 가능하다고 하니 어떤식으로 구현해야할지 함께 고민해보면 좋을 것 같습니다. 긴 글 읽어주셔서 감사합니다🙂</p>
+<blockquote>
+<p>In a scenario where a set of expressions are compiled by a single “main” thread and data will be scanned by multiple “worker” threads, the convenience function hs_clone_scratch() allows multiple copies of an existing scratch space to be made for each thread (rather than forcing the caller to pass all the compiled databases through hs_alloc_scratch() multiple times).</p>
+</blockquote>
+<br>
+<br>
+<span class="highlight-text yellow">해당 게시글에서 발생한 오탈자나 잘못된 내용에 대한 정정 댓글 격하게 환영합니다</span>😎
+
+<p><strong>Reference</strong></p>
+<ul>
+<li><a target="_blank" rel="external nofollow noopener noreferrer" href="https://intel.github.io/hyperscan/dev-reference/getting_started.html">https://intel.github.io/hyperscan/dev-reference/getting_started.html</a></li>
+<li><a target="_blank" rel="external nofollow noopener noreferrer" href="https://www.boost.org/doc/libs/1_77_0/more/getting_started/unix-variants.html">https://www.boost.org/doc/libs/1_77_0/more/getting_started/unix-variants.html</a></li>
+<li><a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/intel/hyperscan">https://github.com/intel/hyperscan</a></li>
+<li><a target="_blank" rel="external nofollow noopener noreferrer" href="https://myeonguni.tistory.com/1555">https://myeonguni.tistory.com/1555</a></li>
+</ul>
+
+            
+
+
+        </div>
+    </div>
+    <div id="post-footer" class="post-footer main-content-wrap">
+        
+            <div class="post-footer-tags">
+                <span class="text-color-light text-small">태그</span><br>
+                
+    <a class="tag tag--primary tag--small t-none-link" href="/tags/hyperscan/" rel="tag">hyperscan</a> <a class="tag tag--primary tag--small t-none-link" href="/tags/regex/" rel="tag">regex</a> <a class="tag tag--primary tag--small t-none-link" href="/tags/regular-expression/" rel="tag">regular expression</a> <a class="tag tag--primary tag--small t-none-link" href="/tags/%EC%9D%B8%ED%85%94-%ED%95%98%EC%9D%B4%ED%8D%BC%EC%8A%A4%EC%BA%94/" rel="tag">인텔 하이퍼스캔</a> <a class="tag tag--primary tag--small t-none-link" href="/tags/%EC%A0%95%EA%B7%9C%ED%91%9C%ED%98%84%EC%8B%9D-%ED%8C%A8%ED%84%B4-%EB%A7%A4%EC%B9%AD/" rel="tag">정규표현식 패턴 매칭</a>
+
+            </div>
+        
+        
+            <div class="post-actions-wrap">
+    <nav>
+        <ul class="post-actions post-action-nav">
+            <li class="post-action">
+                
+                    
+                <a class="post-action-btn btn btn--default tooltip--top" href="/2021/11/09/gdb-chapter4-program-crash/" data-tooltip="Seg Fault는 왜 발생하는가?" aria-label="이전: Seg Fault는 왜 발생하는가?">
+                    
+                        <i class="fa fa-angle-left" aria-hidden="true"></i>
+                        <span class="hide-xs hide-sm text-small icon-ml">이전</span>
+                    </a>
+            </li>
+            <li class="post-action">
+                
+                    
+                <a class="post-action-btn btn btn--default tooltip--top" href="/2021/09/24/hyperscan-phase1/" data-tooltip="인텔 Hyperscan 레퍼런스 가이드 번역" aria-label="다음: 인텔 Hyperscan 레퍼런스 가이드 번역">
+                    
+                        <span class="hide-xs hide-sm text-small icon-mr">다음</span>
+                        <i class="fa fa-angle-right" aria-hidden="true"></i>
+                    </a>
+            </li>
+        </ul>
+    </nav>
+    <ul class="post-actions post-action-share">
+        <li class="post-action hide-lg hide-md hide-sm">
+            <a class="post-action-btn btn btn--default btn-open-shareoptions" href="#btn-open-shareoptions" aria-label="이 포스트 공유하기">
+                <i class="fa fa-share-alt" aria-hidden="true"></i>
+            </a>
+        </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a class="post-action-btn btn btn--default" target="_blank" href="https://www.facebook.com/sharer/sharer.php?u=https://chelseafandev.github.io/2021/10/12/hyperscan-phase2/" title="Facebook에 공유하기" aria-label="Facebook에 공유하기" rel="external nofollow noopener noreferrer">
+                    <i class="fab fa-facebook" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a class="post-action-btn btn btn--default" target="_blank" href="https://twitter.com/intent/tweet?text=https://chelseafandev.github.io/2021/10/12/hyperscan-phase2/" title="Twitter에 공유하기" aria-label="Twitter에 공유하기" rel="external nofollow noopener noreferrer">
+                    <i class="fab fa-twitter" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a class="post-action-btn btn btn--default" target="_blank" href="https://plus.google.com/share?url=https://chelseafandev.github.io/2021/10/12/hyperscan-phase2/" title="Google+에 공유하기" aria-label="Google+에 공유하기" rel="external nofollow noopener noreferrer">
+                    <i class="fab fa-google-plus" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+        
+            
+        
+        <li class="post-action">
+            
+                <a class="post-action-btn btn btn--default" href="#table-of-contents" aria-label="목차">
+            
+                <i class="fa fa-list" aria-hidden="true"></i>
+            </a>
+        </li>
+    </ul>
+</div>
+
+
+        
+        
+            
+        
+    </div>
+</article>
+
+
+
+<!-- Comment -->
+<!--  utteranc comment -->
+
+<script src="https://utteranc.es/client.js" repo="chelseafandev/blog-comment" issue-term="title" label="Comment" theme="github-light" crossorigin="anonymous" async>
+</script>
+
+                <footer id="footer" class="main-content-wrap">
+    <span class="copyrights">
+        Copyrights &copy; 2024 첼시팬개발자. All Rights Reserved.
+    </span>
+</footer>
+
+            </div>
+            
+                <div id="bottom-bar" class="post-bottom-bar" data-behavior="4">
+                    <div class="post-actions-wrap">
+    <nav>
+        <ul class="post-actions post-action-nav">
+            <li class="post-action">
+                
+                    
+                <a class="post-action-btn btn btn--default tooltip--top" href="/2021/11/09/gdb-chapter4-program-crash/" data-tooltip="Seg Fault는 왜 발생하는가?" aria-label="이전: Seg Fault는 왜 발생하는가?">
+                    
+                        <i class="fa fa-angle-left" aria-hidden="true"></i>
+                        <span class="hide-xs hide-sm text-small icon-ml">이전</span>
+                    </a>
+            </li>
+            <li class="post-action">
+                
+                    
+                <a class="post-action-btn btn btn--default tooltip--top" href="/2021/09/24/hyperscan-phase1/" data-tooltip="인텔 Hyperscan 레퍼런스 가이드 번역" aria-label="다음: 인텔 Hyperscan 레퍼런스 가이드 번역">
+                    
+                        <span class="hide-xs hide-sm text-small icon-mr">다음</span>
+                        <i class="fa fa-angle-right" aria-hidden="true"></i>
+                    </a>
+            </li>
+        </ul>
+    </nav>
+    <ul class="post-actions post-action-share">
+        <li class="post-action hide-lg hide-md hide-sm">
+            <a class="post-action-btn btn btn--default btn-open-shareoptions" href="#btn-open-shareoptions" aria-label="이 포스트 공유하기">
+                <i class="fa fa-share-alt" aria-hidden="true"></i>
+            </a>
+        </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a class="post-action-btn btn btn--default" target="_blank" href="https://www.facebook.com/sharer/sharer.php?u=https://chelseafandev.github.io/2021/10/12/hyperscan-phase2/" title="Facebook에 공유하기" aria-label="Facebook에 공유하기" rel="external nofollow noopener noreferrer">
+                    <i class="fab fa-facebook" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a class="post-action-btn btn btn--default" target="_blank" href="https://twitter.com/intent/tweet?text=https://chelseafandev.github.io/2021/10/12/hyperscan-phase2/" title="Twitter에 공유하기" aria-label="Twitter에 공유하기" rel="external nofollow noopener noreferrer">
+                    <i class="fab fa-twitter" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a class="post-action-btn btn btn--default" target="_blank" href="https://plus.google.com/share?url=https://chelseafandev.github.io/2021/10/12/hyperscan-phase2/" title="Google+에 공유하기" aria-label="Google+에 공유하기" rel="external nofollow noopener noreferrer">
+                    <i class="fab fa-google-plus" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+        
+            
+        
+        <li class="post-action">
+            
+                <a class="post-action-btn btn btn--default" href="#table-of-contents" aria-label="목차">
+            
+                <i class="fa fa-list" aria-hidden="true"></i>
+            </a>
+        </li>
+    </ul>
+</div>
+
+
+                </div>
+                
+    <div id="share-options-bar" class="share-options-bar" data-behavior="4">
+        <i id="btn-close-shareoptions" class="fa fa-times"></i>
+        <ul class="share-options">
+            
+                
+                
+                <li class="share-option">
+                    <a class="share-option-btn" target="_blank" href="https://www.facebook.com/sharer/sharer.php?u=https://chelseafandev.github.io/2021/10/12/hyperscan-phase2/" aria-label="Facebook에 공유하기" rel="external nofollow noopener noreferrer">
+                        <i class="fab fa-facebook" aria-hidden="true"></i><span>Facebook에 공유하기</span>
+                    </a>
+                </li>
+            
+                
+                
+                <li class="share-option">
+                    <a class="share-option-btn" target="_blank" href="https://twitter.com/intent/tweet?text=https://chelseafandev.github.io/2021/10/12/hyperscan-phase2/" aria-label="Twitter에 공유하기" rel="external nofollow noopener noreferrer">
+                        <i class="fab fa-twitter" aria-hidden="true"></i><span>Twitter에 공유하기</span>
+                    </a>
+                </li>
+            
+                
+                
+                <li class="share-option">
+                    <a class="share-option-btn" target="_blank" href="https://plus.google.com/share?url=https://chelseafandev.github.io/2021/10/12/hyperscan-phase2/" aria-label="Google+에 공유하기" rel="external nofollow noopener noreferrer">
+                        <i class="fab fa-google-plus" aria-hidden="true"></i><span>Google+에 공유하기</span>
+                    </a>
+                </li>
+            
+        </ul>
+    </div>
+
+
+            
+        </div>
+        
+
+
+    
+        
+    
+
+<div id="about">
+    <div id="about-card">
+        <div id="about-btn-close">
+            <i class="fa fa-times"></i>
+        </div>
+        
+            <img id="about-card-picture" src="/assets/images/chelsea_logo.png" alt="저자 이미지">
+        
+            <h4 id="about-card-name">첼시팬개발자</h4>
+        
+            <div id="about-card-bio"><p>조금 더디더라도 꾸준히</p>
+</div>
+        
+        
+            <div id="about-card-job">
+                <i class="fa fa-briefcase"></i>
+                <br>
+                <p>개발자</p>
+
+            </div>
+        
+        
+            <div id="about-card-location">
+                <i class="fa fa-map-marker-alt"></i>
+                <br>
+                서울, 대한민국
+            </div>
+        
+    </div>
+</div>
+
+        
+            <div id="algolia-search-modal" class="modal-container">
+    <div class="modal">
+        <div class="modal-header">
+            <span class="close-button"><i class="fa fa-times"></i></span>
+            <a href="https://algolia.com" target="_blank" rel="external nofollow noopener noreferrer" class="searchby-algolia text-color-light link-unstyled">
+                <span class="searchby-algolia-text text-color-light text-small">by</span>
+                <img class="searchby-algolia-logo" src="/assets/images/logo-algolia-nebula-blue-full.svg">
+            </a>
+            <i class="search-icon fa fa-search"></i>
+            <form id="algolia-search-form">
+                <input type="text" id="algolia-search-input" name="search" class="form-control input--large search-input" placeholder="Search ">
+            </form>
+        </div>
+        <div class="modal-body">
+            <div class="no-result text-color-light text-center">포스트가 없습니다.</div>
+            <div class="results">
+                
+                <div class="media">
+                    <!--  -->
+                    <div class="media-body">
+                        <a class="link-unstyled" href="https://chelseafandev.github.io/2021/07/08/hello-hexo/" aria-label=": Hexo Tranquilpeak 테마의 Markdown syntax">
+                            <h3 class="media-heading">Hexo Tranquilpeak 테마의 Markdown syntax</h3>
+                        </a>
+                        <span class="media-meta">
+                            <span class="media-date text-small">
+                                
+                                    2021년 7월 8일
+                                
+                            </span>
+                        </span>
+                        <div class="media-content hide-xs font-nanumsquareround"><p>Hexo 테마 중 하나인 <a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/LouisBarranqueiro/hexo-theme-tranquilpeak/blob/master/DOCUMENTATION.md">Tranquilpeak의 공식 문서</a>를 참조하여 Post시에 활용할 수 있는 다양한 Markdown syntax들을 사용해보았습니다.</p></div>
+                    </div>
+                    <div style="clear:both;"></div>
+                    <hr>
+                </div>
+                
+                <div class="media">
+                    <!-- 
+                    <div class="media-left">
+                        <a
+                            class="link-unstyled"
+                            href="https://chelseafandev.github.io/2021/07/10/tr-ruud-gullit/"
+                            aria-label=": (BBC 스포츠) 첼시 루드 굴리트 25년이 지난 지금 그의 프리미어그리 진출을 애정어린 시선으로 되돌아 보다"
+                        >
+                            <img class="media-image" src="https://chelseafandev.github.io/2021/07/10/tr-ruud-gullit/tr_ruud_gullit_picture_1.png" width="90" height="90"/>
+                        </a>
+                    </div>
+                     -->
+                    <div class="media-body">
+                        <a class="link-unstyled" href="https://chelseafandev.github.io/2021/07/10/tr-ruud-gullit/" aria-label=": (BBC 스포츠) 첼시 루드 굴리트 25년이 지난 지금 그의 프리미어그리 진출을 애정어린 시선으로 되돌아 보다">
+                            <h3 class="media-heading">(BBC 스포츠) 첼시 루드 굴리트 25년이 지난 지금 그의 프리미어그리 진출을 애정어린 시선으로 되돌아 보다</h3>
+                        </a>
+                        <span class="media-meta">
+                            <span class="media-date text-small">
+                                
+                                    2021년 7월 10일
+                                
+                            </span>
+                        </span>
+                        <div class="media-content hide-xs font-nanumsquareround"><p>피파 좀 한다는 사람이라면 모두가 다 알만한 그 분, X사기캐 굴리트😬<br>커리어 막바지에 첼시에서도 잠깐 활약했었네요.<br><a target="_blank" rel="external nofollow noopener noreferrer" href="https://www.bbc.com/sport/football/52904670">BBC Sport에 굴리트가 직접 기고한 회고록 느낌의 글</a>을 한번 번역해보았습니다.</p></div>
+                    </div>
+                    <div style="clear:both;"></div>
+                    <hr>
+                </div>
+                
+                <div class="media">
+                    <!--  -->
+                    <div class="media-body">
+                        <a class="link-unstyled" href="https://chelseafandev.github.io/2021/07/13/os-io-system/" aria-label=": I/O는 어떻게 처리될까?">
+                            <h3 class="media-heading">I/O는 어떻게 처리될까?</h3>
+                        </a>
+                        <span class="media-meta">
+                            <span class="media-date text-small">
+                                
+                                    2021년 7월 13일
+                                
+                            </span>
+                        </span>
+                        <div class="media-content hide-xs font-nanumsquareround"><p>운영 체제의 바이블 <a target="_blank" rel="external nofollow noopener noreferrer" href="https://www.wiley.com/en-us/Operating+System+Concepts%2C+10th+Edition-p-9781119320913">Operating System Concepts</a>(흔히 공룡책🦕이라고들 하죠)을 바탕으로 I/O 시스템에 대해 정리해보았습니다.</p></div>
+                    </div>
+                    <div style="clear:both;"></div>
+                    <hr>
+                </div>
+                
+                <div class="media">
+                    <!--  -->
+                    <div class="media-body">
+                        <a class="link-unstyled" href="https://chelseafandev.github.io/2021/07/22/tip-how-to-use-tmux-md/" aria-label=": 강력한 터미널 멀티플렉서 tmux를 활용해보자">
+                            <h3 class="media-heading">강력한 터미널 멀티플렉서 tmux를 활용해보자</h3>
+                        </a>
+                        <span class="media-meta">
+                            <span class="media-date text-small">
+                                
+                                    2021년 7월 22일
+                                
+                            </span>
+                        </span>
+                        <div class="media-content hide-xs font-nanumsquareround"><p>이번엔 익숙해지면 정말 강력한 터미널 멀티플렉서인 tmux에 대해 소개해보려고 합니다.</p></div>
+                    </div>
+                    <div style="clear:both;"></div>
+                    <hr>
+                </div>
+                
+                <div class="media">
+                    <!--  -->
+                    <div class="media-body">
+                        <a class="link-unstyled" href="https://chelseafandev.github.io/2021/08/02/os-sync-async-block-nonblock/" aria-label=": Blocking, Nonblocking, Sync, Async">
+                            <h3 class="media-heading">Blocking, Nonblocking, Sync, Async</h3>
+                        </a>
+                        <span class="media-meta">
+                            <span class="media-date text-small">
+                                
+                                    2021년 8월 2일
+                                
+                            </span>
+                        </span>
+                        <div class="media-content hide-xs font-nanumsquareround"><p>오늘은 공룡책🦕에 언급된 Blocking과 Nonblocking, Synchronous와 Asynchronous에 대해서 정리해보고자 합니다. Synchronous와 Asynchronous의 개념은 <strong>쓰레드</strong>와 <strong>I/O</strong>에서 등장하게 되는데요, 각각이 어떠한 의미로 사용되는지도 구분해서 살펴보도록 하겠습니다.</p></div>
+                    </div>
+                    <div style="clear:both;"></div>
+                    <hr>
+                </div>
+                
+                <div class="media">
+                    <!-- 
+                    <div class="media-left">
+                        <a
+                            class="link-unstyled"
+                            href="https://chelseafandev.github.io/2021/08/05/tr-lukaku-want-to-chelsea/"
+                            aria-label=": (BBC 스포츠) 첼시의 물망에 오른 루카쿠 적절한 오퍼가 온다면 인터 밀란을 떠나기 원해"
+                        >
+                            <img class="media-image" src="https://chelseafandev.github.io/2021/08/05/tr-lukaku-want-to-chelsea/tr-lukaku-want-to-chelsea.jpg" width="90" height="90"/>
+                        </a>
+                    </div>
+                     -->
+                    <div class="media-body">
+                        <a class="link-unstyled" href="https://chelseafandev.github.io/2021/08/05/tr-lukaku-want-to-chelsea/" aria-label=": (BBC 스포츠) 첼시의 물망에 오른 루카쿠 적절한 오퍼가 온다면 인터 밀란을 떠나기 원해">
+                            <h3 class="media-heading">(BBC 스포츠) 첼시의 물망에 오른 루카쿠 적절한 오퍼가 온다면 인터 밀란을 떠나기 원해</h3>
+                        </a>
+                        <span class="media-meta">
+                            <span class="media-date text-small">
+                                
+                                    2021년 8월 5일
+                                
+                            </span>
+                        </span>
+                        <div class="media-content hide-xs font-nanumsquareround"><p>오늘은 첼시 이적설이 가까워져가고 있는 루카쿠 관련 기사를 가져왔습니다. 베르너의 결정력이 너무나도 아쉬웠던 지난 시즌 첼시를 생각하면 꼭 필요한 영입이라고 생각되네요😁</p></div>
+                    </div>
+                    <div style="clear:both;"></div>
+                    <hr>
+                </div>
+                
+                <div class="media">
+                    <!-- 
+                    <div class="media-left">
+                        <a
+                            class="link-unstyled"
+                            href="https://chelseafandev.github.io/2021/08/12/tr-son-new-contract/"
+                            aria-label=": (BBC 스포츠) 토트넘 공격수 손흥민 4년 재계약 성사"
+                        >
+                            <img class="media-image" src="https://chelseafandev.github.io/2021/08/12/tr-son-new-contract/tr-son-new-contract-figure1.jpg" width="90" height="90"/>
+                        </a>
+                    </div>
+                     -->
+                    <div class="media-body">
+                        <a class="link-unstyled" href="https://chelseafandev.github.io/2021/08/12/tr-son-new-contract/" aria-label=": (BBC 스포츠) 토트넘 공격수 손흥민 4년 재계약 성사">
+                            <h3 class="media-heading">(BBC 스포츠) 토트넘 공격수 손흥민 4년 재계약 성사</h3>
+                        </a>
+                        <span class="media-meta">
+                            <span class="media-date text-small">
+                                
+                                    2021년 8월 12일
+                                
+                            </span>
+                        </span>
+                        <div class="media-content hide-xs font-nanumsquareround"><p>오늘은 현재 프리미어리그 토트넘 핫스퍼에서 활약 중인 손흥민 선수의 재계약 관련 기사를 가져왔습니다. 다음 시즌 누누감독이 이끌게 되는 토트넘, 쌉월클👍 손흥민선수와 함께 좋은 성적 거뒀으면 좋겠습니다.</p></div>
+                    </div>
+                    <div style="clear:both;"></div>
+                    <hr>
+                </div>
+                
+                <div class="media">
+                    <!--  -->
+                    <div class="media-body">
+                        <a class="link-unstyled" href="https://chelseafandev.github.io/2021/09/24/hyperscan-phase1/" aria-label=": 인텔 Hyperscan 레퍼런스 가이드 번역">
+                            <h3 class="media-heading">인텔 Hyperscan 레퍼런스 가이드 번역</h3>
+                        </a>
+                        <span class="media-meta">
+                            <span class="media-date text-small">
+                                
+                                    2021년 9월 24일
+                                
+                            </span>
+                        </span>
+                        <div class="media-content hide-xs font-nanumsquareround"><p>이번 포스팅에서는 인텔 Hyperscan의 <a target="_blank" rel="external nofollow noopener noreferrer" href="http://intel.github.io/hyperscan/dev-reference/index.html">공식 문서</a>를 통해 컴파일(compile)이나 스캔(scan)과 같은 Hyperscan의 기본적인 개념들에 대해 알아보도록 하겠습니다. 추후에는 Hyperscan API를 직접 사용하여 정규 표현식 패턴 매칭을 수행하는 샘플 코드도 업로드할 예정입니다.</p></div>
+                    </div>
+                    <div style="clear:both;"></div>
+                    <hr>
+                </div>
+                
+                <div class="media">
+                    <!--  -->
+                    <div class="media-body">
+                        <a class="link-unstyled" href="https://chelseafandev.github.io/2021/10/12/hyperscan-phase2/" aria-label=": 인텔 Hyperscan API 테스트 코드 작성">
+                            <h3 class="media-heading">인텔 Hyperscan API 테스트 코드 작성</h3>
+                        </a>
+                        <span class="media-meta">
+                            <span class="media-date text-small">
+                                
+                                    2021년 10월 12일
+                                
+                            </span>
+                        </span>
+                        <div class="media-content hide-xs font-nanumsquareround"><p>이번 포스팅에서는 <a href="https://chelseafandev.github.io/2021/09/24/hyperscan-phase1/">인텔 Hyperscan 레퍼런스 가이드 번역</a>에 이어서 Hyperscan API를 직접 사용하여 정규 표현식 패턴 매칭을 수행하는 샘플 코드를 작성하고 테스트 해보는 시간을 갖겠습니다.</p></div>
+                    </div>
+                    <div style="clear:both;"></div>
+                    <hr>
+                </div>
+                
+                <div class="media">
+                    <!--  -->
+                    <div class="media-body">
+                        <a class="link-unstyled" href="https://chelseafandev.github.io/2021/11/09/gdb-chapter4-program-crash/" aria-label=": Seg Fault는 왜 발생하는가?">
+                            <h3 class="media-heading">Seg Fault는 왜 발생하는가?</h3>
+                        </a>
+                        <span class="media-meta">
+                            <span class="media-date text-small">
+                                
+                                    2021년 11월 9일
+                                
+                            </span>
+                        </span>
+                        <div class="media-content hide-xs font-nanumsquareround"><p>이번 포스팅에서는 <a target="_blank" rel="external nofollow noopener noreferrer" href="https://nostarch.com/debugging.htm">The Art of Debugging with GDB, DDD and Eclipse</a>의 <strong>Chatper 4 WHEN A PROGRAM CRASHES</strong> 내용을 번역해보았습니다. 해당 챕터의 앞부분에서는 가상 주소 공간에서의 페이지(page)에 대한 개념을 소개하고 seg fault가 발생하는 원인을 페이지(page)와 연관지어 잘 설명해주고 있습니다.</p></div>
+                    </div>
+                    <div style="clear:both;"></div>
+                    <hr>
+                </div>
+                
+            </div>
+        </div>
+        <div class="modal-footer">
+            <p class="results-count text-medium" data-message-zero="포스트가 없습니다." data-message-one="1 개의 포스트가 있습니다." data-message-other="{n} 개의 포스트가 있습니다.">
+                27 개의 포스트가 있습니다.
+            </p>
+        </div>
+    </div>
+</div>
+
+        
+        
+<div id="cover" style="background-image:url('/assets/images/chelsea_cover.jpg');"></div>
+        <!--SCRIPTS-->
+
+<script src="/assets/js/jquery.js"></script>
+
+
+<script src="/assets/js/jquery.fancybox.js"></script>
+
+
+<script src="/assets/js/thumbs.js"></script>
+
+
+<script src="/assets/js/tranquilpeak.js"></script>
+
+<!--SCRIPTS END-->
+
+
+    
+
+
+
+    
+<script src="/assets/js/moment-with-locales.js"></script>
+
+    
+<script src="/assets/js/algoliasearch.js"></script>
+
+    <script>
+      var algoliaClient = algoliasearch('FDTOJ7KLS8', '935491408ac4c43d728c68858e4ea147');
+      var algoliaIndex = algoliaClient.initIndex('chelseafandev');
+    </script>
+
+
+    </body>
+</html>

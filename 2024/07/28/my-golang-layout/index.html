@@ -1,0 +1,939 @@
+
+<!DOCTYPE html>
+<html lang="ko">
+    
+<head>
+    <meta name="google-site-verification" content="Ojz5tvI9WuN6pn2n6i1E_mOkMyRiSSOp4KXuYSyaUjs">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="generator" content="첼시팬 개발자 작업 공간">
+    <title>기본적인 Go 프로젝트 레이아웃 - 첼시팬 개발자 작업 공간</title>
+    <meta name="author" content="첼시팬개발자">
+    
+    
+        <link rel="icon" href="https://chelseafandev.github.io/assets/images/chelsea_favicon.png">
+    
+    
+        
+            <link rel="alternate" type="application/rss+xml" title="RSS" href="/rss2.xml">
+        
+    
+    <script type="application/ld+json">{"@context":"http://schema.org","@type":"BlogPosting","author":{"@type":"Person","name":"첼시팬개발자","sameAs":[],"image":"chelsea_logo.png"},"articleBody":"제가 사용하는 기본적인 Go 프로젝트 레이아웃에 대해 간략히 소개하기 위해 해당 포스팅을 작성하게 되었습니다.\n\n\n\n\n\n\n\n\n\n프로젝트 레이아웃이 필요한 이유는?최초 프로젝트 설계자가 아닌 또 다른 누군가가 유지보수를 담당하게되는 경우(대부분의 소프트웨어 개발 회사의 상황일 것으로 생각됨) 프로젝트 레이아웃이 명확하지 않은 경우에는 전체 구조를 파악하기가 어려울 뿐만아니라 의도치 않은 방향으로 소스 코드가 추가될 수 있습니다.\n\n\nGo 코드를 어떻게 작성해야하는가?먼저 Golang 공식 홈페이지에서 제공하고 있는 Go 코드 작성 가이드를 통해 패키지(package)와 모듈(module)에 대한 개념을 먼저 잡아보도록 하겠습니다. (해당 링크를 통해 원문을 확인하실 수 있습니다.)\nCode organizationGo 프로그램은 패키지들로 구성됩니다. 여기서 *패키지(package)*란 함께 컴파일되는 동일 디렉토리 내의 소스 파일들의 집합입니다. 패키지 내 하나의 소스 파일 안에 정의된 함수, 타입, 변수 그리고 상수들은 동일한 패키지 내에 있는 다른 모든 소스 파일들에서 접근이 가능합니다.\n\nGo programs are organized into packages. A package is a collection of source files in the same directory that are compiled together. Functions, types, variables, and constants defined in one source file are visible to all other source files within the same package.\n\n하나의 저장소는 한 개 이상의 모듈들을 포함하고 있습니다. 여기서 *모듈(module)*이란 함께 배포되는 연관된 Go 패키지들의 집합입니다. Go 저장소는 일반적으로 하나의 모듈만을 포함하며 이 모듈은 저장소의 root 경로에 존재합니다. 저장소의 root 경로에 go.mod 라는 이름의 파일에서는 모듈 경로를 선언해주는데 이 경로는 모듈 내에 존재하는 모든 패키지들의 임포트 경로의 접두사(prefix)로 사용됩니다. 모듈은 go.mod 파일이 포함된 디렉토리에 존재하는 패키지들뿐만아니라 그 디렉토리들의 하위 디렉토리에 존재하는 패키지들까지 포함합니다.(만약 go.mod 파일이 두 개 이상 존재하는 경우라면 또 다른 go.mod 파일이 존재하는 다음 하위 디렉토리 전까지를 포함함)\n\nA repository contains one or more modules. A module is a collection of related Go packages that are released together. A Go repository typically contains only one module, located at the root of the repository. A file named go.mod there declares the module path: the import path prefix for all packages within the module. The module contains the packages in the directory containing its go.mod file as well as subdirectories of that directory, up to the next subdirectory containing another go.mod file (if any).\n\n여러분의 소스 코드를 빌드하기 전에 이것을 원격 저장소에 배포할 필요는 없습니다. 모듈은 원격 저장소에서 관리되지 않더라도 로컬에서 정의될 수 있습니다. 하지만 미래의 배포 가능성을 열어두고 여러분의 소스 코드를 조직화하는 것은 좋은 습관입니다.\n\nNote that you don’t need to publish your code to a remote repository before you can build it. A module can be defined locally without belonging to a repository. However, it’s a good habit to organize your code as if you will publish it someday.\n\n각 모듈의 경로 정보는 해당 모듈에 포함된 패키지들의 임포트 경로의 접두사(prefix)를 제공할 뿐만 아니라, go 명령어가 해당 모듈을 다운로드하기 위해 바라봐야할 위치를 가리킵니다. 예를 들어, golang.org/x/tools 라는 모듈을 다운로드 하기위해서는 go 명령어가 https://golang.org/x/tools가 가리키는 저장소를 참고할 것입니다.\n\nEach module’s path not only serves as an import path prefix for its packages, but also indicates where the go command should look to download it. For example, in order to download the module golang.org/x/tools, the go command would consult the repository indicated by https://golang.org/x/tools (described more here).\n\n임포트 경로는 패키지를 임포트하기 위해 사용됩니다. 패키지의 임포트 경로는 해당 패키지의 모듈 경로와 모듈 내에 존재하는 연결된 하위 디렉토리 경로입니다. 에를 들어, github.com/google/go-cmp 모듈은 cmp/ 디렉토리 안의 패키지를 포함합니다. 그 패키지의 임포트 경로는 github.com/google/go-cmp/cmp 입니다. 스탠다드 라이브러리 내의 패키지들은 모듈 경로 접두사를 가지고 있지 않습니다.\n\nAn import path is a string used to import a package. A package’s import path is its module path joined with its subdirectory within the module. For example, the module github.com/google/go-cmp contains a package in the directory cmp/. That package’s import path is github.com/google/go-cmp/cmp. Packages in the standard library do not have a module path prefix.\n\nYour first program단순한 프로그램을 컴파일하고 실행하기 위해 먼저 모듈 경로(example/user/hello라는 경로를 사용할 예정)를 선택하고, 그 경로를 선언하고 있는 go.mod 파일을 생성합니다.  \n\nTo compile and run a simple program, first choose a module path (we’ll use example/user/hello) and create a go.mod file that declares it:\n\n123456789$ mkdir hello # Alternatively, clone it if it already exists in version control.$ cd hello$ go mod init example/user/hellogo: creating new go.mod: module example/user/hello$ cat go.modmodule example/user/hellogo 1.16$\n\nGo 소스 파일의 첫번째 문장으로는 패키지 이름이 작성돼야합니다. 실행 가능한 명령어는 항상 main 패키지를 사용해야 합니다.\n\nThe first statement in a Go source file must be package name. Executable commands must always use package main.\n\n다음으로 해당 디렉토리 내에 아래 Go 코드를 포함하는 hello.go 파일을 생성합니다.\n\nNext, create a file named hello.go inside that directory containing the following Go code:\n\n1234567package mainimport &quot;fmt&quot;func main() &#123;    fmt.Println(&quot;Hello, world.&quot;)&#125;\n\n이제 여러분은 go tool을 사용해서 프로그램을 빌드하고 설치할 수 있습니다.\n\nNow you can build and install that program with the go tool:\n\n1$ go install example/user/hello\n\n이 명령어는 hello 명령어를 빌드하고, 실행가능한 바이너리를 생성합니다. 그리고나서 그 바이너리 파일을 $HOME/go/bin/hello 경로에 설치합니다.\n\nThis command builds the hello command, producing an executable binary. It then installs that binary as $HOME/go/bin/hello.\n\n설치 경로는 GOPATH와 GOBIN 환경 변수를 통해 조절할 수 있습니다. 만약 GOBIN 환경 변수가 설정이되었다면, 바이너리 파일은 그 경로에 설치될것입니다. 만약 GOPATH가 설정되었다면, 바이너리 파일은 GOPATH 리스트의 첫번째 디렉토리의 bin 이라는 하위 디렉토리에 설치될 것 입니다. 두 환경 변수 모두 설정되지 않은 경우라면, 바이너리 파일은 기본 GOPATH 경로($HOME/go)에 설치될 것 입니다.\n\nThe install directory is controlled by the GOPATH and GOBIN environment variables. If GOBIN is set, binaries are installed to that directory. If GOPATH is set, binaries are installed to the bin subdirectory of the first directory in the GOPATH list. Otherwise, binaries are installed to the bin subdirectory of the default GOPATH ($HOME/go).\n\n여러분은 추후에 사용될 go 커맨드가 참조할 수 있는 환경 변수의 기본 값을 go env 명령어를 통해 설정할 수 있습니다.\n\nYou can use the go env command to portably set the default value for an environment variable for future go commands:\n\n1$ go env -w GOBIN=/somewhere/else/bin\n\ngo env -w를 통해 이전에 설정한 값을 해제하고 싶은 경우에는 go env -u를 사용하면 됩니다.\n\nTo unset a variable previously set by go env -w, use go env -u:\n\n1$ go env -u GOBIN\n\ngo install과 같은 명령어는 현재 작업 경로를 포함하고 있는 모듈의 컨텍스트 내에 적용됩니다. 만약 작업 경로가 example/user/hello 모듈 내부가 아니라면, go insall 명령어는 실패할 것 입니다.\n\nCommands like go install apply within the context of the module containing the current working directory. If the working directory is not within the example/user/hello module, go install may fail.\n\n편리성을 위해 go 명령어는 작업 경로에 상대적인 경로를 허용하고, 다른 경로가 주언진 경우가 아니라면 현재 작업 경로의 패키지를 기본으로 사용합니다. 그래서 현재 우리의 작업 경로에서는, 아래 명령어들이 모두 동일한 결과를 갖습니다.\n\nFor convenience, go commands accept paths relative to the working directory, and default to the package in the current working directory if no other path is given. So in our working directory, the following commands are all equivalent:\n\n1$ go install example/user/hello\n1$ go install .\n1$ go install\n\n다음으로 정상적으로 동작하는지 확인해보기 위해 프로그램을 실행해봅시다. 바이너리를 쉽게 실행하기 위해 PATH 환경 변수에 설치 경로를 추가할 것 입니다.\n\nNext, let’s run the program to ensure it works. For added convenience, we’ll add the install directory to our PATH to make running binaries easy:\n\n123456# Windows users should consult /wiki/SettingGOPATH# for setting %PATH%.$ export PATH=$PATH:$(dirname $(go list -f &#x27;&#123;&#123;.Target&#125;&#125;&#x27; .))$ helloHello, world.$\n\nImporting packages from your modulemorestrings 패키지를 작성하고 그 패키지를 hello 프로그램에서 사용하도록 해봅시다. 먼저 해당 패키지를 저장할 $HOME/hello/morestrings 디렉토리를 생성해줍니다. 그리고나서 아래 내용을 포함하는 reverse.go 라는 파일을 그 디렉토리 내에서 생성해줍시다.\n\nLet’s write a morestrings package and use it from the hello program. First, create a directory for the package named $HOME/hello/morestrings, and then a file named reverse.go in that directory with the following contents:\n\n123456789101112// Package morestrings implements additional functions to manipulate UTF-8// encoded strings, beyond what is provided in the standard &quot;strings&quot; package.package morestrings// ReverseRunes returns its argument string reversed rune-wise left to right.func ReverseRunes(s string) string &#123;    r := []rune(s)    for i, j := 0, len(r)-1; i &lt; len(r)/2; i, j = i+1, j-1 &#123;        r[i], r[j] = r[j], r[i]    &#125;    return string(r)&#125;\n\nReverseRunes() 함수는 대문자로 시작하기 때문에 morestring 패키지를 임포트한 또 다른 패키지들에서 해당 함수를 사용할 수 있습니다.\n\nBecause our ReverseRunes function begins with an upper-case letter, it is exported, and can be used in other packages that import our morestrings package.\n\ngo build로 morestrings 패키지를 컴파일 해봅시다.\n\nLet’s test that the package compiles with go build:\n\n12$ cd $HOME/hello/morestrings$ go build\n\n위 명령어로는 어떠한 결과 파일이 생성되지는 않을 것입니다. 대신에 그것은 로컬 빌드 캐시에 컴파일된 패키지를 저장합니다.\n\nThis won’t produce an output file. Instead it saves the compiled package in the local build cache.\n\nmorestrings 패키지 빌드 이후에, hello 프로그램에서 이것을 사용해봅시다. 이를 위해 $HOME/hello/hello.go 코드에서 morestrings 패키지를 사용할 수 있도록 수정해봅시다.\n\nAfter confirming that the morestrings package builds, let’s use it from the hello program. To do so, modify your original $HOME/hello/hello.go to use the morestrings package:\n\n1234567891011package mainimport (    &quot;fmt&quot;    &quot;example/user/hello/morestrings&quot;)func main() &#123;    fmt.Println(morestrings.ReverseRunes(&quot;!oG ,olleH&quot;))&#125;\n\nhello 프로그램을 설치하고\n\nInstall the hello program:\n\n1$ go install example/user/hello\n\n새로운 버전의 hello 프로그램을 실행해보면 여러분은 뒤집힌 메시지를 볼 수 있을겁니다.\n\nRunning the new version of the program, you should see a new, reversed message:\n\n12$ helloHello, Go!\n\nImporting packages from remote modules임포트 경로는 버전 관리 시스템인 Git 이나 Mercurial을 사용하는 패키지 소스 코드를 어떻게 받아오는지를 설명할 수 있습니다. go tool은 원격 저장소에 있는 패키지들을 자동으로 가져오기 위해 이러한 특성을 사용합니다.\n\nAn import path can describe how to obtain the package source code using a revision control system such as Git or Mercurial. The go tool uses this property to automatically fetch packages from remote repositories. For instance, to use github.com/google/go-cmp/cmp in your program:\n\n12345678910111213package mainimport (    &quot;fmt&quot;    &quot;example/user/hello/morestrings&quot;    &quot;github.com/google/go-cmp/cmp&quot;)func main() &#123;    fmt.Println(morestrings.ReverseRunes(&quot;!oG ,olleH&quot;))    fmt.Println(cmp.Diff(&quot;Hello World&quot;, &quot;Hello Go&quot;))&#125;\n\n이제 여러분은 외부 모듈에 대한 의존성을 가지게 되었고, 그러한 모듈을 다운로드하고 그것의 버전 정보를 go.mode 파일 내에 기록할 필요가 있습니다. go mod tidy 명령어는 임포트 패키지들에 대한 누락된 모듈 요구사항들을 추가해주고 더이상 사용하지 않는 모듈들에 대한 요구사항들을 제거해줍니다. \n\nNow that you have a dependency on an external module, you need to download that module and record its version in your go.mod file. The go mod tidy command adds missing module requirements for imported packages and removes requirements on modules that aren’t used anymore.\n\n1234567891011121314151617$ go mod tidygo: finding module for package github.com/google/go-cmp/cmpgo: found github.com/google/go-cmp/cmp in github.com/google/go-cmp v0.5.4$ go install example/user/hello$ helloHello, Go!  string(-     &quot;Hello World&quot;,+     &quot;Hello Go&quot;,  )$ cat go.modmodule example/user/hellogo 1.16require github.com/google/go-cmp v0.5.4$\n\n모듈 의존성은 GOPATH 환경 변수가 가리키는 경로의 하위 경로인 pkg/mod에 자동으로 다운로드 됩니다. 다운로드된 모듈의 버전 정보들은 해당 버전을 필요로 하는 다른 모든 모듈들에게 공유됩니다. 그래서 go 명령어는 이러한 파일과 디렉토리를 read-only로 표시합니다. 다운로드 받은 모든 모듈들을 삭제하기 위해서는 go clean 명령어에 -modcache 플래그를 전달해주면 됩니다. \n\nModule dependencies are automatically downloaded to the pkg/mod subdirectory of the directory indicated by the GOPATH environment variable. The downloaded contents for a given version of a module are shared among all other modules that require that version, so the go command marks those files and directories as read-only. To remove all downloaded modules, you can pass the -modcache flag to go clean:\n\n1$ go clean -modcache\n\n\n\n내가 사용하는 Go 프로젝트 레이아웃다양한 프로젝트 레이아웃들을 비교해본 끝에 Package Oriented Design라는 포스팅을 참조하여 프로젝트 레이아웃을 구성해보기로 결정했고, 실제 현업에서 개발 중인 서비스를 이 구조에 맞춰서 구현해나갔습니다.\nbin/\n실행가능한 바이너리 파일이 생성되는 경로\n바이너리 실행을 위해 필요한 설정 값이 저장되는 config 파일도 포함됨\n\ncmd/\nmain 패키지를 포함하는 go 파일이 저장되는 경로\n\ninternal/\nmain 패키지에서 임포트하는 패키지들의 집합이며, 제공하는 서비스 별로 패키지들을 구분함(ex. internal/gateway) \n\n동일 프로젝트 내에 존재하는 2개 이상의 프로그램들에서 임포트될 필요성이 있는 패키지들이 internal/ 폴더 내에 속해있습니다. internal/ 이라는 명칭의 사용이 가져다 주는 한가지 이점은 프로젝트가 컴파일러로부터 추가적인 보호 레벨을 얻어낼 수 있다는 점입니다. internal/ 폴더 내에 존재하는 패키지들을 해당 프로젝트의 외부에 있는 패키지에서 임포트할 수 없습니다. 그러므로 이러한 패키지들은 오로지 해당 프로젝트 내에 귀속됩니다.\n\nPackages that need to be imported by multiple programs within the project belong inside the internal/ folder. One benefit of using the name internal/ is that the project gets an extra level of protection from the compiler. No package outside of this project can import packages from inside of internal/. These packages are therefore internal to this project only.\n\ninternal/platform/\ninternal에 포함된 패키지들에서 공통적으로 사용할 수 있는 기능을 제공하는 패키지들의 집합\n\n기반이되는 그러나 프로젝트에 특정되는 패키지들이 internal/platform 폴더 내에 속해있습니다. 이러한 패키지들은 데이터베이스나 인증 또는 marshaling과 같은 기능들을 제공하곤 합니다.\n\nPackages that are foundational but specific to the project belong in the internal/platform/ folder. These would be packages that provide support for things like databases, authentication or even marshaling.\n\n\n\n프로젝트 예시현재 토이 프로젝트로 진행중인 go 서비스에서도 위 프로젝트 레이아웃을 사용 중에 있습니다. 해당 링크를 통해 확인 가능하십니다.\n\n\n\n해당 게시글에서 발생한 오탈자나 잘못된 내용에 대한 정정 댓글 격하게 환영합니다😎\n\nReference\n\nhttps://go.dev/doc/code\nhttps://www.ardanlabs.com/blog/2017/02/package-oriented-design.html\n\n","dateCreated":"2024-07-28T16:04:34+09:00","dateModified":"2024-07-28T16:04:34+09:00","datePublished":"2024-07-28T16:04:34+09:00","description":"제가 사용하는 기본적인 Go 프로젝트 레이아웃에 대해 간략히 소개하기 위해 해당 포스팅을 작성하게 되었습니다.","headline":"기본적인 Go 프로젝트 레이아웃","image":[],"mainEntityOfPage":{"@type":"WebPage","@id":"https://chelseafandev.github.io/2024/07/28/my-golang-layout/"},"publisher":{"@type":"Organization","name":"첼시팬개발자","sameAs":[],"image":"chelsea_logo.png","logo":{"@type":"ImageObject","url":"chelsea_logo.png"}},"url":"https://chelseafandev.github.io/2024/07/28/my-golang-layout/","keywords":"go project layout, golang layout, how to write go code"}</script>
+    <meta name="description" content="제가 사용하는 기본적인 Go 프로젝트 레이아웃에 대해 간략히 소개하기 위해 해당 포스팅을 작성하게 되었습니다.">
+<meta property="og:type" content="blog">
+<meta property="og:title" content="기본적인 Go 프로젝트 레이아웃">
+<meta property="og:url" content="https://chelseafandev.github.io/2024/07/28/my-golang-layout/index.html">
+<meta property="og:site_name" content="첼시팬 개발자 작업 공간">
+<meta property="og:description" content="제가 사용하는 기본적인 Go 프로젝트 레이아웃에 대해 간략히 소개하기 위해 해당 포스팅을 작성하게 되었습니다.">
+<meta property="og:locale" content="ko_KR">
+<meta property="article:published_time" content="2024-07-28T07:04:34.000Z">
+<meta property="article:modified_time" content="2024-07-28T07:04:34.529Z">
+<meta property="article:author" content="첼시팬개발자">
+<meta property="article:tag" content="go project layout">
+<meta property="article:tag" content="golang layout">
+<meta property="article:tag" content="how to write go code">
+<meta name="twitter:card" content="summary">
+    
+    
+        
+    
+    
+        <meta property="og:image" content="https://chelseafandev.github.io/assets/images/chelsea_logo.png">
+    
+    
+    
+    
+    <!--STYLES-->
+    
+<link rel="stylesheet" href="/assets/css/all.css">
+
+    
+<link rel="stylesheet" href="/assets/css/jquery.fancybox.css">
+
+    
+<link rel="stylesheet" href="/assets/css/thumbs.css">
+
+    
+<link rel="stylesheet" href="/assets/css/tranquilpeak.css">
+
+    <!--STYLES END-->
+    
+
+    
+
+    
+        
+    
+    <link rel="canonical" href="https://chelseafandev.github.io/2024/07/28/my-golang-layout/">
+</head>
+
+    <body>
+        <div id="blog">
+            <!-- Define author's picture -->
+
+
+    
+        
+            
+        
+    
+
+<header id="header" data-behavior="4">
+    <i id="btn-open-sidebar" class="fa fa-lg fa-bars"></i>
+    <div class="header-title">
+        <a class="header-title-link" href="/" aria-label>
+            첼시팬 개발자 작업 공간
+        </a>
+    </div>
+    
+        
+            <a class="header-right-picture " href="#about" aria-label="링크 열기: /#about">
+        
+        
+            <img class="header-picture" src="/assets/images/chelsea_logo.png" alt="저자 이미지">
+        
+        </a>
+    
+</header>
+
+            <!-- Define author's picture -->
+
+
+
+        
+    
+
+<nav id="sidebar" data-behavior="4" style="border-top-width: 100px;padding-top: 150px;">
+    <div class="sidebar-container">
+        
+            <div class="sidebar-profile">
+                <a href="/#about" aria-label="저자에 대해 더 알아보기">
+                    <img class="sidebar-profile-picture" src="/assets/images/chelsea_logo.png" alt="저자 이미지">
+                </a>
+                <h4 class="sidebar-profile-name">첼시팬개발자</h4>
+                
+                    <h5 class="sidebar-profile-bio"><p>조금 더디더라도 꾸준히</p>
+</h5>
+                
+            </div>
+        
+        
+            <ul class="sidebar-buttons">
+            
+                <li class="sidebar-button">
+                    
+                        <a class="sidebar-button-link " href="/" rel="noopener" title="전체글">
+                        <i class="sidebar-button-icon fas fa-list-ul" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">전체글</span>
+                    </a>
+            </li>
+            
+                <li class="sidebar-button">
+                    
+                        <a class="sidebar-button-link " href="/all-categories" rel="noopener" title="카테고리">
+                        <i class="sidebar-button-icon fa fa-bookmark" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">카테고리</span>
+                    </a>
+            </li>
+            
+                <li class="sidebar-button">
+                    
+                        <a class="sidebar-button-link " href="/all-tags" rel="noopener" title="태그">
+                        <i class="sidebar-button-icon fa fa-tags" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">태그</span>
+                    </a>
+            </li>
+            
+                <li class="sidebar-button">
+                    
+                        <a class="sidebar-button-link " href="/all-archives" rel="noopener" title="아카이브">
+                        <i class="sidebar-button-icon fa fa-archive" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">아카이브</span>
+                    </a>
+            </li>
+            
+                <li class="sidebar-button">
+                    
+                        <a class="sidebar-button-link " href="https://github.com/chelseafandev" target="_blank" rel="external nofollow noopener noreferrer" title="GitHub">
+                        <i class="sidebar-button-icon fab fa-github" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">GitHub</span>
+                    </a>
+            </li>
+            
+                <li class="sidebar-button">
+                    
+                        <a class="sidebar-button-link " href="/rss2.xml" rel="noopener" title="RSS">
+                        <i class="sidebar-button-icon fa fa-rss" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">RSS</span>
+                    </a>
+            </li>
+            
+        </ul>
+        
+    </div>
+</nav>
+
+            
+            <div id="main" data-behavior="4" class="
+                        hasCoverMetaIn
+                        ">
+                
+<article class="post">
+    
+    
+        <div class="post-header main-content-wrap text-left">
+    
+        <h1 class="post-title">
+            기본적인 Go 프로젝트 레이아웃
+        </h1>
+    
+    
+        <div class="post-meta">
+    <time datetime="2024-07-28T16:04:34+09:00">
+	
+		    2024/07/28 16:04:34
+    	
+    </time>
+    
+        <span>카테고리 </span>
+        
+    <a class="category-link" href="/categories/Go/">Go</a>
+
+
+    
+    
+        -
+        <span class="reading-time">⏱</span>
+        
+            읽는데 14 분 정도 소요 예상
+        
+        
+    
+</div>
+
+    
+</div>
+
+    
+    <div class="post-content markdown">
+        <div class="main-content-wrap">
+            <p>제가 사용하는 기본적인 Go 프로젝트 레이아웃에 대해 간략히 소개하기 위해 해당 포스팅을 작성하게 되었습니다.</p>
+<span id="more"></span>
+
+<br>
+
+<h1 id="table-of-contents">목차</h1><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#%ED%94%84%EB%A1%9C%EC%A0%9D%ED%8A%B8-%EB%A0%88%EC%9D%B4%EC%95%84%EC%9B%83%EC%9D%B4-%ED%95%84%EC%9A%94%ED%95%9C-%EC%9D%B4%EC%9C%A0%EB%8A%94"><span class="toc-number">1.</span> <span class="toc-text">프로젝트 레이아웃이 필요한 이유는?</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#Go-%EC%BD%94%EB%93%9C%EB%A5%BC-%EC%96%B4%EB%96%BB%EA%B2%8C-%EC%9E%91%EC%84%B1%ED%95%B4%EC%95%BC%ED%95%98%EB%8A%94%EA%B0%80"><span class="toc-number">2.</span> <span class="toc-text">Go 코드를 어떻게 작성해야하는가?</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#Code-organization"><span class="toc-number">2.1.</span> <span class="toc-text">Code organization</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Your-first-program"><span class="toc-number">2.2.</span> <span class="toc-text">Your first program</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Importing-packages-from-your-module"><span class="toc-number">2.3.</span> <span class="toc-text">Importing packages from your module</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Importing-packages-from-remote-modules"><span class="toc-number">2.4.</span> <span class="toc-text">Importing packages from remote modules</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%EB%82%B4%EA%B0%80-%EC%82%AC%EC%9A%A9%ED%95%98%EB%8A%94-Go-%ED%94%84%EB%A1%9C%EC%A0%9D%ED%8A%B8-%EB%A0%88%EC%9D%B4%EC%95%84%EC%9B%83"><span class="toc-number">3.</span> <span class="toc-text">내가 사용하는 Go 프로젝트 레이아웃</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#bin"><span class="toc-number">3.1.</span> <span class="toc-text">bin&#x2F;</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#cmd"><span class="toc-number">3.2.</span> <span class="toc-text">cmd&#x2F;</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#internal"><span class="toc-number">3.3.</span> <span class="toc-text">internal&#x2F;</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#internal-platform"><span class="toc-number">3.4.</span> <span class="toc-text">internal&#x2F;platform&#x2F;</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%ED%94%84%EB%A1%9C%EC%A0%9D%ED%8A%B8-%EC%98%88%EC%8B%9C"><span class="toc-number">4.</span> <span class="toc-text">프로젝트 예시</span></a></li></ol>
+
+<br>
+
+
+<h1 id="프로젝트-레이아웃이-필요한-이유는"><a href="#프로젝트-레이아웃이-필요한-이유는" class="headerlink" title="프로젝트 레이아웃이 필요한 이유는?"></a>프로젝트 레이아웃이 필요한 이유는?</h1><p>최초 프로젝트 설계자가 아닌 또 다른 누군가가 유지보수를 담당하게되는 경우(대부분의 소프트웨어 개발 회사의 상황일 것으로 생각됨) 프로젝트 레이아웃이 명확하지 않은 경우에는 전체 구조를 파악하기가 어려울 뿐만아니라 의도치 않은 방향으로 소스 코드가 추가될 수 있습니다.</p>
+<br>
+
+<h1 id="Go-코드를-어떻게-작성해야하는가"><a href="#Go-코드를-어떻게-작성해야하는가" class="headerlink" title="Go 코드를 어떻게 작성해야하는가?"></a>Go 코드를 어떻게 작성해야하는가?</h1><p>먼저 Golang 공식 홈페이지에서 제공하고 있는 Go 코드 작성 가이드를 통해 패키지(package)와 모듈(module)에 대한 개념을 먼저 잡아보도록 하겠습니다. (<a target="_blank" rel="external nofollow noopener noreferrer" href="https://go.dev/doc/code">해당 링크</a>를 통해 원문을 확인하실 수 있습니다.)</p>
+<h2 id="Code-organization"><a href="#Code-organization" class="headerlink" title="Code organization"></a>Code organization</h2><p>Go 프로그램은 패키지들로 구성됩니다. 여기서 *패키지(package)*란 함께 컴파일되는 동일 디렉토리 내의 소스 파일들의 집합입니다. 패키지 내 하나의 소스 파일 안에 정의된 함수, 타입, 변수 그리고 상수들은 동일한 패키지 내에 있는 다른 모든 소스 파일들에서 접근이 가능합니다.</p>
+<blockquote>
+<p>Go programs are organized into packages. A package is a collection of source files in the same directory that are compiled together. Functions, types, variables, and constants defined in one source file are visible to all other source files within the same package.</p>
+</blockquote>
+<p>하나의 저장소는 한 개 이상의 모듈들을 포함하고 있습니다. 여기서 *모듈(module)*이란 함께 배포되는 연관된 Go 패키지들의 집합입니다. Go 저장소는 일반적으로 하나의 모듈만을 포함하며 이 모듈은 저장소의 root 경로에 존재합니다. 저장소의 root 경로에 go.mod 라는 이름의 파일에서는 모듈 경로를 선언해주는데 이 경로는 모듈 내에 존재하는 모든 패키지들의 임포트 경로의 접두사(prefix)로 사용됩니다. 모듈은 go.mod 파일이 포함된 디렉토리에 존재하는 패키지들뿐만아니라 그 디렉토리들의 하위 디렉토리에 존재하는 패키지들까지 포함합니다.(만약 go.mod 파일이 두 개 이상 존재하는 경우라면 또 다른 go.mod 파일이 존재하는 다음 하위 디렉토리 전까지를 포함함)</p>
+<blockquote>
+<p>A repository contains one or more modules. A module is a collection of related Go packages that are released together. A Go repository typically contains only one module, located at the root of the repository. A file named go.mod there declares the module path: the import path prefix for all packages within the module. The module contains the packages in the directory containing its go.mod file as well as subdirectories of that directory, up to the next subdirectory containing another go.mod file (if any).</p>
+</blockquote>
+<p>여러분의 소스 코드를 빌드하기 전에 이것을 원격 저장소에 배포할 필요는 없습니다. 모듈은 원격 저장소에서 관리되지 않더라도 로컬에서 정의될 수 있습니다. 하지만 미래의 배포 가능성을 열어두고 여러분의 소스 코드를 조직화하는 것은 좋은 습관입니다.</p>
+<blockquote>
+<p>Note that you don’t need to publish your code to a remote repository before you can build it. A module can be defined locally without belonging to a repository. However, it’s a good habit to organize your code as if you will publish it someday.</p>
+</blockquote>
+<p>각 모듈의 경로 정보는 해당 모듈에 포함된 패키지들의 임포트 경로의 접두사(prefix)를 제공할 뿐만 아니라, go 명령어가 해당 모듈을 다운로드하기 위해 바라봐야할 위치를 가리킵니다. 예를 들어, golang.org/x/tools 라는 모듈을 다운로드 하기위해서는 go 명령어가 <a target="_blank" rel="external nofollow noopener noreferrer" href="https://golang.org/x/tools%EA%B0%80">https://golang.org/x/tools가</a> 가리키는 저장소를 참고할 것입니다.</p>
+<blockquote>
+<p>Each module’s path not only serves as an import path prefix for its packages, but also indicates where the go command should look to download it. For example, in order to download the module golang.org/x/tools, the go command would consult the repository indicated by <a target="_blank" rel="external nofollow noopener noreferrer" href="https://golang.org/x/tools">https://golang.org/x/tools</a> (described more here).</p>
+</blockquote>
+<p>임포트 경로는 패키지를 임포트하기 위해 사용됩니다. 패키지의 임포트 경로는 해당 패키지의 모듈 경로와 모듈 내에 존재하는 연결된 하위 디렉토리 경로입니다. 에를 들어, github.com/google/go-cmp 모듈은 cmp/ 디렉토리 안의 패키지를 포함합니다. 그 패키지의 임포트 경로는 github.com/google/go-cmp/cmp 입니다. 스탠다드 라이브러리 내의 패키지들은 모듈 경로 접두사를 가지고 있지 않습니다.</p>
+<blockquote>
+<p>An import path is a string used to import a package. A package’s import path is its module path joined with its subdirectory within the module. For example, the module github.com/google/go-cmp contains a package in the directory cmp/. That package’s import path is github.com/google/go-cmp/cmp. Packages in the standard library do not have a module path prefix.</p>
+</blockquote>
+<h2 id="Your-first-program"><a href="#Your-first-program" class="headerlink" title="Your first program"></a>Your first program</h2><p>단순한 프로그램을 컴파일하고 실행하기 위해 먼저 모듈 경로(example/user/hello라는 경로를 사용할 예정)를 선택하고, 그 경로를 선언하고 있는 go.mod 파일을 생성합니다.  </p>
+<blockquote>
+<p>To compile and run a simple program, first choose a module path (we’ll use example/user/hello) and create a go.mod file that declares it:</p>
+</blockquote>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">$ mkdir hello # Alternatively, clone it <span class="keyword">if</span> it already exists in version control.</span><br><span class="line">$ cd hello</span><br><span class="line">$ <span class="keyword">go</span> mod init example/user/hello</span><br><span class="line"><span class="keyword">go</span>: creating <span class="built_in">new</span> <span class="keyword">go</span>.mod: module example/user/hello</span><br><span class="line">$ cat <span class="keyword">go</span>.mod</span><br><span class="line">module example/user/hello</span><br><span class="line"></span><br><span class="line"><span class="keyword">go</span> <span class="number">1.16</span></span><br><span class="line">$</span><br></pre></td></tr></table></figure>
+
+<p>Go 소스 파일의 첫번째 문장으로는 패키지 이름이 작성돼야합니다. 실행 가능한 명령어는 항상 main 패키지를 사용해야 합니다.</p>
+<blockquote>
+<p>The first statement in a Go source file must be package name. Executable commands must always use package main.</p>
+</blockquote>
+<p>다음으로 해당 디렉토리 내에 아래 Go 코드를 포함하는 hello.go 파일을 생성합니다.</p>
+<blockquote>
+<p>Next, create a file named hello.go inside that directory containing the following Go code:</p>
+</blockquote>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">package</span> main</span><br><span class="line"></span><br><span class="line"><span class="keyword">import</span> <span class="string">&quot;fmt&quot;</span></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">main</span><span class="params">()</span></span> &#123;</span><br><span class="line">    fmt.Println(<span class="string">&quot;Hello, world.&quot;</span>)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>이제 여러분은 go tool을 사용해서 프로그램을 빌드하고 설치할 수 있습니다.</p>
+<blockquote>
+<p>Now you can build and install that program with the go tool:</p>
+</blockquote>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ <span class="keyword">go</span> install example/user/hello</span><br></pre></td></tr></table></figure>
+
+<p>이 명령어는 hello 명령어를 빌드하고, 실행가능한 바이너리를 생성합니다. 그리고나서 그 바이너리 파일을 $HOME/go/bin/hello 경로에 설치합니다.</p>
+<blockquote>
+<p>This command builds the hello command, producing an executable binary. It then installs that binary as $HOME/go/bin/hello.</p>
+</blockquote>
+<p>설치 경로는 GOPATH와 GOBIN 환경 변수를 통해 조절할 수 있습니다. 만약 GOBIN 환경 변수가 설정이되었다면, 바이너리 파일은 그 경로에 설치될것입니다. 만약 GOPATH가 설정되었다면, 바이너리 파일은 GOPATH 리스트의 첫번째 디렉토리의 bin 이라는 하위 디렉토리에 설치될 것 입니다. 두 환경 변수 모두 설정되지 않은 경우라면, 바이너리 파일은 기본 GOPATH 경로($HOME/go)에 설치될 것 입니다.</p>
+<blockquote>
+<p>The install directory is controlled by the GOPATH and GOBIN environment variables. If GOBIN is set, binaries are installed to that directory. If GOPATH is set, binaries are installed to the bin subdirectory of the first directory in the GOPATH list. Otherwise, binaries are installed to the bin subdirectory of the default GOPATH ($HOME/go).</p>
+</blockquote>
+<p>여러분은 추후에 사용될 go 커맨드가 참조할 수 있는 환경 변수의 기본 값을 go env 명령어를 통해 설정할 수 있습니다.</p>
+<blockquote>
+<p>You can use the go env command to portably set the default value for an environment variable for future go commands:</p>
+</blockquote>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ <span class="keyword">go</span> env -w GOBIN=/somewhere/<span class="keyword">else</span>/bin</span><br></pre></td></tr></table></figure>
+
+<p>go env -w를 통해 이전에 설정한 값을 해제하고 싶은 경우에는 go env -u를 사용하면 됩니다.</p>
+<blockquote>
+<p>To unset a variable previously set by go env -w, use go env -u:</p>
+</blockquote>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ <span class="keyword">go</span> env -u GOBIN</span><br></pre></td></tr></table></figure>
+
+<p>go install과 같은 명령어는 현재 작업 경로를 포함하고 있는 모듈의 컨텍스트 내에 적용됩니다. 만약 작업 경로가 example/user/hello 모듈 내부가 아니라면, go insall 명령어는 실패할 것 입니다.</p>
+<blockquote>
+<p>Commands like go install apply within the context of the module containing the current working directory. If the working directory is not within the example/user/hello module, go install may fail.</p>
+</blockquote>
+<p>편리성을 위해 go 명령어는 작업 경로에 상대적인 경로를 허용하고, 다른 경로가 주언진 경우가 아니라면 현재 작업 경로의 패키지를 기본으로 사용합니다. 그래서 현재 우리의 작업 경로에서는, 아래 명령어들이 모두 동일한 결과를 갖습니다.</p>
+<blockquote>
+<p>For convenience, go commands accept paths relative to the working directory, and default to the package in the current working directory if no other path is given. So in our working directory, the following commands are all equivalent:</p>
+</blockquote>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ <span class="keyword">go</span> install example/user/hello</span><br></pre></td></tr></table></figure>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ <span class="keyword">go</span> install .</span><br></pre></td></tr></table></figure>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ <span class="keyword">go</span> install</span><br></pre></td></tr></table></figure>
+
+<p>다음으로 정상적으로 동작하는지 확인해보기 위해 프로그램을 실행해봅시다. 바이너리를 쉽게 실행하기 위해 PATH 환경 변수에 설치 경로를 추가할 것 입니다.</p>
+<blockquote>
+<p>Next, let’s run the program to ensure it works. For added convenience, we’ll add the install directory to our PATH to make running binaries easy:</p>
+</blockquote>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"># Windows users should consult /wiki/SettingGOPATH</span><br><span class="line"># <span class="keyword">for</span> setting %PATH%.</span><br><span class="line">$ export PATH=$PATH:$(dirname $(<span class="keyword">go</span> list -f <span class="string">&#x27;&#123;&#123;.Target&#125;&#125;&#x27;</span> .))</span><br><span class="line">$ hello</span><br><span class="line">Hello, world.</span><br><span class="line">$</span><br></pre></td></tr></table></figure>
+
+<h2 id="Importing-packages-from-your-module"><a href="#Importing-packages-from-your-module" class="headerlink" title="Importing packages from your module"></a>Importing packages from your module</h2><p>morestrings 패키지를 작성하고 그 패키지를 hello 프로그램에서 사용하도록 해봅시다. 먼저 해당 패키지를 저장할 $HOME/hello/morestrings 디렉토리를 생성해줍니다. 그리고나서 아래 내용을 포함하는 reverse.go 라는 파일을 그 디렉토리 내에서 생성해줍시다.</p>
+<blockquote>
+<p>Let’s write a morestrings package and use it from the hello program. First, create a directory for the package named $HOME/hello/morestrings, and then a file named reverse.go in that directory with the following contents:</p>
+</blockquote>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// Package morestrings implements additional functions to manipulate UTF-8</span></span><br><span class="line"><span class="comment">// encoded strings, beyond what is provided in the standard &quot;strings&quot; package.</span></span><br><span class="line"><span class="keyword">package</span> morestrings</span><br><span class="line"></span><br><span class="line"><span class="comment">// ReverseRunes returns its argument string reversed rune-wise left to right.</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">ReverseRunes</span><span class="params">(s <span class="keyword">string</span>)</span> <span class="title">string</span></span> &#123;</span><br><span class="line">    r := []<span class="keyword">rune</span>(s)</span><br><span class="line">    <span class="keyword">for</span> i, j := <span class="number">0</span>, <span class="built_in">len</span>(r)<span class="number">-1</span>; i &lt; <span class="built_in">len</span>(r)/<span class="number">2</span>; i, j = i+<span class="number">1</span>, j<span class="number">-1</span> &#123;</span><br><span class="line">        r[i], r[j] = r[j], r[i]</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> <span class="keyword">string</span>(r)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>ReverseRunes() 함수는 대문자로 시작하기 때문에 morestring 패키지를 임포트한 또 다른 패키지들에서 해당 함수를 사용할 수 있습니다.</p>
+<blockquote>
+<p>Because our ReverseRunes function begins with an upper-case letter, it is exported, and can be used in other packages that import our morestrings package.</p>
+</blockquote>
+<p>go build로 morestrings 패키지를 컴파일 해봅시다.</p>
+<blockquote>
+<p>Let’s test that the package compiles with go build:</p>
+</blockquote>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">$ cd $HOME/hello/morestrings</span><br><span class="line">$ <span class="keyword">go</span> build</span><br></pre></td></tr></table></figure>
+
+<p>위 명령어로는 어떠한 결과 파일이 생성되지는 않을 것입니다. 대신에 그것은 로컬 빌드 캐시에 컴파일된 패키지를 저장합니다.</p>
+<blockquote>
+<p>This won’t produce an output file. Instead it saves the compiled package in the local build cache.</p>
+</blockquote>
+<p>morestrings 패키지 빌드 이후에, hello 프로그램에서 이것을 사용해봅시다. 이를 위해 $HOME/hello/hello.go 코드에서 morestrings 패키지를 사용할 수 있도록 수정해봅시다.</p>
+<blockquote>
+<p>After confirming that the morestrings package builds, let’s use it from the hello program. To do so, modify your original $HOME/hello/hello.go to use the morestrings package:</p>
+</blockquote>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">package</span> main</span><br><span class="line"></span><br><span class="line"><span class="keyword">import</span> (</span><br><span class="line">    <span class="string">&quot;fmt&quot;</span></span><br><span class="line"></span><br><span class="line">    <span class="string">&quot;example/user/hello/morestrings&quot;</span></span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">main</span><span class="params">()</span></span> &#123;</span><br><span class="line">    fmt.Println(morestrings.ReverseRunes(<span class="string">&quot;!oG ,olleH&quot;</span>))</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>hello 프로그램을 설치하고</p>
+<blockquote>
+<p>Install the hello program:</p>
+</blockquote>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ <span class="keyword">go</span> install example/user/hello</span><br></pre></td></tr></table></figure>
+
+<p>새로운 버전의 hello 프로그램을 실행해보면 여러분은 뒤집힌 메시지를 볼 수 있을겁니다.</p>
+<blockquote>
+<p>Running the new version of the program, you should see a new, reversed message:</p>
+</blockquote>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">$ hello</span><br><span class="line">Hello, Go!</span><br></pre></td></tr></table></figure>
+
+<h2 id="Importing-packages-from-remote-modules"><a href="#Importing-packages-from-remote-modules" class="headerlink" title="Importing packages from remote modules"></a>Importing packages from remote modules</h2><p>임포트 경로는 버전 관리 시스템인 Git 이나 Mercurial을 사용하는 패키지 소스 코드를 어떻게 받아오는지를 설명할 수 있습니다. go tool은 원격 저장소에 있는 패키지들을 자동으로 가져오기 위해 이러한 특성을 사용합니다.</p>
+<blockquote>
+<p>An import path can describe how to obtain the package source code using a revision control system such as Git or Mercurial. The go tool uses this property to automatically fetch packages from remote repositories. For instance, to use github.com/google/go-cmp/cmp in your program:</p>
+</blockquote>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">package</span> main</span><br><span class="line"></span><br><span class="line"><span class="keyword">import</span> (</span><br><span class="line">    <span class="string">&quot;fmt&quot;</span></span><br><span class="line"></span><br><span class="line">    <span class="string">&quot;example/user/hello/morestrings&quot;</span></span><br><span class="line">    <span class="string">&quot;github.com/google/go-cmp/cmp&quot;</span></span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">main</span><span class="params">()</span></span> &#123;</span><br><span class="line">    fmt.Println(morestrings.ReverseRunes(<span class="string">&quot;!oG ,olleH&quot;</span>))</span><br><span class="line">    fmt.Println(cmp.Diff(<span class="string">&quot;Hello World&quot;</span>, <span class="string">&quot;Hello Go&quot;</span>))</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>이제 여러분은 외부 모듈에 대한 의존성을 가지게 되었고, 그러한 모듈을 다운로드하고 그것의 버전 정보를 go.mode 파일 내에 기록할 필요가 있습니다. go mod tidy 명령어는 임포트 패키지들에 대한 누락된 모듈 요구사항들을 추가해주고 더이상 사용하지 않는 모듈들에 대한 요구사항들을 제거해줍니다. </p>
+<blockquote>
+<p>Now that you have a dependency on an external module, you need to download that module and record its version in your go.mod file. The go mod tidy command adds missing module requirements for imported packages and removes requirements on modules that aren’t used anymore.</p>
+</blockquote>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">$ <span class="keyword">go</span> mod tidy</span><br><span class="line"><span class="keyword">go</span>: finding module <span class="keyword">for</span> <span class="keyword">package</span> github.com/google/<span class="keyword">go</span>-cmp/cmp</span><br><span class="line"><span class="keyword">go</span>: found github.com/google/<span class="keyword">go</span>-cmp/cmp in github.com/google/<span class="keyword">go</span>-cmp v0<span class="number">.5</span><span class="number">.4</span></span><br><span class="line">$ <span class="keyword">go</span> install example/user/hello</span><br><span class="line">$ hello</span><br><span class="line">Hello, Go!</span><br><span class="line">  <span class="keyword">string</span>(</span><br><span class="line">-     <span class="string">&quot;Hello World&quot;</span>,</span><br><span class="line">+     <span class="string">&quot;Hello Go&quot;</span>,</span><br><span class="line">  )</span><br><span class="line">$ cat <span class="keyword">go</span>.mod</span><br><span class="line">module example/user/hello</span><br><span class="line"></span><br><span class="line"><span class="keyword">go</span> <span class="number">1.16</span></span><br><span class="line"></span><br><span class="line">require github.com/google/<span class="keyword">go</span>-cmp v0<span class="number">.5</span><span class="number">.4</span></span><br><span class="line">$</span><br></pre></td></tr></table></figure>
+
+<p>모듈 의존성은 GOPATH 환경 변수가 가리키는 경로의 하위 경로인 pkg/mod에 자동으로 다운로드 됩니다. 다운로드된 모듈의 버전 정보들은 해당 버전을 필요로 하는 다른 모든 모듈들에게 공유됩니다. 그래서 go 명령어는 이러한 파일과 디렉토리를 read-only로 표시합니다. 다운로드 받은 모든 모듈들을 삭제하기 위해서는 go clean 명령어에 -modcache 플래그를 전달해주면 됩니다. </p>
+<blockquote>
+<p>Module dependencies are automatically downloaded to the pkg/mod subdirectory of the directory indicated by the GOPATH environment variable. The downloaded contents for a given version of a module are shared among all other modules that require that version, so the go command marks those files and directories as read-only. To remove all downloaded modules, you can pass the -modcache flag to go clean:</p>
+</blockquote>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ <span class="keyword">go</span> clean -modcache</span><br></pre></td></tr></table></figure>
+
+<br>
+
+<h1 id="내가-사용하는-Go-프로젝트-레이아웃"><a href="#내가-사용하는-Go-프로젝트-레이아웃" class="headerlink" title="내가 사용하는 Go 프로젝트 레이아웃"></a>내가 사용하는 Go 프로젝트 레이아웃</h1><p>다양한 프로젝트 레이아웃들을 비교해본 끝에 <a target="_blank" rel="external nofollow noopener noreferrer" href="https://www.ardanlabs.com/blog/2017/02/package-oriented-design.html">Package Oriented Design</a>라는 포스팅을 참조하여 프로젝트 레이아웃을 구성해보기로 결정했고, 실제 현업에서 개발 중인 서비스를 이 구조에 맞춰서 구현해나갔습니다.</p>
+<h2 id="bin"><a href="#bin" class="headerlink" title="bin/"></a>bin/</h2><ul>
+<li>실행가능한 바이너리 파일이 생성되는 경로</li>
+<li>바이너리 실행을 위해 필요한 설정 값이 저장되는 config 파일도 포함됨</li>
+</ul>
+<h2 id="cmd"><a href="#cmd" class="headerlink" title="cmd/"></a>cmd/</h2><ul>
+<li>main 패키지를 포함하는 go 파일이 저장되는 경로</li>
+</ul>
+<h2 id="internal"><a href="#internal" class="headerlink" title="internal/"></a>internal/</h2><ul>
+<li>main 패키지에서 임포트하는 패키지들의 집합이며, 제공하는 서비스 별로 패키지들을 구분함(ex. internal/gateway) </li>
+</ul>
+<p>동일 프로젝트 내에 존재하는 2개 이상의 프로그램들에서 임포트될 필요성이 있는 패키지들이 internal/ 폴더 내에 속해있습니다. internal/ 이라는 명칭의 사용이 가져다 주는 한가지 이점은 프로젝트가 컴파일러로부터 추가적인 보호 레벨을 얻어낼 수 있다는 점입니다. internal/ 폴더 내에 존재하는 패키지들을 해당 프로젝트의 외부에 있는 패키지에서 임포트할 수 없습니다. 그러므로 이러한 패키지들은 오로지 해당 프로젝트 내에 귀속됩니다.</p>
+<blockquote>
+<p>Packages that need to be imported by multiple programs within the project belong inside the internal/ folder. One benefit of using the name internal/ is that the project gets an extra level of protection from the compiler. No package outside of this project can import packages from inside of internal/. These packages are therefore internal to this project only.</p>
+</blockquote>
+<h2 id="internal-platform"><a href="#internal-platform" class="headerlink" title="internal/platform/"></a>internal/platform/</h2><ul>
+<li>internal에 포함된 패키지들에서 공통적으로 사용할 수 있는 기능을 제공하는 패키지들의 집합</li>
+</ul>
+<p>기반이되는 그러나 프로젝트에 특정되는 패키지들이 internal/platform 폴더 내에 속해있습니다. 이러한 패키지들은 데이터베이스나 인증 또는 marshaling과 같은 기능들을 제공하곤 합니다.</p>
+<blockquote>
+<p>Packages that are foundational but specific to the project belong in the internal/platform/ folder. These would be packages that provide support for things like databases, authentication or even marshaling.</p>
+</blockquote>
+<br>
+
+<h1 id="프로젝트-예시"><a href="#프로젝트-예시" class="headerlink" title="프로젝트 예시"></a>프로젝트 예시</h1><p>현재 토이 프로젝트로 진행중인 go 서비스에서도 위 프로젝트 레이아웃을 사용 중에 있습니다. <a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/chelseafandev/wavynote/tree/main">해당 링크</a>를 통해 확인 가능하십니다.</p>
+<br>
+<br>
+
+<span class="highlight-text yellow">해당 게시글에서 발생한 오탈자나 잘못된 내용에 대한 정정 댓글 격하게 환영합니다</span>😎
+
+<p><strong>Reference</strong></p>
+<ul>
+<li><a target="_blank" rel="external nofollow noopener noreferrer" href="https://go.dev/doc/code">https://go.dev/doc/code</a></li>
+<li><a target="_blank" rel="external nofollow noopener noreferrer" href="https://www.ardanlabs.com/blog/2017/02/package-oriented-design.html">https://www.ardanlabs.com/blog/2017/02/package-oriented-design.html</a></li>
+</ul>
+
+            
+
+
+        </div>
+    </div>
+    <div id="post-footer" class="post-footer main-content-wrap">
+        
+            <div class="post-footer-tags">
+                <span class="text-color-light text-small">태그</span><br>
+                
+    <a class="tag tag--primary tag--small t-none-link" href="/tags/go-project-layout/" rel="tag">go project layout</a> <a class="tag tag--primary tag--small t-none-link" href="/tags/golang-layout/" rel="tag">golang layout</a> <a class="tag tag--primary tag--small t-none-link" href="/tags/how-to-write-go-code/" rel="tag">how to write go code</a>
+
+            </div>
+        
+        
+            <div class="post-actions-wrap">
+    <nav>
+        <ul class="post-actions post-action-nav">
+            <li class="post-action">
+                
+                    <a class="post-action-btn btn btn--disabled" aria-hidden="true">
+                        
+                        <i class="fa fa-angle-left" aria-hidden="true"></i>
+                        <span class="hide-xs hide-sm text-small icon-ml">이전</span>
+                    </a>
+            </li>
+            <li class="post-action">
+                
+                    
+                <a class="post-action-btn btn btn--default tooltip--top" href="/2023/09/12/what-is-strand/" data-tooltip="boost strand를 사용하는 이유" aria-label="다음: boost strand를 사용하는 이유">
+                    
+                        <span class="hide-xs hide-sm text-small icon-mr">다음</span>
+                        <i class="fa fa-angle-right" aria-hidden="true"></i>
+                    </a>
+            </li>
+        </ul>
+    </nav>
+    <ul class="post-actions post-action-share">
+        <li class="post-action hide-lg hide-md hide-sm">
+            <a class="post-action-btn btn btn--default btn-open-shareoptions" href="#btn-open-shareoptions" aria-label="이 포스트 공유하기">
+                <i class="fa fa-share-alt" aria-hidden="true"></i>
+            </a>
+        </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a class="post-action-btn btn btn--default" target="_blank" href="https://www.facebook.com/sharer/sharer.php?u=https://chelseafandev.github.io/2024/07/28/my-golang-layout/" title="Facebook에 공유하기" aria-label="Facebook에 공유하기" rel="external nofollow noopener noreferrer">
+                    <i class="fab fa-facebook" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a class="post-action-btn btn btn--default" target="_blank" href="https://twitter.com/intent/tweet?text=https://chelseafandev.github.io/2024/07/28/my-golang-layout/" title="Twitter에 공유하기" aria-label="Twitter에 공유하기" rel="external nofollow noopener noreferrer">
+                    <i class="fab fa-twitter" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a class="post-action-btn btn btn--default" target="_blank" href="https://plus.google.com/share?url=https://chelseafandev.github.io/2024/07/28/my-golang-layout/" title="Google+에 공유하기" aria-label="Google+에 공유하기" rel="external nofollow noopener noreferrer">
+                    <i class="fab fa-google-plus" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+        
+            
+        
+        <li class="post-action">
+            
+                <a class="post-action-btn btn btn--default" href="#table-of-contents" aria-label="목차">
+            
+                <i class="fa fa-list" aria-hidden="true"></i>
+            </a>
+        </li>
+    </ul>
+</div>
+
+
+        
+        
+            
+        
+    </div>
+</article>
+
+
+
+<!-- Comment -->
+<!--  utteranc comment -->
+
+<script src="https://utteranc.es/client.js" repo="chelseafandev/blog-comment" issue-term="title" label="Comment" theme="github-light" crossorigin="anonymous" async>
+</script>
+
+                <footer id="footer" class="main-content-wrap">
+    <span class="copyrights">
+        Copyrights &copy; 2024 첼시팬개발자. All Rights Reserved.
+    </span>
+</footer>
+
+            </div>
+            
+                <div id="bottom-bar" class="post-bottom-bar" data-behavior="4">
+                    <div class="post-actions-wrap">
+    <nav>
+        <ul class="post-actions post-action-nav">
+            <li class="post-action">
+                
+                    <a class="post-action-btn btn btn--disabled" aria-hidden="true">
+                        
+                        <i class="fa fa-angle-left" aria-hidden="true"></i>
+                        <span class="hide-xs hide-sm text-small icon-ml">이전</span>
+                    </a>
+            </li>
+            <li class="post-action">
+                
+                    
+                <a class="post-action-btn btn btn--default tooltip--top" href="/2023/09/12/what-is-strand/" data-tooltip="boost strand를 사용하는 이유" aria-label="다음: boost strand를 사용하는 이유">
+                    
+                        <span class="hide-xs hide-sm text-small icon-mr">다음</span>
+                        <i class="fa fa-angle-right" aria-hidden="true"></i>
+                    </a>
+            </li>
+        </ul>
+    </nav>
+    <ul class="post-actions post-action-share">
+        <li class="post-action hide-lg hide-md hide-sm">
+            <a class="post-action-btn btn btn--default btn-open-shareoptions" href="#btn-open-shareoptions" aria-label="이 포스트 공유하기">
+                <i class="fa fa-share-alt" aria-hidden="true"></i>
+            </a>
+        </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a class="post-action-btn btn btn--default" target="_blank" href="https://www.facebook.com/sharer/sharer.php?u=https://chelseafandev.github.io/2024/07/28/my-golang-layout/" title="Facebook에 공유하기" aria-label="Facebook에 공유하기" rel="external nofollow noopener noreferrer">
+                    <i class="fab fa-facebook" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a class="post-action-btn btn btn--default" target="_blank" href="https://twitter.com/intent/tweet?text=https://chelseafandev.github.io/2024/07/28/my-golang-layout/" title="Twitter에 공유하기" aria-label="Twitter에 공유하기" rel="external nofollow noopener noreferrer">
+                    <i class="fab fa-twitter" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a class="post-action-btn btn btn--default" target="_blank" href="https://plus.google.com/share?url=https://chelseafandev.github.io/2024/07/28/my-golang-layout/" title="Google+에 공유하기" aria-label="Google+에 공유하기" rel="external nofollow noopener noreferrer">
+                    <i class="fab fa-google-plus" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+        
+            
+        
+        <li class="post-action">
+            
+                <a class="post-action-btn btn btn--default" href="#table-of-contents" aria-label="목차">
+            
+                <i class="fa fa-list" aria-hidden="true"></i>
+            </a>
+        </li>
+    </ul>
+</div>
+
+
+                </div>
+                
+    <div id="share-options-bar" class="share-options-bar" data-behavior="4">
+        <i id="btn-close-shareoptions" class="fa fa-times"></i>
+        <ul class="share-options">
+            
+                
+                
+                <li class="share-option">
+                    <a class="share-option-btn" target="_blank" href="https://www.facebook.com/sharer/sharer.php?u=https://chelseafandev.github.io/2024/07/28/my-golang-layout/" aria-label="Facebook에 공유하기" rel="external nofollow noopener noreferrer">
+                        <i class="fab fa-facebook" aria-hidden="true"></i><span>Facebook에 공유하기</span>
+                    </a>
+                </li>
+            
+                
+                
+                <li class="share-option">
+                    <a class="share-option-btn" target="_blank" href="https://twitter.com/intent/tweet?text=https://chelseafandev.github.io/2024/07/28/my-golang-layout/" aria-label="Twitter에 공유하기" rel="external nofollow noopener noreferrer">
+                        <i class="fab fa-twitter" aria-hidden="true"></i><span>Twitter에 공유하기</span>
+                    </a>
+                </li>
+            
+                
+                
+                <li class="share-option">
+                    <a class="share-option-btn" target="_blank" href="https://plus.google.com/share?url=https://chelseafandev.github.io/2024/07/28/my-golang-layout/" aria-label="Google+에 공유하기" rel="external nofollow noopener noreferrer">
+                        <i class="fab fa-google-plus" aria-hidden="true"></i><span>Google+에 공유하기</span>
+                    </a>
+                </li>
+            
+        </ul>
+    </div>
+
+
+            
+        </div>
+        
+
+
+    
+        
+    
+
+<div id="about">
+    <div id="about-card">
+        <div id="about-btn-close">
+            <i class="fa fa-times"></i>
+        </div>
+        
+            <img id="about-card-picture" src="/assets/images/chelsea_logo.png" alt="저자 이미지">
+        
+            <h4 id="about-card-name">첼시팬개발자</h4>
+        
+            <div id="about-card-bio"><p>조금 더디더라도 꾸준히</p>
+</div>
+        
+        
+            <div id="about-card-job">
+                <i class="fa fa-briefcase"></i>
+                <br>
+                <p>개발자</p>
+
+            </div>
+        
+        
+            <div id="about-card-location">
+                <i class="fa fa-map-marker-alt"></i>
+                <br>
+                서울, 대한민국
+            </div>
+        
+    </div>
+</div>
+
+        
+            <div id="algolia-search-modal" class="modal-container">
+    <div class="modal">
+        <div class="modal-header">
+            <span class="close-button"><i class="fa fa-times"></i></span>
+            <a href="https://algolia.com" target="_blank" rel="external nofollow noopener noreferrer" class="searchby-algolia text-color-light link-unstyled">
+                <span class="searchby-algolia-text text-color-light text-small">by</span>
+                <img class="searchby-algolia-logo" src="/assets/images/logo-algolia-nebula-blue-full.svg">
+            </a>
+            <i class="search-icon fa fa-search"></i>
+            <form id="algolia-search-form">
+                <input type="text" id="algolia-search-input" name="search" class="form-control input--large search-input" placeholder="Search ">
+            </form>
+        </div>
+        <div class="modal-body">
+            <div class="no-result text-color-light text-center">포스트가 없습니다.</div>
+            <div class="results">
+                
+                <div class="media">
+                    <!--  -->
+                    <div class="media-body">
+                        <a class="link-unstyled" href="https://chelseafandev.github.io/2021/07/08/hello-hexo/" aria-label=": Hexo Tranquilpeak 테마의 Markdown syntax">
+                            <h3 class="media-heading">Hexo Tranquilpeak 테마의 Markdown syntax</h3>
+                        </a>
+                        <span class="media-meta">
+                            <span class="media-date text-small">
+                                
+                                    2021년 7월 8일
+                                
+                            </span>
+                        </span>
+                        <div class="media-content hide-xs font-nanumsquareround"><p>Hexo 테마 중 하나인 <a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/LouisBarranqueiro/hexo-theme-tranquilpeak/blob/master/DOCUMENTATION.md">Tranquilpeak의 공식 문서</a>를 참조하여 Post시에 활용할 수 있는 다양한 Markdown syntax들을 사용해보았습니다.</p></div>
+                    </div>
+                    <div style="clear:both;"></div>
+                    <hr>
+                </div>
+                
+                <div class="media">
+                    <!-- 
+                    <div class="media-left">
+                        <a
+                            class="link-unstyled"
+                            href="https://chelseafandev.github.io/2021/07/10/tr-ruud-gullit/"
+                            aria-label=": (BBC 스포츠) 첼시 루드 굴리트 25년이 지난 지금 그의 프리미어그리 진출을 애정어린 시선으로 되돌아 보다"
+                        >
+                            <img class="media-image" src="https://chelseafandev.github.io/2021/07/10/tr-ruud-gullit/tr_ruud_gullit_picture_1.png" width="90" height="90"/>
+                        </a>
+                    </div>
+                     -->
+                    <div class="media-body">
+                        <a class="link-unstyled" href="https://chelseafandev.github.io/2021/07/10/tr-ruud-gullit/" aria-label=": (BBC 스포츠) 첼시 루드 굴리트 25년이 지난 지금 그의 프리미어그리 진출을 애정어린 시선으로 되돌아 보다">
+                            <h3 class="media-heading">(BBC 스포츠) 첼시 루드 굴리트 25년이 지난 지금 그의 프리미어그리 진출을 애정어린 시선으로 되돌아 보다</h3>
+                        </a>
+                        <span class="media-meta">
+                            <span class="media-date text-small">
+                                
+                                    2021년 7월 10일
+                                
+                            </span>
+                        </span>
+                        <div class="media-content hide-xs font-nanumsquareround"><p>피파 좀 한다는 사람이라면 모두가 다 알만한 그 분, X사기캐 굴리트😬<br>커리어 막바지에 첼시에서도 잠깐 활약했었네요.<br><a target="_blank" rel="external nofollow noopener noreferrer" href="https://www.bbc.com/sport/football/52904670">BBC Sport에 굴리트가 직접 기고한 회고록 느낌의 글</a>을 한번 번역해보았습니다.</p></div>
+                    </div>
+                    <div style="clear:both;"></div>
+                    <hr>
+                </div>
+                
+                <div class="media">
+                    <!--  -->
+                    <div class="media-body">
+                        <a class="link-unstyled" href="https://chelseafandev.github.io/2021/07/13/os-io-system/" aria-label=": I/O는 어떻게 처리될까?">
+                            <h3 class="media-heading">I/O는 어떻게 처리될까?</h3>
+                        </a>
+                        <span class="media-meta">
+                            <span class="media-date text-small">
+                                
+                                    2021년 7월 13일
+                                
+                            </span>
+                        </span>
+                        <div class="media-content hide-xs font-nanumsquareround"><p>운영 체제의 바이블 <a target="_blank" rel="external nofollow noopener noreferrer" href="https://www.wiley.com/en-us/Operating+System+Concepts%2C+10th+Edition-p-9781119320913">Operating System Concepts</a>(흔히 공룡책🦕이라고들 하죠)을 바탕으로 I/O 시스템에 대해 정리해보았습니다.</p></div>
+                    </div>
+                    <div style="clear:both;"></div>
+                    <hr>
+                </div>
+                
+                <div class="media">
+                    <!--  -->
+                    <div class="media-body">
+                        <a class="link-unstyled" href="https://chelseafandev.github.io/2021/07/22/tip-how-to-use-tmux-md/" aria-label=": 강력한 터미널 멀티플렉서 tmux를 활용해보자">
+                            <h3 class="media-heading">강력한 터미널 멀티플렉서 tmux를 활용해보자</h3>
+                        </a>
+                        <span class="media-meta">
+                            <span class="media-date text-small">
+                                
+                                    2021년 7월 22일
+                                
+                            </span>
+                        </span>
+                        <div class="media-content hide-xs font-nanumsquareround"><p>이번엔 익숙해지면 정말 강력한 터미널 멀티플렉서인 tmux에 대해 소개해보려고 합니다.</p></div>
+                    </div>
+                    <div style="clear:both;"></div>
+                    <hr>
+                </div>
+                
+                <div class="media">
+                    <!--  -->
+                    <div class="media-body">
+                        <a class="link-unstyled" href="https://chelseafandev.github.io/2021/08/02/os-sync-async-block-nonblock/" aria-label=": Blocking, Nonblocking, Sync, Async">
+                            <h3 class="media-heading">Blocking, Nonblocking, Sync, Async</h3>
+                        </a>
+                        <span class="media-meta">
+                            <span class="media-date text-small">
+                                
+                                    2021년 8월 2일
+                                
+                            </span>
+                        </span>
+                        <div class="media-content hide-xs font-nanumsquareround"><p>오늘은 공룡책🦕에 언급된 Blocking과 Nonblocking, Synchronous와 Asynchronous에 대해서 정리해보고자 합니다. Synchronous와 Asynchronous의 개념은 <strong>쓰레드</strong>와 <strong>I/O</strong>에서 등장하게 되는데요, 각각이 어떠한 의미로 사용되는지도 구분해서 살펴보도록 하겠습니다.</p></div>
+                    </div>
+                    <div style="clear:both;"></div>
+                    <hr>
+                </div>
+                
+                <div class="media">
+                    <!-- 
+                    <div class="media-left">
+                        <a
+                            class="link-unstyled"
+                            href="https://chelseafandev.github.io/2021/08/05/tr-lukaku-want-to-chelsea/"
+                            aria-label=": (BBC 스포츠) 첼시의 물망에 오른 루카쿠 적절한 오퍼가 온다면 인터 밀란을 떠나기 원해"
+                        >
+                            <img class="media-image" src="https://chelseafandev.github.io/2021/08/05/tr-lukaku-want-to-chelsea/tr-lukaku-want-to-chelsea.jpg" width="90" height="90"/>
+                        </a>
+                    </div>
+                     -->
+                    <div class="media-body">
+                        <a class="link-unstyled" href="https://chelseafandev.github.io/2021/08/05/tr-lukaku-want-to-chelsea/" aria-label=": (BBC 스포츠) 첼시의 물망에 오른 루카쿠 적절한 오퍼가 온다면 인터 밀란을 떠나기 원해">
+                            <h3 class="media-heading">(BBC 스포츠) 첼시의 물망에 오른 루카쿠 적절한 오퍼가 온다면 인터 밀란을 떠나기 원해</h3>
+                        </a>
+                        <span class="media-meta">
+                            <span class="media-date text-small">
+                                
+                                    2021년 8월 5일
+                                
+                            </span>
+                        </span>
+                        <div class="media-content hide-xs font-nanumsquareround"><p>오늘은 첼시 이적설이 가까워져가고 있는 루카쿠 관련 기사를 가져왔습니다. 베르너의 결정력이 너무나도 아쉬웠던 지난 시즌 첼시를 생각하면 꼭 필요한 영입이라고 생각되네요😁</p></div>
+                    </div>
+                    <div style="clear:both;"></div>
+                    <hr>
+                </div>
+                
+                <div class="media">
+                    <!-- 
+                    <div class="media-left">
+                        <a
+                            class="link-unstyled"
+                            href="https://chelseafandev.github.io/2021/08/12/tr-son-new-contract/"
+                            aria-label=": (BBC 스포츠) 토트넘 공격수 손흥민 4년 재계약 성사"
+                        >
+                            <img class="media-image" src="https://chelseafandev.github.io/2021/08/12/tr-son-new-contract/tr-son-new-contract-figure1.jpg" width="90" height="90"/>
+                        </a>
+                    </div>
+                     -->
+                    <div class="media-body">
+                        <a class="link-unstyled" href="https://chelseafandev.github.io/2021/08/12/tr-son-new-contract/" aria-label=": (BBC 스포츠) 토트넘 공격수 손흥민 4년 재계약 성사">
+                            <h3 class="media-heading">(BBC 스포츠) 토트넘 공격수 손흥민 4년 재계약 성사</h3>
+                        </a>
+                        <span class="media-meta">
+                            <span class="media-date text-small">
+                                
+                                    2021년 8월 12일
+                                
+                            </span>
+                        </span>
+                        <div class="media-content hide-xs font-nanumsquareround"><p>오늘은 현재 프리미어리그 토트넘 핫스퍼에서 활약 중인 손흥민 선수의 재계약 관련 기사를 가져왔습니다. 다음 시즌 누누감독이 이끌게 되는 토트넘, 쌉월클👍 손흥민선수와 함께 좋은 성적 거뒀으면 좋겠습니다.</p></div>
+                    </div>
+                    <div style="clear:both;"></div>
+                    <hr>
+                </div>
+                
+                <div class="media">
+                    <!--  -->
+                    <div class="media-body">
+                        <a class="link-unstyled" href="https://chelseafandev.github.io/2021/09/24/hyperscan-phase1/" aria-label=": 인텔 Hyperscan 레퍼런스 가이드 번역">
+                            <h3 class="media-heading">인텔 Hyperscan 레퍼런스 가이드 번역</h3>
+                        </a>
+                        <span class="media-meta">
+                            <span class="media-date text-small">
+                                
+                                    2021년 9월 24일
+                                
+                            </span>
+                        </span>
+                        <div class="media-content hide-xs font-nanumsquareround"><p>이번 포스팅에서는 인텔 Hyperscan의 <a target="_blank" rel="external nofollow noopener noreferrer" href="http://intel.github.io/hyperscan/dev-reference/index.html">공식 문서</a>를 통해 컴파일(compile)이나 스캔(scan)과 같은 Hyperscan의 기본적인 개념들에 대해 알아보도록 하겠습니다. 추후에는 Hyperscan API를 직접 사용하여 정규 표현식 패턴 매칭을 수행하는 샘플 코드도 업로드할 예정입니다.</p></div>
+                    </div>
+                    <div style="clear:both;"></div>
+                    <hr>
+                </div>
+                
+                <div class="media">
+                    <!--  -->
+                    <div class="media-body">
+                        <a class="link-unstyled" href="https://chelseafandev.github.io/2021/10/12/hyperscan-phase2/" aria-label=": 인텔 Hyperscan API 테스트 코드 작성">
+                            <h3 class="media-heading">인텔 Hyperscan API 테스트 코드 작성</h3>
+                        </a>
+                        <span class="media-meta">
+                            <span class="media-date text-small">
+                                
+                                    2021년 10월 12일
+                                
+                            </span>
+                        </span>
+                        <div class="media-content hide-xs font-nanumsquareround"><p>이번 포스팅에서는 <a href="https://chelseafandev.github.io/2021/09/24/hyperscan-phase1/">인텔 Hyperscan 레퍼런스 가이드 번역</a>에 이어서 Hyperscan API를 직접 사용하여 정규 표현식 패턴 매칭을 수행하는 샘플 코드를 작성하고 테스트 해보는 시간을 갖겠습니다.</p></div>
+                    </div>
+                    <div style="clear:both;"></div>
+                    <hr>
+                </div>
+                
+                <div class="media">
+                    <!--  -->
+                    <div class="media-body">
+                        <a class="link-unstyled" href="https://chelseafandev.github.io/2021/11/09/gdb-chapter4-program-crash/" aria-label=": Seg Fault는 왜 발생하는가?">
+                            <h3 class="media-heading">Seg Fault는 왜 발생하는가?</h3>
+                        </a>
+                        <span class="media-meta">
+                            <span class="media-date text-small">
+                                
+                                    2021년 11월 9일
+                                
+                            </span>
+                        </span>
+                        <div class="media-content hide-xs font-nanumsquareround"><p>이번 포스팅에서는 <a target="_blank" rel="external nofollow noopener noreferrer" href="https://nostarch.com/debugging.htm">The Art of Debugging with GDB, DDD and Eclipse</a>의 <strong>Chatper 4 WHEN A PROGRAM CRASHES</strong> 내용을 번역해보았습니다. 해당 챕터의 앞부분에서는 가상 주소 공간에서의 페이지(page)에 대한 개념을 소개하고 seg fault가 발생하는 원인을 페이지(page)와 연관지어 잘 설명해주고 있습니다.</p></div>
+                    </div>
+                    <div style="clear:both;"></div>
+                    <hr>
+                </div>
+                
+            </div>
+        </div>
+        <div class="modal-footer">
+            <p class="results-count text-medium" data-message-zero="포스트가 없습니다." data-message-one="1 개의 포스트가 있습니다." data-message-other="{n} 개의 포스트가 있습니다.">
+                27 개의 포스트가 있습니다.
+            </p>
+        </div>
+    </div>
+</div>
+
+        
+        
+<div id="cover" style="background-image:url('/assets/images/chelsea_cover.jpg');"></div>
+        <!--SCRIPTS-->
+
+<script src="/assets/js/jquery.js"></script>
+
+
+<script src="/assets/js/jquery.fancybox.js"></script>
+
+
+<script src="/assets/js/thumbs.js"></script>
+
+
+<script src="/assets/js/tranquilpeak.js"></script>
+
+<!--SCRIPTS END-->
+
+
+    
+
+
+
+    
+<script src="/assets/js/moment-with-locales.js"></script>
+
+    
+<script src="/assets/js/algoliasearch.js"></script>
+
+    <script>
+      var algoliaClient = algoliasearch('FDTOJ7KLS8', '935491408ac4c43d728c68858e4ea147');
+      var algoliaIndex = algoliaClient.initIndex('chelseafandev');
+    </script>
+
+
+    </body>
+</html>

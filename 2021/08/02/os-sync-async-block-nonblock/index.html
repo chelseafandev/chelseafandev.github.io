@@ -1,0 +1,838 @@
+
+<!DOCTYPE html>
+<html lang="ko">
+    
+<head>
+    <meta name="google-site-verification" content="Ojz5tvI9WuN6pn2n6i1E_mOkMyRiSSOp4KXuYSyaUjs">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="generator" content="첼시팬 개발자 작업 공간">
+    <title>Blocking, Nonblocking, Sync, Async - 첼시팬 개발자 작업 공간</title>
+    <meta name="author" content="첼시팬개발자">
+    
+    
+        <link rel="icon" href="https://chelseafandev.github.io/assets/images/chelsea_favicon.png">
+    
+    
+        
+            <link rel="alternate" type="application/rss+xml" title="RSS" href="/rss2.xml">
+        
+    
+    <script type="application/ld+json">{"@context":"http://schema.org","@type":"BlogPosting","author":{"@type":"Person","name":"첼시팬개발자","sameAs":[],"image":"chelsea_logo.png"},"articleBody":"오늘은 공룡책🦕에 언급된 Blocking과 Nonblocking, Synchronous와 Asynchronous에 대해서 정리해보고자 합니다. Synchronous와 Asynchronous의 개념은 쓰레드와 I/O에서 등장하게 되는데요, 각각이 어떠한 의미로 사용되는지도 구분해서 살펴보도록 하겠습니다.\n\n\n\n\n\nI/O 관점에서의 동기와 비동기동기(synchronous) 장치는 예측 가능한 응답 시간을 갖는 데이터 전송 작업을 수행합니다. 이와 반대로 비동기(asynchronous) 장치는 데이터 전송 작업에 대한 응답 시간이 불규칙 하거나 예측이 불가능합니다.\n\nA synchronous device performs data transfers with predictable response times, in coordination with other aspects of the system. An asynchronous device exhibits irregular or unpredictable response times not coordinated with other computer events.\n\n동기 장치로는 테이프, 비동기 장치로는 키보드를 예로 들수 있습니다.\n\n\n\n\n아래 그림은 I/O 처리에 있어서 동기와 비동기의 차이(I/O처리가 완료될때까지 기다리느냐 기다리지 않느냐)를 보여주고 있습니다.\n\n\n논블록킹과 비동기 I/O시스템 콜 인터페이스의 또 다른 측면은 블록킹(blocking) I/O와 논블록킹(nonblocking) I/O 중 무엇을 선택하는지와 관련되어있습니다. 어플리케이션이 블록킹 시스템 콜을 요청하는 경우에는 해당 시스템 콜을 요청한 쓰레드의 실행이 중단됩니다. 이 쓰레드는 운영 체제의 실행 큐(run queue)에서 대기 큐(wait queue)로 이동하게 됩니다. 시스템 콜이 완료된 이후에는, 해당 쓰레드가 실행이 재개될 수 있는 상태인 실행 큐(run queue)로 다시 이동합니다. 실행이 재개된 어플리케이션에서는 시스템 콜로 부터 반환된 결과를 전달받습니다. I/O 장치에 의해 수행되는 물리적인 행위들은 일반적으로 비동기적(I/O 장치마다 물리적 행위들을 수행하는데 걸리는 시간이 다양하고 예측할 수 없기때문에)입니다. 그럼에도 불구하고 운영 체제는 블록킹 어플리케이션 코드가 논블록킹 어플리케이션 코드보다 상대적으로 작성하기 쉽기 때문에 어플리케이션 인터페이스로 블록킹 시스템 콜을 제공하고 있습니다.\n\nAnother aspect of the system-call interface relates to the choice between blocking I/O and nonblocking I/O. When an application issues a blocking system call, the execution of the calling thread is suspended. The thread is moved from the operating system’s run queue to a wait queue. After the system call completes, the thread is moved back to the run queue, where it is eligible to resume execution. When it resumes execution, it will receive the values returned by the system call. The physical actions performed by I/O devices are generally asynchronous— they take a varying or unpredictable amount of time. Nevertheless, operating systems provide blocking system calls for the application interface, because blocking application code is easier to write than nonblocking application code.\n\n\n\n몇몇 사용자 레벨의 프로세스들에서 논블록킹 I/O가 필요한 경우가 있습니다. 한가지 예로 모니터에 데이터를 출력함과 동시에 키보드와 마우스의 입력 값을 받는 사용자 인터페이스를 생각해 볼 수 있습니다. 또다른 예로 출력 값의 압축을 풀면서 모니터 화면에 뿌려줌과 동시에 디스크에 저장된 파일에서 프레임들을 읽어들이는 비디오 어플리케이션을 생각해볼 수 있습니다.\n\nSome user-level processes need nonblocking I/O. One example is a user interface that receives keyboard and mouse input while processing and displaying data on the screen. Another example is a video application that reads frames from a file on disk while simultaneously decompressing and displaying the output on the display.\n\n\n\n어플리케이션 개발자가 I/O와 동시에 또 다른 실행 흐름을 처리할 수 있는 한가지 방법은 멀티쓰레드를 사용하는 것입니다. 일부 쓰레드는 블록킹 시스템 콜을 처리할 수 있고 나머지 쓰레드들은 작업을 계속해나가면 됩니다. 몇몇 운영 체제는 논블록킹 I/O 시스템 콜을 제공합니다. 논블록킹 호출은 쓰레드의 실행을 중단시키지 않는 대신 몇 바이트가 전달됐는지에 대한 정보를 곧바로 리턴합니다.\n\nOne way an application writer can overlap execution with I/O is to write a multithreaded application. Some threads can perform blocking system calls, while others continue executing. Some operating systems provide nonblocking I/O system calls. A nonblocking call does not halt the execution of the thread for an extended time. Instead, it returns quickly, with a return value that indicates how many bytes were transferred.\n\n\n\n논블록킹 시스템 콜에 대한 대안으로 비동기 시스템 콜이 있습니다. 비동기 호출은 I/O 처리가 끝나기를 기다리기 않고 곧바로 리턴합니다. 쓰레드는 계속해서 코드를 실행해 나갑니다. I/O 처리가 완료되는 시점이 되면 쓰레드의 주소 공간에 저장된 변수를 사용하거나 시그널 또는 인터럽트를 발생시키거나 쓰레드의 선형 컨트롤 흐름 바깥에서 실행되는 콜백 루틴을 통해 I/O 처리 완료 여부가 쓰레드로 전달됩니다. 논블록킹 read() 함수의 경우에는 사용 가능한 데이터가 무엇이든 즉시 리턴(리턴 값은 요청받은 바이트 전체가 될 수도 있고 혹은 그 보다 적거나 또는 아예 없을 수도 있음)하게 되며, 비동기 read() 함수의 경우에는 함수 전체에 걸쳐 수행될 예정이나 나중에 완료될 전송을 요청한다는 것에 차이가 있습니다.\n\nAn alternative to a nonblocking system call is an asynchronous system call. An asynchronous call returns immediately, without waiting for the I/O to complete. The thread continues to execute its code. The completion of the I/O at some future time is communicated to the thread, either through the setting of some variable in the address space of the thread or through the triggering of a signal or software interrupt or a call-back routine that is executed outside the linear control flow of the thread. The difference between nonblocking and asynchronous system calls is that a nonblocking read() returns immediately with whatever data are available— the full number of bytes requested, fewer, or none at all. An asynchronous read() call requests a transfer that will be performed in its entirety but will complete at some future time.\n\n해당 설명만으로는 nonblocking과 asynchronous의 차이가 명확히 이해가 되질 않아 stack-overflow의 관련 답변을 참조하였습니다. 해당 링크에서 Non-Blocking에 대한 설명 중 “expect caller to execute the call again” 라는 문장이 눈에 들어오네요🙂\n\n\n\n\n논블록킹 동작의 좋은 예로 네트워크 소켓에서 사용되는 select() 시스템 콜이 있습니다. 이 시스템 콜은 최대 대기 시간 정보를 인자로 갖고 있습니다. 이 값을 0으로 설정하게 되면 쓰레드는 블록킹없이 네트워크 활동에 대해서 주기적으로 확인합니다. 하지만 select() 함수를 사용하게 되면 추가적인 오버헤드가 발생하게 되는데 이는 select() 함수가 오직 I/O가 가능한지 여부만을 확인(실제 데이터 전송은 일어나지 않음)하기 때문입니다. 실제 데이터 전송을 위해서는 select() 함수 이후에 read()나 write() 함수 호출이 반드시 수반되어야 합니다.\n\nA good example of nonblocking behavior is the select() system call for network sockets. This system call takes an argument that specifies a maximum waiting time. By setting it to 0, a thread can poll for network activity without blocking. But using select() introduces extra overhead, because the select() call only checks whether I/O is possible. For a data transfer, select() must be followed by some kind of read() or write() command.\n\n\n쓰레드 관점에서의 동기와 비동기멀티 쓰레드 생성의 2가지 전략인 비동기 쓰레드와 동기 쓰레드에 대해 소개해보려합니다. 비동기 쓰레드에서는 부모 쓰레드가 자식 쓰레드를 생성하고나서 자신의 실행을 이어나가는데 이것은 부모와 자식 쓰레드가 동시에 작업을 수행하며 각각의 실행 흐름이 독립적임을 의미합니다. 쓰레드들은 독립적이므로 대게 쓰레드 간의 데이터 공유가 발생하게 됩니다.\n\nWe introduce two general strategies for creating multiple threads: asynchronous threading and synchronous threading. With asynchronous threading, once the parent creates a child thread, the parent resumes its execution, so that the parent and child execute concurrently and independently of one another. Because the threads are independent, there is typically little data sharing between them.\n\n동기 쓰레드는 부모 쓰레드가 한개 또는 그 이상의 자식 쓰레드를 생성하고 모든 자식의 작업이 끝날때까지 대기한 후에 부모 자신의 실행이 재개됩니다. 부모에 의해 생성된 자식 쓰레드들은 동시에 작업을 수행하지만 자식 쓰레드들의 작업이 모두 완료될때까지 부모 쓰레드는 중단됩니다. 각각의 자식 쓰레드가 작업을 마치게 되면 그것들은 종료되고 그들의 부모 쓰레드로 합류(join)하게 됩니다. 일반적으로 동기 쓰레드는 쓰레드들 간의 중요한 데이터 공유를 수반합니다. 예를 들어 부모 쓰레드가 여러 자식 쓰레드에 의해 계산된 결과들을 취합해야할 수 있습니다.\n\nSynchronous threading occurs when the parent thread creates one or more children and then must wait for all of its children to terminate before it resumes. Here, the threads created by the parent perform work concurrently, but the parent cannot continue until this work has been completed. Once each thread has finished its work, it terminates and joins with its parent. Only after all of the children have joined can the parent resume execution. Typically, synchronous threading involves significant data sharing among threads. For example, the parent thread may combine the results calculated by its various children.\n\n\n정리해보면블록킹 vs 논블록킹\n\n시스템 콜의 요청 주체가 되는 쓰레드를 중단하느냐(대기 큐로 이동시키느냐) 그렇지 않느냐\n\n논블록킹 vs 비동기\n\n시스템 콜이 곧바로 반환되는 경우, 사용할 수 있는 데이터를 갖고 있느냐 그렇지 않느냐\n\n동기 vs 비동기\n\n시스템 콜의 완료를 기다리느냐 기다리지 않느냐\n\n\n\n\n해당 게시글에서 발생한 오탈자나 잘못된 내용에 대한 정정 댓글 격하게 환영합니다😎\n\nReference\n\nAbraham Silberschatz, Greg Gagne, Peter B. Galvin. (2018). Operating System Concepts, 10th Edition. Wiley\nhttp://homoefficio.github.io/2017/02/19/Blocking-NonBlocking-Synchronous-Asynchronous/\n\n","dateCreated":"2021-08-02T10:57:10+09:00","dateModified":"2023-06-09T14:02:43+09:00","datePublished":"2021-08-02T10:57:10+09:00","description":"오늘은 공룡책🦕에 언급된 Blocking과 Nonblocking, Synchronous와 Asynchronous에 대해서 정리해보고자 합니다. Synchronous와 Asynchronous의 개념은 쓰레드와 I/O에서 등장하게 되는데요, 각각이 어떠한 의미로 사용되는지도 구분해서 살펴보도록 하겠습니다.","headline":"Blocking, Nonblocking, Sync, Async","image":[],"mainEntityOfPage":{"@type":"WebPage","@id":"https://chelseafandev.github.io/2021/08/02/os-sync-async-block-nonblock/"},"publisher":{"@type":"Organization","name":"첼시팬개발자","sameAs":[],"image":"chelsea_logo.png","logo":{"@type":"ImageObject","url":"chelsea_logo.png"}},"url":"https://chelseafandev.github.io/2021/08/02/os-sync-async-block-nonblock/","keywords":"async, sync, blocking, nonblocking"}</script>
+    <meta name="description" content="오늘은 공룡책🦕에 언급된 Blocking과 Nonblocking, Synchronous와 Asynchronous에 대해서 정리해보고자 합니다. Synchronous와 Asynchronous의 개념은 쓰레드와 I&#x2F;O에서 등장하게 되는데요, 각각이 어떠한 의미로 사용되는지도 구분해서 살펴보도록 하겠습니다.">
+<meta property="og:type" content="blog">
+<meta property="og:title" content="Blocking, Nonblocking, Sync, Async">
+<meta property="og:url" content="https://chelseafandev.github.io/2021/08/02/os-sync-async-block-nonblock/index.html">
+<meta property="og:site_name" content="첼시팬 개발자 작업 공간">
+<meta property="og:description" content="오늘은 공룡책🦕에 언급된 Blocking과 Nonblocking, Synchronous와 Asynchronous에 대해서 정리해보고자 합니다. Synchronous와 Asynchronous의 개념은 쓰레드와 I&#x2F;O에서 등장하게 되는데요, 각각이 어떠한 의미로 사용되는지도 구분해서 살펴보도록 하겠습니다.">
+<meta property="og:locale" content="ko_KR">
+<meta property="og:image" content="https://chelseafandev.github.io/assets/images/os-sync-async-figure1.png">
+<meta property="article:published_time" content="2021-08-02T01:57:10.000Z">
+<meta property="article:modified_time" content="2023-06-09T05:02:43.803Z">
+<meta property="article:author" content="첼시팬개발자">
+<meta property="article:tag" content="async">
+<meta property="article:tag" content="sync">
+<meta property="article:tag" content="blocking">
+<meta property="article:tag" content="nonblocking">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://chelseafandev.github.io/assets/images/os-sync-async-figure1.png">
+    
+    
+        
+    
+    
+        <meta property="og:image" content="https://chelseafandev.github.io/assets/images/chelsea_logo.png">
+    
+    
+    
+    
+    <!--STYLES-->
+    
+<link rel="stylesheet" href="/assets/css/all.css">
+
+    
+<link rel="stylesheet" href="/assets/css/jquery.fancybox.css">
+
+    
+<link rel="stylesheet" href="/assets/css/thumbs.css">
+
+    
+<link rel="stylesheet" href="/assets/css/tranquilpeak.css">
+
+    <!--STYLES END-->
+    
+
+    
+
+    
+        
+    
+    <link rel="canonical" href="https://chelseafandev.github.io/2021/08/02/os-sync-async-block-nonblock/">
+</head>
+
+    <body>
+        <div id="blog">
+            <!-- Define author's picture -->
+
+
+    
+        
+            
+        
+    
+
+<header id="header" data-behavior="4">
+    <i id="btn-open-sidebar" class="fa fa-lg fa-bars"></i>
+    <div class="header-title">
+        <a class="header-title-link" href="/" aria-label>
+            첼시팬 개발자 작업 공간
+        </a>
+    </div>
+    
+        
+            <a class="header-right-picture " href="#about" aria-label="링크 열기: /#about">
+        
+        
+            <img class="header-picture" src="/assets/images/chelsea_logo.png" alt="저자 이미지">
+        
+        </a>
+    
+</header>
+
+            <!-- Define author's picture -->
+
+
+
+        
+    
+
+<nav id="sidebar" data-behavior="4" style="border-top-width: 100px;padding-top: 150px;">
+    <div class="sidebar-container">
+        
+            <div class="sidebar-profile">
+                <a href="/#about" aria-label="저자에 대해 더 알아보기">
+                    <img class="sidebar-profile-picture" src="/assets/images/chelsea_logo.png" alt="저자 이미지">
+                </a>
+                <h4 class="sidebar-profile-name">첼시팬개발자</h4>
+                
+                    <h5 class="sidebar-profile-bio"><p>조금 더디더라도 꾸준히</p>
+</h5>
+                
+            </div>
+        
+        
+            <ul class="sidebar-buttons">
+            
+                <li class="sidebar-button">
+                    
+                        <a class="sidebar-button-link " href="/" rel="noopener" title="전체글">
+                        <i class="sidebar-button-icon fas fa-list-ul" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">전체글</span>
+                    </a>
+            </li>
+            
+                <li class="sidebar-button">
+                    
+                        <a class="sidebar-button-link " href="/all-categories" rel="noopener" title="카테고리">
+                        <i class="sidebar-button-icon fa fa-bookmark" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">카테고리</span>
+                    </a>
+            </li>
+            
+                <li class="sidebar-button">
+                    
+                        <a class="sidebar-button-link " href="/all-tags" rel="noopener" title="태그">
+                        <i class="sidebar-button-icon fa fa-tags" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">태그</span>
+                    </a>
+            </li>
+            
+                <li class="sidebar-button">
+                    
+                        <a class="sidebar-button-link " href="/all-archives" rel="noopener" title="아카이브">
+                        <i class="sidebar-button-icon fa fa-archive" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">아카이브</span>
+                    </a>
+            </li>
+            
+                <li class="sidebar-button">
+                    
+                        <a class="sidebar-button-link " href="https://github.com/chelseafandev" target="_blank" rel="external nofollow noopener noreferrer" title="GitHub">
+                        <i class="sidebar-button-icon fab fa-github" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">GitHub</span>
+                    </a>
+            </li>
+            
+                <li class="sidebar-button">
+                    
+                        <a class="sidebar-button-link " href="/rss2.xml" rel="noopener" title="RSS">
+                        <i class="sidebar-button-icon fa fa-rss" aria-hidden="true"></i>
+                        <span class="sidebar-button-desc">RSS</span>
+                    </a>
+            </li>
+            
+        </ul>
+        
+    </div>
+</nav>
+
+            
+            <div id="main" data-behavior="4" class="
+                        hasCoverMetaIn
+                        ">
+                
+<article class="post">
+    
+    
+        <div class="post-header main-content-wrap text-left">
+    
+        <h1 class="post-title">
+            Blocking, Nonblocking, Sync, Async
+        </h1>
+    
+    
+        <div class="post-meta">
+    <time datetime="2021-08-02T10:57:10+09:00">
+	
+		    2021/08/02 10:57:10
+    	
+    </time>
+    
+        <span>카테고리 </span>
+        
+    <a class="category-link" href="/categories/%EC%9A%B4%EC%98%81%EC%B2%B4%EC%A0%9C/">운영체제</a>
+
+
+    
+    
+        -
+        <span class="reading-time">⏱</span>
+        
+            읽는데 8 분 정도 소요 예상
+        
+        
+    
+</div>
+
+    
+</div>
+
+    
+    <div class="post-content markdown">
+        <div class="main-content-wrap">
+            <p>오늘은 공룡책🦕에 언급된 Blocking과 Nonblocking, Synchronous와 Asynchronous에 대해서 정리해보고자 합니다. Synchronous와 Asynchronous의 개념은 <strong>쓰레드</strong>와 <strong>I/O</strong>에서 등장하게 되는데요, 각각이 어떠한 의미로 사용되는지도 구분해서 살펴보도록 하겠습니다.</p>
+<span id="more"></span>
+
+<h1 id="table-of-contents">목차</h1><ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#I-O-%EA%B4%80%EC%A0%90%EC%97%90%EC%84%9C%EC%9D%98-%EB%8F%99%EA%B8%B0%EC%99%80-%EB%B9%84%EB%8F%99%EA%B8%B0"><span class="toc-number">1.</span> <span class="toc-text">I&#x2F;O 관점에서의 동기와 비동기</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%EB%85%BC%EB%B8%94%EB%A1%9D%ED%82%B9%EA%B3%BC-%EB%B9%84%EB%8F%99%EA%B8%B0-I-O"><span class="toc-number">2.</span> <span class="toc-text">논블록킹과 비동기 I&#x2F;O</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%EC%93%B0%EB%A0%88%EB%93%9C-%EA%B4%80%EC%A0%90%EC%97%90%EC%84%9C%EC%9D%98-%EB%8F%99%EA%B8%B0%EC%99%80-%EB%B9%84%EB%8F%99%EA%B8%B0"><span class="toc-number">3.</span> <span class="toc-text">쓰레드 관점에서의 동기와 비동기</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%EC%A0%95%EB%A6%AC%ED%95%B4%EB%B3%B4%EB%A9%B4"><span class="toc-number">4.</span> <span class="toc-text">정리해보면</span></a></li></ol>
+<br>
+
+<h2 id="I-O-관점에서의-동기와-비동기"><a href="#I-O-관점에서의-동기와-비동기" class="headerlink" title="I/O 관점에서의 동기와 비동기"></a>I/O 관점에서의 동기와 비동기</h2><p>동기(synchronous) 장치는 예측 가능한 응답 시간을 갖는 데이터 전송 작업을 수행합니다. 이와 반대로 비동기(asynchronous) 장치는 데이터 전송 작업에 대한 응답 시간이 불규칙 하거나 예측이 불가능합니다.</p>
+<blockquote>
+<p>A synchronous device performs data transfers with predictable response times, in coordination with other aspects of the system. An asynchronous device exhibits irregular or unpredictable response times not coordinated with other computer events.</p>
+</blockquote>
+<div class="alert info"><p>동기 장치로는 테이프, 비동기 장치로는 키보드를 예로 들수 있습니다.</p>
+</div>
+
+<br>
+
+<p>아래 그림은 I/O 처리에 있어서 동기와 비동기의 차이(I/O처리가 완료될때까지 기다리느냐 기다리지 않느냐)를 보여주고 있습니다.</p>
+<div class="figure " style="width:;"><img class="fig-img" src="/assets/images/os-sync-async-figure1.png" alt></div>
+<hr>
+<h2 id="논블록킹과-비동기-I-O"><a href="#논블록킹과-비동기-I-O" class="headerlink" title="논블록킹과 비동기 I/O"></a>논블록킹과 비동기 I/O</h2><p>시스템 콜 인터페이스의 또 다른 측면은 블록킹(blocking) I/O와 논블록킹(nonblocking) I/O 중 무엇을 선택하는지와 관련되어있습니다. 어플리케이션이 블록킹 시스템 콜을 요청하는 경우에는 해당 시스템 콜을 요청한 쓰레드의 실행이 중단됩니다. 이 쓰레드는 운영 체제의 실행 큐(run queue)에서 대기 큐(wait queue)로 이동하게 됩니다. 시스템 콜이 완료된 이후에는, 해당 쓰레드가 실행이 재개될 수 있는 상태인 실행 큐(run queue)로 다시 이동합니다. 실행이 재개된 어플리케이션에서는 시스템 콜로 부터 반환된 결과를 전달받습니다. I/O 장치에 의해 수행되는 물리적인 행위들은 일반적으로 비동기적(I/O 장치마다 물리적 행위들을 수행하는데 걸리는 시간이 다양하고 예측할 수 없기때문에)입니다. 그럼에도 불구하고 운영 체제는 블록킹 어플리케이션 코드가 논블록킹 어플리케이션 코드보다 상대적으로 작성하기 쉽기 때문에 어플리케이션 인터페이스로 블록킹 시스템 콜을 제공하고 있습니다.</p>
+<blockquote>
+<p>Another aspect of the system-call interface relates to the choice between blocking I/O and nonblocking I/O. When an application issues a blocking system call, the execution of the calling thread is suspended. The thread is moved from the operating system’s run queue to a wait queue. After the system call completes, the thread is moved back to the run queue, where it is eligible to resume execution. When it resumes execution, it will receive the values returned by the system call. The physical actions performed by I/O devices are generally asynchronous— they take a varying or unpredictable amount of time. Nevertheless, operating systems provide blocking system calls for the application interface, because blocking application code is easier to write than nonblocking application code.</p>
+</blockquote>
+<br>
+
+<p>몇몇 사용자 레벨의 프로세스들에서 논블록킹 I/O가 필요한 경우가 있습니다. 한가지 예로 모니터에 데이터를 출력함과 동시에 키보드와 마우스의 입력 값을 받는 사용자 인터페이스를 생각해 볼 수 있습니다. 또다른 예로 출력 값의 압축을 풀면서 모니터 화면에 뿌려줌과 동시에 디스크에 저장된 파일에서 프레임들을 읽어들이는 비디오 어플리케이션을 생각해볼 수 있습니다.</p>
+<blockquote>
+<p>Some user-level processes need nonblocking I/O. One example is a user interface that receives keyboard and mouse input while processing and displaying data on the screen. Another example is a video application that reads frames from a file on disk while simultaneously decompressing and displaying the output on the display.</p>
+</blockquote>
+<br>
+
+<p>어플리케이션 개발자가 I/O와 동시에 또 다른 실행 흐름을 처리할 수 있는 한가지 방법은 멀티쓰레드를 사용하는 것입니다. 일부 쓰레드는 블록킹 시스템 콜을 처리할 수 있고 나머지 쓰레드들은 작업을 계속해나가면 됩니다. 몇몇 운영 체제는 논블록킹 I/O 시스템 콜을 제공합니다. 논블록킹 호출은 쓰레드의 실행을 중단시키지 않는 대신 몇 바이트가 전달됐는지에 대한 정보를 곧바로 리턴합니다.</p>
+<blockquote>
+<p>One way an application writer can overlap execution with I/O is to write a multithreaded application. Some threads can perform blocking system calls, while others continue executing. Some operating systems provide nonblocking I/O system calls. A nonblocking call does not halt the execution of the thread for an extended time. Instead, it returns quickly, with a return value that indicates how many bytes were transferred.</p>
+</blockquote>
+<br>
+
+<p>논블록킹 시스템 콜에 대한 대안으로 비동기 시스템 콜이 있습니다. 비동기 호출은 I/O 처리가 끝나기를 기다리기 않고 곧바로 리턴합니다. 쓰레드는 계속해서 코드를 실행해 나갑니다. I/O 처리가 완료되는 시점이 되면 쓰레드의 주소 공간에 저장된 변수를 사용하거나 시그널 또는 인터럽트를 발생시키거나 쓰레드의 선형 컨트롤 흐름 바깥에서 실행되는 콜백 루틴을 통해 I/O 처리 완료 여부가 쓰레드로 전달됩니다. 논블록킹 read() 함수의 경우에는 사용 가능한 데이터가 무엇이든 즉시 리턴(리턴 값은 요청받은 바이트 전체가 될 수도 있고 혹은 그 보다 적거나 또는 아예 없을 수도 있음)하게 되며, 비동기 read() 함수의 경우에는 함수 전체에 걸쳐 수행될 예정이나 나중에 완료될 전송을 요청한다는 것에 차이가 있습니다.</p>
+<blockquote>
+<p>An alternative to a nonblocking system call is an asynchronous system call. An asynchronous call returns immediately, without waiting for the I/O to complete. The thread continues to execute its code. The completion of the I/O at some future time is communicated to the thread, either through the setting of some variable in the address space of the thread or through the triggering of a signal or software interrupt or a call-back routine that is executed outside the linear control flow of the thread. The difference between nonblocking and asynchronous system calls is that a nonblocking read() returns immediately with whatever data are available— the full number of bytes requested, fewer, or none at all. An asynchronous read() call requests a transfer that will be performed in its entirety but will complete at some future time.</p>
+</blockquote>
+<div class="alert info"><p>해당 설명만으로는 nonblocking과 asynchronous의 차이가 명확히 이해가 되질 않아 <a target="_blank" rel="external nofollow noopener noreferrer" href="https://stackoverflow.com/questions/7931537/whats-the-difference-between-asynchronous-non-blocking-event-base-architectu/9489547#9489547">stack-overflow의 관련 답변</a>을 참조하였습니다. 해당 링크에서 Non-Blocking에 대한 설명 중 “expect caller to execute the call again” 라는 문장이 눈에 들어오네요🙂</p>
+</div>
+
+<br>
+
+<p>논블록킹 동작의 좋은 예로 네트워크 소켓에서 사용되는 select() 시스템 콜이 있습니다. 이 시스템 콜은 최대 대기 시간 정보를 인자로 갖고 있습니다. 이 값을 0으로 설정하게 되면 쓰레드는 블록킹없이 네트워크 활동에 대해서 주기적으로 확인합니다. 하지만 select() 함수를 사용하게 되면 추가적인 오버헤드가 발생하게 되는데 이는 select() 함수가 오직 I/O가 가능한지 여부만을 확인(실제 데이터 전송은 일어나지 않음)하기 때문입니다. 실제 데이터 전송을 위해서는 select() 함수 이후에 read()나 write() 함수 호출이 반드시 수반되어야 합니다.</p>
+<blockquote>
+<p>A good example of nonblocking behavior is the select() system call for network sockets. This system call takes an argument that specifies a maximum waiting time. By setting it to 0, a thread can poll for network activity without blocking. But using select() introduces extra overhead, because the select() call only checks whether I/O is possible. For a data transfer, select() must be followed by some kind of read() or write() command.</p>
+</blockquote>
+<hr>
+<h2 id="쓰레드-관점에서의-동기와-비동기"><a href="#쓰레드-관점에서의-동기와-비동기" class="headerlink" title="쓰레드 관점에서의 동기와 비동기"></a>쓰레드 관점에서의 동기와 비동기</h2><p>멀티 쓰레드 생성의 2가지 전략인 비동기 쓰레드와 동기 쓰레드에 대해 소개해보려합니다. 비동기 쓰레드에서는 부모 쓰레드가 자식 쓰레드를 생성하고나서 자신의 실행을 이어나가는데 이것은 부모와 자식 쓰레드가 동시에 작업을 수행하며 각각의 실행 흐름이 독립적임을 의미합니다. 쓰레드들은 독립적이므로 대게 쓰레드 간의 데이터 공유가 발생하게 됩니다.</p>
+<blockquote>
+<p>We introduce two general strategies for creating multiple threads: asynchronous threading and synchronous threading. With asynchronous threading, once the parent creates a child thread, the parent resumes its execution, so that the parent and child execute concurrently and independently of one another. Because the threads are independent, there is typically little data sharing between them.</p>
+</blockquote>
+<p>동기 쓰레드는 부모 쓰레드가 한개 또는 그 이상의 자식 쓰레드를 생성하고 모든 자식의 작업이 끝날때까지 대기한 후에 부모 자신의 실행이 재개됩니다. 부모에 의해 생성된 자식 쓰레드들은 동시에 작업을 수행하지만 자식 쓰레드들의 작업이 모두 완료될때까지 부모 쓰레드는 중단됩니다. 각각의 자식 쓰레드가 작업을 마치게 되면 그것들은 종료되고 그들의 부모 쓰레드로 합류(join)하게 됩니다. 일반적으로 동기 쓰레드는 쓰레드들 간의 중요한 데이터 공유를 수반합니다. 예를 들어 부모 쓰레드가 여러 자식 쓰레드에 의해 계산된 결과들을 취합해야할 수 있습니다.</p>
+<blockquote>
+<p>Synchronous threading occurs when the parent thread creates one or more children and then must wait for all of its children to terminate before it resumes. Here, the threads created by the parent perform work concurrently, but the parent cannot continue until this work has been completed. Once each thread has finished its work, it terminates and joins with its parent. Only after all of the children have joined can the parent resume execution. Typically, synchronous threading involves significant data sharing among threads. For example, the parent thread may combine the results calculated by its various children.</p>
+</blockquote>
+<hr>
+<h2 id="정리해보면"><a href="#정리해보면" class="headerlink" title="정리해보면"></a>정리해보면</h2><p><strong>블록킹 vs 논블록킹</strong></p>
+<ul>
+<li>시스템 콜의 요청 주체가 되는 쓰레드를 중단하느냐(대기 큐로 이동시키느냐) 그렇지 않느냐</li>
+</ul>
+<p><strong>논블록킹 vs 비동기</strong></p>
+<ul>
+<li>시스템 콜이 곧바로 반환되는 경우, 사용할 수 있는 데이터를 갖고 있느냐 그렇지 않느냐</li>
+</ul>
+<p><strong>동기 vs 비동기</strong></p>
+<ul>
+<li>시스템 콜의 완료를 기다리느냐 기다리지 않느냐</li>
+</ul>
+<hr>
+<br>
+<br>
+<span class="highlight-text yellow">해당 게시글에서 발생한 오탈자나 잘못된 내용에 대한 정정 댓글 격하게 환영합니다</span>😎
+
+<p><strong>Reference</strong></p>
+<ul>
+<li>Abraham Silberschatz, Greg Gagne, Peter B. Galvin. (2018). Operating System Concepts, 10th Edition. Wiley</li>
+<li><a target="_blank" rel="external nofollow noopener noreferrer" href="http://homoefficio.github.io/2017/02/19/Blocking-NonBlocking-Synchronous-Asynchronous/">http://homoefficio.github.io/2017/02/19/Blocking-NonBlocking-Synchronous-Asynchronous/</a></li>
+</ul>
+
+            
+
+
+        </div>
+    </div>
+    <div id="post-footer" class="post-footer main-content-wrap">
+        
+            <div class="post-footer-tags">
+                <span class="text-color-light text-small">태그</span><br>
+                
+    <a class="tag tag--primary tag--small t-none-link" href="/tags/async/" rel="tag">async</a> <a class="tag tag--primary tag--small t-none-link" href="/tags/blocking/" rel="tag">blocking</a> <a class="tag tag--primary tag--small t-none-link" href="/tags/nonblocking/" rel="tag">nonblocking</a> <a class="tag tag--primary tag--small t-none-link" href="/tags/sync/" rel="tag">sync</a>
+
+            </div>
+        
+        
+            <div class="post-actions-wrap">
+    <nav>
+        <ul class="post-actions post-action-nav">
+            <li class="post-action">
+                
+                    
+                <a class="post-action-btn btn btn--default tooltip--top" href="/2021/08/05/tr-lukaku-want-to-chelsea/" data-tooltip="(BBC 스포츠) 첼시의 물망에 오른 루카쿠 적절한 오퍼가 온다면 인터 밀란을 떠나기 원해" aria-label="이전: (BBC 스포츠) 첼시의 물망에 오른 루카쿠 적절한 오퍼가 온다면 인터 밀란을 떠나기 원해">
+                    
+                        <i class="fa fa-angle-left" aria-hidden="true"></i>
+                        <span class="hide-xs hide-sm text-small icon-ml">이전</span>
+                    </a>
+            </li>
+            <li class="post-action">
+                
+                    
+                <a class="post-action-btn btn btn--default tooltip--top" href="/2021/07/22/tip-how-to-use-tmux-md/" data-tooltip="강력한 터미널 멀티플렉서 tmux를 활용해보자" aria-label="다음: 강력한 터미널 멀티플렉서 tmux를 활용해보자">
+                    
+                        <span class="hide-xs hide-sm text-small icon-mr">다음</span>
+                        <i class="fa fa-angle-right" aria-hidden="true"></i>
+                    </a>
+            </li>
+        </ul>
+    </nav>
+    <ul class="post-actions post-action-share">
+        <li class="post-action hide-lg hide-md hide-sm">
+            <a class="post-action-btn btn btn--default btn-open-shareoptions" href="#btn-open-shareoptions" aria-label="이 포스트 공유하기">
+                <i class="fa fa-share-alt" aria-hidden="true"></i>
+            </a>
+        </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a class="post-action-btn btn btn--default" target="_blank" href="https://www.facebook.com/sharer/sharer.php?u=https://chelseafandev.github.io/2021/08/02/os-sync-async-block-nonblock/" title="Facebook에 공유하기" aria-label="Facebook에 공유하기" rel="external nofollow noopener noreferrer">
+                    <i class="fab fa-facebook" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a class="post-action-btn btn btn--default" target="_blank" href="https://twitter.com/intent/tweet?text=https://chelseafandev.github.io/2021/08/02/os-sync-async-block-nonblock/" title="Twitter에 공유하기" aria-label="Twitter에 공유하기" rel="external nofollow noopener noreferrer">
+                    <i class="fab fa-twitter" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a class="post-action-btn btn btn--default" target="_blank" href="https://plus.google.com/share?url=https://chelseafandev.github.io/2021/08/02/os-sync-async-block-nonblock/" title="Google+에 공유하기" aria-label="Google+에 공유하기" rel="external nofollow noopener noreferrer">
+                    <i class="fab fa-google-plus" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+        
+            
+        
+        <li class="post-action">
+            
+                <a class="post-action-btn btn btn--default" href="#table-of-contents" aria-label="목차">
+            
+                <i class="fa fa-list" aria-hidden="true"></i>
+            </a>
+        </li>
+    </ul>
+</div>
+
+
+        
+        
+            
+        
+    </div>
+</article>
+
+
+
+<!-- Comment -->
+<!--  utteranc comment -->
+
+<script src="https://utteranc.es/client.js" repo="chelseafandev/blog-comment" issue-term="title" label="Comment" theme="github-light" crossorigin="anonymous" async>
+</script>
+
+                <footer id="footer" class="main-content-wrap">
+    <span class="copyrights">
+        Copyrights &copy; 2024 첼시팬개발자. All Rights Reserved.
+    </span>
+</footer>
+
+            </div>
+            
+                <div id="bottom-bar" class="post-bottom-bar" data-behavior="4">
+                    <div class="post-actions-wrap">
+    <nav>
+        <ul class="post-actions post-action-nav">
+            <li class="post-action">
+                
+                    
+                <a class="post-action-btn btn btn--default tooltip--top" href="/2021/08/05/tr-lukaku-want-to-chelsea/" data-tooltip="(BBC 스포츠) 첼시의 물망에 오른 루카쿠 적절한 오퍼가 온다면 인터 밀란을 떠나기 원해" aria-label="이전: (BBC 스포츠) 첼시의 물망에 오른 루카쿠 적절한 오퍼가 온다면 인터 밀란을 떠나기 원해">
+                    
+                        <i class="fa fa-angle-left" aria-hidden="true"></i>
+                        <span class="hide-xs hide-sm text-small icon-ml">이전</span>
+                    </a>
+            </li>
+            <li class="post-action">
+                
+                    
+                <a class="post-action-btn btn btn--default tooltip--top" href="/2021/07/22/tip-how-to-use-tmux-md/" data-tooltip="강력한 터미널 멀티플렉서 tmux를 활용해보자" aria-label="다음: 강력한 터미널 멀티플렉서 tmux를 활용해보자">
+                    
+                        <span class="hide-xs hide-sm text-small icon-mr">다음</span>
+                        <i class="fa fa-angle-right" aria-hidden="true"></i>
+                    </a>
+            </li>
+        </ul>
+    </nav>
+    <ul class="post-actions post-action-share">
+        <li class="post-action hide-lg hide-md hide-sm">
+            <a class="post-action-btn btn btn--default btn-open-shareoptions" href="#btn-open-shareoptions" aria-label="이 포스트 공유하기">
+                <i class="fa fa-share-alt" aria-hidden="true"></i>
+            </a>
+        </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a class="post-action-btn btn btn--default" target="_blank" href="https://www.facebook.com/sharer/sharer.php?u=https://chelseafandev.github.io/2021/08/02/os-sync-async-block-nonblock/" title="Facebook에 공유하기" aria-label="Facebook에 공유하기" rel="external nofollow noopener noreferrer">
+                    <i class="fab fa-facebook" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a class="post-action-btn btn btn--default" target="_blank" href="https://twitter.com/intent/tweet?text=https://chelseafandev.github.io/2021/08/02/os-sync-async-block-nonblock/" title="Twitter에 공유하기" aria-label="Twitter에 공유하기" rel="external nofollow noopener noreferrer">
+                    <i class="fab fa-twitter" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+            
+            
+            <li class="post-action hide-xs">
+                <a class="post-action-btn btn btn--default" target="_blank" href="https://plus.google.com/share?url=https://chelseafandev.github.io/2021/08/02/os-sync-async-block-nonblock/" title="Google+에 공유하기" aria-label="Google+에 공유하기" rel="external nofollow noopener noreferrer">
+                    <i class="fab fa-google-plus" aria-hidden="true"></i>
+                </a>
+            </li>
+        
+        
+            
+        
+        <li class="post-action">
+            
+                <a class="post-action-btn btn btn--default" href="#table-of-contents" aria-label="목차">
+            
+                <i class="fa fa-list" aria-hidden="true"></i>
+            </a>
+        </li>
+    </ul>
+</div>
+
+
+                </div>
+                
+    <div id="share-options-bar" class="share-options-bar" data-behavior="4">
+        <i id="btn-close-shareoptions" class="fa fa-times"></i>
+        <ul class="share-options">
+            
+                
+                
+                <li class="share-option">
+                    <a class="share-option-btn" target="_blank" href="https://www.facebook.com/sharer/sharer.php?u=https://chelseafandev.github.io/2021/08/02/os-sync-async-block-nonblock/" aria-label="Facebook에 공유하기" rel="external nofollow noopener noreferrer">
+                        <i class="fab fa-facebook" aria-hidden="true"></i><span>Facebook에 공유하기</span>
+                    </a>
+                </li>
+            
+                
+                
+                <li class="share-option">
+                    <a class="share-option-btn" target="_blank" href="https://twitter.com/intent/tweet?text=https://chelseafandev.github.io/2021/08/02/os-sync-async-block-nonblock/" aria-label="Twitter에 공유하기" rel="external nofollow noopener noreferrer">
+                        <i class="fab fa-twitter" aria-hidden="true"></i><span>Twitter에 공유하기</span>
+                    </a>
+                </li>
+            
+                
+                
+                <li class="share-option">
+                    <a class="share-option-btn" target="_blank" href="https://plus.google.com/share?url=https://chelseafandev.github.io/2021/08/02/os-sync-async-block-nonblock/" aria-label="Google+에 공유하기" rel="external nofollow noopener noreferrer">
+                        <i class="fab fa-google-plus" aria-hidden="true"></i><span>Google+에 공유하기</span>
+                    </a>
+                </li>
+            
+        </ul>
+    </div>
+
+
+            
+        </div>
+        
+
+
+    
+        
+    
+
+<div id="about">
+    <div id="about-card">
+        <div id="about-btn-close">
+            <i class="fa fa-times"></i>
+        </div>
+        
+            <img id="about-card-picture" src="/assets/images/chelsea_logo.png" alt="저자 이미지">
+        
+            <h4 id="about-card-name">첼시팬개발자</h4>
+        
+            <div id="about-card-bio"><p>조금 더디더라도 꾸준히</p>
+</div>
+        
+        
+            <div id="about-card-job">
+                <i class="fa fa-briefcase"></i>
+                <br>
+                <p>개발자</p>
+
+            </div>
+        
+        
+            <div id="about-card-location">
+                <i class="fa fa-map-marker-alt"></i>
+                <br>
+                서울, 대한민국
+            </div>
+        
+    </div>
+</div>
+
+        
+            <div id="algolia-search-modal" class="modal-container">
+    <div class="modal">
+        <div class="modal-header">
+            <span class="close-button"><i class="fa fa-times"></i></span>
+            <a href="https://algolia.com" target="_blank" rel="external nofollow noopener noreferrer" class="searchby-algolia text-color-light link-unstyled">
+                <span class="searchby-algolia-text text-color-light text-small">by</span>
+                <img class="searchby-algolia-logo" src="/assets/images/logo-algolia-nebula-blue-full.svg">
+            </a>
+            <i class="search-icon fa fa-search"></i>
+            <form id="algolia-search-form">
+                <input type="text" id="algolia-search-input" name="search" class="form-control input--large search-input" placeholder="Search ">
+            </form>
+        </div>
+        <div class="modal-body">
+            <div class="no-result text-color-light text-center">포스트가 없습니다.</div>
+            <div class="results">
+                
+                <div class="media">
+                    <!--  -->
+                    <div class="media-body">
+                        <a class="link-unstyled" href="https://chelseafandev.github.io/2021/07/08/hello-hexo/" aria-label=": Hexo Tranquilpeak 테마의 Markdown syntax">
+                            <h3 class="media-heading">Hexo Tranquilpeak 테마의 Markdown syntax</h3>
+                        </a>
+                        <span class="media-meta">
+                            <span class="media-date text-small">
+                                
+                                    2021년 7월 8일
+                                
+                            </span>
+                        </span>
+                        <div class="media-content hide-xs font-nanumsquareround"><p>Hexo 테마 중 하나인 <a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/LouisBarranqueiro/hexo-theme-tranquilpeak/blob/master/DOCUMENTATION.md">Tranquilpeak의 공식 문서</a>를 참조하여 Post시에 활용할 수 있는 다양한 Markdown syntax들을 사용해보았습니다.</p></div>
+                    </div>
+                    <div style="clear:both;"></div>
+                    <hr>
+                </div>
+                
+                <div class="media">
+                    <!-- 
+                    <div class="media-left">
+                        <a
+                            class="link-unstyled"
+                            href="https://chelseafandev.github.io/2021/07/10/tr-ruud-gullit/"
+                            aria-label=": (BBC 스포츠) 첼시 루드 굴리트 25년이 지난 지금 그의 프리미어그리 진출을 애정어린 시선으로 되돌아 보다"
+                        >
+                            <img class="media-image" src="https://chelseafandev.github.io/2021/07/10/tr-ruud-gullit/tr_ruud_gullit_picture_1.png" width="90" height="90"/>
+                        </a>
+                    </div>
+                     -->
+                    <div class="media-body">
+                        <a class="link-unstyled" href="https://chelseafandev.github.io/2021/07/10/tr-ruud-gullit/" aria-label=": (BBC 스포츠) 첼시 루드 굴리트 25년이 지난 지금 그의 프리미어그리 진출을 애정어린 시선으로 되돌아 보다">
+                            <h3 class="media-heading">(BBC 스포츠) 첼시 루드 굴리트 25년이 지난 지금 그의 프리미어그리 진출을 애정어린 시선으로 되돌아 보다</h3>
+                        </a>
+                        <span class="media-meta">
+                            <span class="media-date text-small">
+                                
+                                    2021년 7월 10일
+                                
+                            </span>
+                        </span>
+                        <div class="media-content hide-xs font-nanumsquareround"><p>피파 좀 한다는 사람이라면 모두가 다 알만한 그 분, X사기캐 굴리트😬<br>커리어 막바지에 첼시에서도 잠깐 활약했었네요.<br><a target="_blank" rel="external nofollow noopener noreferrer" href="https://www.bbc.com/sport/football/52904670">BBC Sport에 굴리트가 직접 기고한 회고록 느낌의 글</a>을 한번 번역해보았습니다.</p></div>
+                    </div>
+                    <div style="clear:both;"></div>
+                    <hr>
+                </div>
+                
+                <div class="media">
+                    <!--  -->
+                    <div class="media-body">
+                        <a class="link-unstyled" href="https://chelseafandev.github.io/2021/07/13/os-io-system/" aria-label=": I/O는 어떻게 처리될까?">
+                            <h3 class="media-heading">I/O는 어떻게 처리될까?</h3>
+                        </a>
+                        <span class="media-meta">
+                            <span class="media-date text-small">
+                                
+                                    2021년 7월 13일
+                                
+                            </span>
+                        </span>
+                        <div class="media-content hide-xs font-nanumsquareround"><p>운영 체제의 바이블 <a target="_blank" rel="external nofollow noopener noreferrer" href="https://www.wiley.com/en-us/Operating+System+Concepts%2C+10th+Edition-p-9781119320913">Operating System Concepts</a>(흔히 공룡책🦕이라고들 하죠)을 바탕으로 I/O 시스템에 대해 정리해보았습니다.</p></div>
+                    </div>
+                    <div style="clear:both;"></div>
+                    <hr>
+                </div>
+                
+                <div class="media">
+                    <!--  -->
+                    <div class="media-body">
+                        <a class="link-unstyled" href="https://chelseafandev.github.io/2021/07/22/tip-how-to-use-tmux-md/" aria-label=": 강력한 터미널 멀티플렉서 tmux를 활용해보자">
+                            <h3 class="media-heading">강력한 터미널 멀티플렉서 tmux를 활용해보자</h3>
+                        </a>
+                        <span class="media-meta">
+                            <span class="media-date text-small">
+                                
+                                    2021년 7월 22일
+                                
+                            </span>
+                        </span>
+                        <div class="media-content hide-xs font-nanumsquareround"><p>이번엔 익숙해지면 정말 강력한 터미널 멀티플렉서인 tmux에 대해 소개해보려고 합니다.</p></div>
+                    </div>
+                    <div style="clear:both;"></div>
+                    <hr>
+                </div>
+                
+                <div class="media">
+                    <!--  -->
+                    <div class="media-body">
+                        <a class="link-unstyled" href="https://chelseafandev.github.io/2021/08/02/os-sync-async-block-nonblock/" aria-label=": Blocking, Nonblocking, Sync, Async">
+                            <h3 class="media-heading">Blocking, Nonblocking, Sync, Async</h3>
+                        </a>
+                        <span class="media-meta">
+                            <span class="media-date text-small">
+                                
+                                    2021년 8월 2일
+                                
+                            </span>
+                        </span>
+                        <div class="media-content hide-xs font-nanumsquareround"><p>오늘은 공룡책🦕에 언급된 Blocking과 Nonblocking, Synchronous와 Asynchronous에 대해서 정리해보고자 합니다. Synchronous와 Asynchronous의 개념은 <strong>쓰레드</strong>와 <strong>I/O</strong>에서 등장하게 되는데요, 각각이 어떠한 의미로 사용되는지도 구분해서 살펴보도록 하겠습니다.</p></div>
+                    </div>
+                    <div style="clear:both;"></div>
+                    <hr>
+                </div>
+                
+                <div class="media">
+                    <!-- 
+                    <div class="media-left">
+                        <a
+                            class="link-unstyled"
+                            href="https://chelseafandev.github.io/2021/08/05/tr-lukaku-want-to-chelsea/"
+                            aria-label=": (BBC 스포츠) 첼시의 물망에 오른 루카쿠 적절한 오퍼가 온다면 인터 밀란을 떠나기 원해"
+                        >
+                            <img class="media-image" src="https://chelseafandev.github.io/2021/08/05/tr-lukaku-want-to-chelsea/tr-lukaku-want-to-chelsea.jpg" width="90" height="90"/>
+                        </a>
+                    </div>
+                     -->
+                    <div class="media-body">
+                        <a class="link-unstyled" href="https://chelseafandev.github.io/2021/08/05/tr-lukaku-want-to-chelsea/" aria-label=": (BBC 스포츠) 첼시의 물망에 오른 루카쿠 적절한 오퍼가 온다면 인터 밀란을 떠나기 원해">
+                            <h3 class="media-heading">(BBC 스포츠) 첼시의 물망에 오른 루카쿠 적절한 오퍼가 온다면 인터 밀란을 떠나기 원해</h3>
+                        </a>
+                        <span class="media-meta">
+                            <span class="media-date text-small">
+                                
+                                    2021년 8월 5일
+                                
+                            </span>
+                        </span>
+                        <div class="media-content hide-xs font-nanumsquareround"><p>오늘은 첼시 이적설이 가까워져가고 있는 루카쿠 관련 기사를 가져왔습니다. 베르너의 결정력이 너무나도 아쉬웠던 지난 시즌 첼시를 생각하면 꼭 필요한 영입이라고 생각되네요😁</p></div>
+                    </div>
+                    <div style="clear:both;"></div>
+                    <hr>
+                </div>
+                
+                <div class="media">
+                    <!-- 
+                    <div class="media-left">
+                        <a
+                            class="link-unstyled"
+                            href="https://chelseafandev.github.io/2021/08/12/tr-son-new-contract/"
+                            aria-label=": (BBC 스포츠) 토트넘 공격수 손흥민 4년 재계약 성사"
+                        >
+                            <img class="media-image" src="https://chelseafandev.github.io/2021/08/12/tr-son-new-contract/tr-son-new-contract-figure1.jpg" width="90" height="90"/>
+                        </a>
+                    </div>
+                     -->
+                    <div class="media-body">
+                        <a class="link-unstyled" href="https://chelseafandev.github.io/2021/08/12/tr-son-new-contract/" aria-label=": (BBC 스포츠) 토트넘 공격수 손흥민 4년 재계약 성사">
+                            <h3 class="media-heading">(BBC 스포츠) 토트넘 공격수 손흥민 4년 재계약 성사</h3>
+                        </a>
+                        <span class="media-meta">
+                            <span class="media-date text-small">
+                                
+                                    2021년 8월 12일
+                                
+                            </span>
+                        </span>
+                        <div class="media-content hide-xs font-nanumsquareround"><p>오늘은 현재 프리미어리그 토트넘 핫스퍼에서 활약 중인 손흥민 선수의 재계약 관련 기사를 가져왔습니다. 다음 시즌 누누감독이 이끌게 되는 토트넘, 쌉월클👍 손흥민선수와 함께 좋은 성적 거뒀으면 좋겠습니다.</p></div>
+                    </div>
+                    <div style="clear:both;"></div>
+                    <hr>
+                </div>
+                
+                <div class="media">
+                    <!--  -->
+                    <div class="media-body">
+                        <a class="link-unstyled" href="https://chelseafandev.github.io/2021/09/24/hyperscan-phase1/" aria-label=": 인텔 Hyperscan 레퍼런스 가이드 번역">
+                            <h3 class="media-heading">인텔 Hyperscan 레퍼런스 가이드 번역</h3>
+                        </a>
+                        <span class="media-meta">
+                            <span class="media-date text-small">
+                                
+                                    2021년 9월 24일
+                                
+                            </span>
+                        </span>
+                        <div class="media-content hide-xs font-nanumsquareround"><p>이번 포스팅에서는 인텔 Hyperscan의 <a target="_blank" rel="external nofollow noopener noreferrer" href="http://intel.github.io/hyperscan/dev-reference/index.html">공식 문서</a>를 통해 컴파일(compile)이나 스캔(scan)과 같은 Hyperscan의 기본적인 개념들에 대해 알아보도록 하겠습니다. 추후에는 Hyperscan API를 직접 사용하여 정규 표현식 패턴 매칭을 수행하는 샘플 코드도 업로드할 예정입니다.</p></div>
+                    </div>
+                    <div style="clear:both;"></div>
+                    <hr>
+                </div>
+                
+                <div class="media">
+                    <!--  -->
+                    <div class="media-body">
+                        <a class="link-unstyled" href="https://chelseafandev.github.io/2021/10/12/hyperscan-phase2/" aria-label=": 인텔 Hyperscan API 테스트 코드 작성">
+                            <h3 class="media-heading">인텔 Hyperscan API 테스트 코드 작성</h3>
+                        </a>
+                        <span class="media-meta">
+                            <span class="media-date text-small">
+                                
+                                    2021년 10월 12일
+                                
+                            </span>
+                        </span>
+                        <div class="media-content hide-xs font-nanumsquareround"><p>이번 포스팅에서는 <a href="https://chelseafandev.github.io/2021/09/24/hyperscan-phase1/">인텔 Hyperscan 레퍼런스 가이드 번역</a>에 이어서 Hyperscan API를 직접 사용하여 정규 표현식 패턴 매칭을 수행하는 샘플 코드를 작성하고 테스트 해보는 시간을 갖겠습니다.</p></div>
+                    </div>
+                    <div style="clear:both;"></div>
+                    <hr>
+                </div>
+                
+                <div class="media">
+                    <!--  -->
+                    <div class="media-body">
+                        <a class="link-unstyled" href="https://chelseafandev.github.io/2021/11/09/gdb-chapter4-program-crash/" aria-label=": Seg Fault는 왜 발생하는가?">
+                            <h3 class="media-heading">Seg Fault는 왜 발생하는가?</h3>
+                        </a>
+                        <span class="media-meta">
+                            <span class="media-date text-small">
+                                
+                                    2021년 11월 9일
+                                
+                            </span>
+                        </span>
+                        <div class="media-content hide-xs font-nanumsquareround"><p>이번 포스팅에서는 <a target="_blank" rel="external nofollow noopener noreferrer" href="https://nostarch.com/debugging.htm">The Art of Debugging with GDB, DDD and Eclipse</a>의 <strong>Chatper 4 WHEN A PROGRAM CRASHES</strong> 내용을 번역해보았습니다. 해당 챕터의 앞부분에서는 가상 주소 공간에서의 페이지(page)에 대한 개념을 소개하고 seg fault가 발생하는 원인을 페이지(page)와 연관지어 잘 설명해주고 있습니다.</p></div>
+                    </div>
+                    <div style="clear:both;"></div>
+                    <hr>
+                </div>
+                
+            </div>
+        </div>
+        <div class="modal-footer">
+            <p class="results-count text-medium" data-message-zero="포스트가 없습니다." data-message-one="1 개의 포스트가 있습니다." data-message-other="{n} 개의 포스트가 있습니다.">
+                27 개의 포스트가 있습니다.
+            </p>
+        </div>
+    </div>
+</div>
+
+        
+        
+<div id="cover" style="background-image:url('/assets/images/chelsea_cover.jpg');"></div>
+        <!--SCRIPTS-->
+
+<script src="/assets/js/jquery.js"></script>
+
+
+<script src="/assets/js/jquery.fancybox.js"></script>
+
+
+<script src="/assets/js/thumbs.js"></script>
+
+
+<script src="/assets/js/tranquilpeak.js"></script>
+
+<!--SCRIPTS END-->
+
+
+    
+
+
+
+    
+<script src="/assets/js/moment-with-locales.js"></script>
+
+    
+<script src="/assets/js/algoliasearch.js"></script>
+
+    <script>
+      var algoliaClient = algoliasearch('FDTOJ7KLS8', '935491408ac4c43d728c68858e4ea147');
+      var algoliaIndex = algoliaClient.initIndex('chelseafandev');
+    </script>
+
+
+    </body>
+</html>
