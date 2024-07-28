@@ -18,7 +18,7 @@
             <link rel="alternate" type="application/rss+xml" title="RSS" href="/rss2.xml">
         
     
-    <script type="application/ld+json">{"@context":"http://schema.org","@type":"BlogPosting","author":{"@type":"Person","name":"첼시팬개발자","sameAs":[],"image":"chelsea_logo.png"},"articleBody":"\nboost::asio::post 함수의 인자로 클래스의 인스턴스를 전달하는 경우에는 반드시 해당 클래스에 함수 호출 연산자가 오버로딩 되어있어야 합니다.\n\n\ncpp12345678910111213141516171819202122232425#include &lt;iostream&gt;#include &lt;boost/asio.hpp&gt;class handler{public:    handler(int a, int b) : a_(a), b_(b) {}    // 해당 함수 주석 처리하면 compile error!!    void operator()()    {        std::cout &lt;&lt; a_ * b_ &lt;&lt; std::endl;    }private:    int a_;    int b_;};int main(){    handler h(10, 20);    boost::asio::post(h);    return 0;}","dateCreated":"2023-01-26T11:43:57+09:00","dateModified":"2023-07-02T22:23:21+09:00","datePublished":"2023-01-26T11:43:57+09:00","description":"","headline":"boost::asio::post 함수의 인자로 클래스의 인스턴스를 전달할 때 주의 사항","image":[],"mainEntityOfPage":{"@type":"WebPage","@id":"https://chelseafandev.github.io/2023/01/26/caution-when-passing-instance-to-post/"},"publisher":{"@type":"Organization","name":"첼시팬개발자","sameAs":[],"image":"chelsea_logo.png","logo":{"@type":"ImageObject","url":"chelsea_logo.png"}},"url":"https://chelseafandev.github.io/2023/01/26/caution-when-passing-instance-to-post/","keywords":"boost::asio::post, passing instance to post function, function call operator, operator overloading"}</script>
+    <script type="application/ld+json">{"@context":"http://schema.org","@type":"BlogPosting","author":{"@type":"Person","name":"첼시팬개발자","sameAs":[],"image":"profile_github.jpeg"},"articleBody":"\nboost::asio::post 함수의 인자로 클래스의 인스턴스를 전달하는 경우에는 반드시 해당 클래스에 함수 호출 연산자가 오버로딩 되어있어야 합니다.\n\n\ncpp12345678910111213141516171819202122232425#include &lt;iostream&gt;#include &lt;boost/asio.hpp&gt;class handler{public:    handler(int a, int b) : a_(a), b_(b) {}    // 해당 함수 주석 처리하면 compile error!!    void operator()()    {        std::cout &lt;&lt; a_ * b_ &lt;&lt; std::endl;    }private:    int a_;    int b_;};int main(){    handler h(10, 20);    boost::asio::post(h);    return 0;}","dateCreated":"2023-01-26T11:43:57+09:00","dateModified":"2023-07-02T22:23:21+09:00","datePublished":"2023-01-26T11:43:57+09:00","description":"","headline":"boost::asio::post 함수의 인자로 클래스의 인스턴스를 전달할 때 주의 사항","image":[],"mainEntityOfPage":{"@type":"WebPage","@id":"https://chelseafandev.github.io/2023/01/26/caution-when-passing-instance-to-post/"},"publisher":{"@type":"Organization","name":"첼시팬개발자","sameAs":[],"image":"profile_github.jpeg","logo":{"@type":"ImageObject","url":"profile_github.jpeg"}},"url":"https://chelseafandev.github.io/2023/01/26/caution-when-passing-instance-to-post/","keywords":"boost::asio::post, passing instance to post function, function call operator, operator overloading"}</script>
     <meta property="og:type" content="blog">
 <meta property="og:title" content="boost::asio::post 함수의 인자로 클래스의 인스턴스를 전달할 때 주의 사항">
 <meta property="og:url" content="https://chelseafandev.github.io/2023/01/26/caution-when-passing-instance-to-post/index.html">
@@ -37,7 +37,7 @@
         
     
     
-        <meta property="og:image" content="https://chelseafandev.github.io/assets/images/chelsea_logo.png">
+        <meta property="og:image" content="https://chelseafandev.github.io/assets/images/profile_github.jpeg">
     
     
     
@@ -89,7 +89,7 @@
             <a class="header-right-picture " href="#about" aria-label="링크 열기: /#about">
         
         
-            <img class="header-picture" src="/assets/images/chelsea_logo.png" alt="저자 이미지">
+            <img class="header-picture" src="/assets/images/profile_github.jpeg" alt="저자 이미지">
         
         </a>
     
@@ -107,7 +107,7 @@
         
             <div class="sidebar-profile">
                 <a href="/#about" aria-label="저자에 대해 더 알아보기">
-                    <img class="sidebar-profile-picture" src="/assets/images/chelsea_logo.png" alt="저자 이미지">
+                    <img class="sidebar-profile-picture" src="/assets/images/profile_github.jpeg" alt="저자 이미지">
                 </a>
                 <h4 class="sidebar-profile-name">첼시팬개발자</h4>
                 
@@ -445,7 +445,7 @@
             <i class="fa fa-times"></i>
         </div>
         
-            <img id="about-card-picture" src="/assets/images/chelsea_logo.png" alt="저자 이미지">
+            <img id="about-card-picture" src="/assets/images/profile_github.jpeg" alt="저자 이미지">
         
             <h4 id="about-card-name">첼시팬개발자</h4>
         

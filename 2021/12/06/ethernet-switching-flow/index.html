@@ -18,7 +18,7 @@
             <link rel="alternate" type="application/rss+xml" title="RSS" href="/rss2.xml">
         
     
-    <script type="application/ld+json">{"@context":"http://schema.org","@type":"BlogPosting","author":{"@type":"Person","name":"첼시팬개발자","sameAs":[],"image":"chelsea_logo.png"},"articleBody":"이번 포스팅에서는 L3 스위치에서의 Ethernet 스위칭 과정에 대해 알아보겠습니다.\n\n넷매니아즈라는 사이트에 총 4편의 시리즈로 연재된 L3 스위치의 패킷 전달에 대한 아주 양질의 게시물을 참고하여 정리해보았습니다. 실제 연재글에서는 상세한 그림과 함께 L3 스위치 내부 구조를 좀 더 세분화하여 설명하고 있으니 관심이 있으신분들은 여기를 참조해주시기 바랍니다.\n\n\n\n\n\n서버1과 서버3은 현재 동일한 VLAN(VLAN ID: 10)내에 있으며, 서버1의 ARP 테이블에는 서버3의 엔트리가 이미 존재한다고 가정(존재하지 않는 경우에는 ARP Request/Reply 메시지를 통해 ARP 테이블을 채워주어야함)하겠습니다.\n서버1에서 서버3으로 패킷 전달(Flooding)Flooding\n\n\n서버1에서 서버3으로 Ping 패킷을 보내려고합니다.\n서버1의 라우팅 테이블을 참조(Destination 주소 별 게이트웨이 IP와 출력 포트를 확인할 수 있음)하여 서버3이 서버1과 동일한 네트워크라는 것과 패킷을 내보낼 출력 포트를 확인합니다.\n서버1의 ARP 테이블을 참조하여 서버3의 IP주소에 대한 MAC 주소를 확인합니다.\n출력 포트와 MAC 주소를 확인했으니 서버1은 서버3으로 Ping 패킷을 송신합니다.\nPing 패킷은 출력 포트를 통해 L3 스위치로 이동합니다.\nPing 패킷을 수신한 L3 스위치는 해당 패킷을 버퍼(Ingress Packet Buffer)에 잠시 저장해둡니다.\n이제 L3 스위치에서 수신한 Ping 패킷의 Source MAC 주소를 학습할 차례입니다. 동일 VLAN을 소유한 Line Card들에만 Source MAC 주소 정보를 공유하여 각각의 MAC 테이블에 그 값(VLAN, Source MAC 주소, 포트)을 저장하도록 합니다.\n다음으로 해당 패킷을 IP 라우팅시킬지 Ethernet 스위칭시킬것인지를 결정하는데 이를 위해 Destination MAC 주소를 참조합니다.Destination MAC 주소가 L3 스위치의 MAC 주소인 경우에는, IP 라우팅Destination MAC 주소가 L3 스위치의 MAC 주소가 아닌 경우에는, Ethernet 스위칭\n\n\n이 경우에는 해당 패킷의 Destination MAC 주소가 서버3의 MAC 주소이므로 Ethernet 스위칭을 시킵니다.\nEthernet 스위칭을 위해 L3 스위치에서는 해당 패킷의 Destination MAC 주소가 MAC 테이블에 존재하는지 확인합니다.\n만약 등록되어 있지 않다면 동일 VLAN에 속한 포트들 중에서 수신 포트(서버1의 포트)를 제외한 나머지 모든 포트(여기서는 서버2와 서버3의 포트라고 가정)로 수신한 Ping 패킷을 Flooding해야함을 알게됩니다.\nL3 스위치는 앞서 버퍼에 잠시 저장해둔 패킷(6번 과정을 참고)을 출력을 위한 버퍼(Egress Packet Buffer)로 옮긴 후 11번에서 확인된 포트들로 해당 패킷을 Flooding합니다.\n이제 서버2와 서버3이 서버1이 보낸 Ping 패킷을 수신하게 됩니다.\n\n\n서버3에서 서버1로 패킷 전달(Unicasting)Unicasting\n\n\nPing 패킷의 Destination MAC 주소는 서버3의 MAC 주소이기때문에 서버2에서는 수신한 Ping 패킷을 버립니다.\n서버3은 수신한 Ping 패킷에 대한 응답 패킷을 서버1로 송신합니다.(서버1에서와 마찬가지로 서버3은 자신의 라우팅 테이블과 ARP 테이블을 참조하여 출력 포트와 서버1의 MAC주소를 확인함)\n응답 패킷은 출력 포트를 통해 L3 스위치로 이동합니다.\n응답 패킷을 수신한 L3 스위치는 해당 패킷을 버퍼(Ingress Packet Buffer)에 잠시 저장해둡니다.\n이제 L3 스위치에서 수신한 응답 패킷의 Source MAC 주소를 학습할 차례입니다. 동일 VLAN을 소유한 Line Card들에만 Source MAC 주소 정보를 공유하여 각각의 MAC 테이블에 그 값(VLAN, Source MAC 주소, 포트)을 저장하도록 합니다.\n다음으로 해당 패킷을 IP 라우팅시킬지 Ethernet 스위칭시킬것인지를 결정하는데 이를 위해 Destination MAC 주소를 참조합니다.\n이 경우에는 해당 패킷의 Destination MAC 주소가 서버1의 MAC 주소이므로 Ethernet 스위칭을 시킵니다.\nEthernet 스위칭을 위해 L3 스위치에서는 해당 패킷의 Destination MAC 주소가 MAC 테이블에 존재하는지 확인합니다. 이번에는 존재(이전의 Source MAC 주소 학습을 통해 서버1의 MAC 주소가 저장된 상태이므로)합니다.\nL3 스위치는 앞서 버퍼에 잠시 저장해둔 패킷(4번 과정을 참고)을 출력을 위한 버퍼(Egress Packet Buffer)로 옮긴 후 8번에서 확인된 MAC주소로 해당 패킷을 송신합니다. 이렇게 MAC 테이블에 매칭되어 하나의 포트로 패킷이 나가는 경우를 Unicasting이라고 합니다.\n\n\n\n\n해당 게시글에서 발생한 오탈자나 잘못된 내용에 대한 정정 댓글 격하게 환영합니다😎\n\nReference\n\nhttps://www.netmanias.com/ko/?m=view&amp;id=blog&amp;no=5526\n\n","dateCreated":"2021-12-06T12:06:07+09:00","dateModified":"2023-06-09T14:02:43+09:00","datePublished":"2021-12-06T12:06:07+09:00","description":"이번 포스팅에서는 L3 스위치에서의 Ethernet 스위칭 과정에 대해 알아보겠습니다.","headline":"Ethernet 스위칭 과정에 대해 알아보자","image":[],"mainEntityOfPage":{"@type":"WebPage","@id":"https://chelseafandev.github.io/2021/12/06/ethernet-switching-flow/"},"publisher":{"@type":"Organization","name":"첼시팬개발자","sameAs":[],"image":"chelsea_logo.png","logo":{"@type":"ImageObject","url":"chelsea_logo.png"}},"url":"https://chelseafandev.github.io/2021/12/06/ethernet-switching-flow/","keywords":"ethernet switching, 이더넷 스위치, Source MAC Learning, ARP Table, L3 스위치"}</script>
+    <script type="application/ld+json">{"@context":"http://schema.org","@type":"BlogPosting","author":{"@type":"Person","name":"첼시팬개발자","sameAs":[],"image":"profile_github.jpeg"},"articleBody":"이번 포스팅에서는 L3 스위치에서의 Ethernet 스위칭 과정에 대해 알아보겠습니다.\n\n넷매니아즈라는 사이트에 총 4편의 시리즈로 연재된 L3 스위치의 패킷 전달에 대한 아주 양질의 게시물을 참고하여 정리해보았습니다. 실제 연재글에서는 상세한 그림과 함께 L3 스위치 내부 구조를 좀 더 세분화하여 설명하고 있으니 관심이 있으신분들은 여기를 참조해주시기 바랍니다.\n\n\n\n\n\n서버1과 서버3은 현재 동일한 VLAN(VLAN ID: 10)내에 있으며, 서버1의 ARP 테이블에는 서버3의 엔트리가 이미 존재한다고 가정(존재하지 않는 경우에는 ARP Request/Reply 메시지를 통해 ARP 테이블을 채워주어야함)하겠습니다.\n서버1에서 서버3으로 패킷 전달(Flooding)Flooding\n\n\n서버1에서 서버3으로 Ping 패킷을 보내려고합니다.\n서버1의 라우팅 테이블을 참조(Destination 주소 별 게이트웨이 IP와 출력 포트를 확인할 수 있음)하여 서버3이 서버1과 동일한 네트워크라는 것과 패킷을 내보낼 출력 포트를 확인합니다.\n서버1의 ARP 테이블을 참조하여 서버3의 IP주소에 대한 MAC 주소를 확인합니다.\n출력 포트와 MAC 주소를 확인했으니 서버1은 서버3으로 Ping 패킷을 송신합니다.\nPing 패킷은 출력 포트를 통해 L3 스위치로 이동합니다.\nPing 패킷을 수신한 L3 스위치는 해당 패킷을 버퍼(Ingress Packet Buffer)에 잠시 저장해둡니다.\n이제 L3 스위치에서 수신한 Ping 패킷의 Source MAC 주소를 학습할 차례입니다. 동일 VLAN을 소유한 Line Card들에만 Source MAC 주소 정보를 공유하여 각각의 MAC 테이블에 그 값(VLAN, Source MAC 주소, 포트)을 저장하도록 합니다.\n다음으로 해당 패킷을 IP 라우팅시킬지 Ethernet 스위칭시킬것인지를 결정하는데 이를 위해 Destination MAC 주소를 참조합니다.Destination MAC 주소가 L3 스위치의 MAC 주소인 경우에는, IP 라우팅Destination MAC 주소가 L3 스위치의 MAC 주소가 아닌 경우에는, Ethernet 스위칭\n\n\n이 경우에는 해당 패킷의 Destination MAC 주소가 서버3의 MAC 주소이므로 Ethernet 스위칭을 시킵니다.\nEthernet 스위칭을 위해 L3 스위치에서는 해당 패킷의 Destination MAC 주소가 MAC 테이블에 존재하는지 확인합니다.\n만약 등록되어 있지 않다면 동일 VLAN에 속한 포트들 중에서 수신 포트(서버1의 포트)를 제외한 나머지 모든 포트(여기서는 서버2와 서버3의 포트라고 가정)로 수신한 Ping 패킷을 Flooding해야함을 알게됩니다.\nL3 스위치는 앞서 버퍼에 잠시 저장해둔 패킷(6번 과정을 참고)을 출력을 위한 버퍼(Egress Packet Buffer)로 옮긴 후 11번에서 확인된 포트들로 해당 패킷을 Flooding합니다.\n이제 서버2와 서버3이 서버1이 보낸 Ping 패킷을 수신하게 됩니다.\n\n\n서버3에서 서버1로 패킷 전달(Unicasting)Unicasting\n\n\nPing 패킷의 Destination MAC 주소는 서버3의 MAC 주소이기때문에 서버2에서는 수신한 Ping 패킷을 버립니다.\n서버3은 수신한 Ping 패킷에 대한 응답 패킷을 서버1로 송신합니다.(서버1에서와 마찬가지로 서버3은 자신의 라우팅 테이블과 ARP 테이블을 참조하여 출력 포트와 서버1의 MAC주소를 확인함)\n응답 패킷은 출력 포트를 통해 L3 스위치로 이동합니다.\n응답 패킷을 수신한 L3 스위치는 해당 패킷을 버퍼(Ingress Packet Buffer)에 잠시 저장해둡니다.\n이제 L3 스위치에서 수신한 응답 패킷의 Source MAC 주소를 학습할 차례입니다. 동일 VLAN을 소유한 Line Card들에만 Source MAC 주소 정보를 공유하여 각각의 MAC 테이블에 그 값(VLAN, Source MAC 주소, 포트)을 저장하도록 합니다.\n다음으로 해당 패킷을 IP 라우팅시킬지 Ethernet 스위칭시킬것인지를 결정하는데 이를 위해 Destination MAC 주소를 참조합니다.\n이 경우에는 해당 패킷의 Destination MAC 주소가 서버1의 MAC 주소이므로 Ethernet 스위칭을 시킵니다.\nEthernet 스위칭을 위해 L3 스위치에서는 해당 패킷의 Destination MAC 주소가 MAC 테이블에 존재하는지 확인합니다. 이번에는 존재(이전의 Source MAC 주소 학습을 통해 서버1의 MAC 주소가 저장된 상태이므로)합니다.\nL3 스위치는 앞서 버퍼에 잠시 저장해둔 패킷(4번 과정을 참고)을 출력을 위한 버퍼(Egress Packet Buffer)로 옮긴 후 8번에서 확인된 MAC주소로 해당 패킷을 송신합니다. 이렇게 MAC 테이블에 매칭되어 하나의 포트로 패킷이 나가는 경우를 Unicasting이라고 합니다.\n\n\n\n\n해당 게시글에서 발생한 오탈자나 잘못된 내용에 대한 정정 댓글 격하게 환영합니다😎\n\nReference\n\nhttps://www.netmanias.com/ko/?m=view&amp;id=blog&amp;no=5526\n\n","dateCreated":"2021-12-06T12:06:07+09:00","dateModified":"2023-06-09T14:02:43+09:00","datePublished":"2021-12-06T12:06:07+09:00","description":"이번 포스팅에서는 L3 스위치에서의 Ethernet 스위칭 과정에 대해 알아보겠습니다.","headline":"Ethernet 스위칭 과정에 대해 알아보자","image":[],"mainEntityOfPage":{"@type":"WebPage","@id":"https://chelseafandev.github.io/2021/12/06/ethernet-switching-flow/"},"publisher":{"@type":"Organization","name":"첼시팬개발자","sameAs":[],"image":"profile_github.jpeg","logo":{"@type":"ImageObject","url":"profile_github.jpeg"}},"url":"https://chelseafandev.github.io/2021/12/06/ethernet-switching-flow/","keywords":"ethernet switching, 이더넷 스위치, Source MAC Learning, ARP Table, L3 스위치"}</script>
     <meta name="description" content="이번 포스팅에서는 L3 스위치에서의 Ethernet 스위칭 과정에 대해 알아보겠습니다.">
 <meta property="og:type" content="blog">
 <meta property="og:title" content="Ethernet 스위칭 과정에 대해 알아보자">
@@ -43,7 +43,7 @@
         
     
     
-        <meta property="og:image" content="https://chelseafandev.github.io/assets/images/chelsea_logo.png">
+        <meta property="og:image" content="https://chelseafandev.github.io/assets/images/profile_github.jpeg">
     
     
     
@@ -95,7 +95,7 @@
             <a class="header-right-picture " href="#about" aria-label="링크 열기: /#about">
         
         
-            <img class="header-picture" src="/assets/images/chelsea_logo.png" alt="저자 이미지">
+            <img class="header-picture" src="/assets/images/profile_github.jpeg" alt="저자 이미지">
         
         </a>
     
@@ -113,7 +113,7 @@
         
             <div class="sidebar-profile">
                 <a href="/#about" aria-label="저자에 대해 더 알아보기">
-                    <img class="sidebar-profile-picture" src="/assets/images/chelsea_logo.png" alt="저자 이미지">
+                    <img class="sidebar-profile-picture" src="/assets/images/profile_github.jpeg" alt="저자 이미지">
                 </a>
                 <h4 class="sidebar-profile-name">첼시팬개발자</h4>
                 
@@ -498,7 +498,7 @@
             <i class="fa fa-times"></i>
         </div>
         
-            <img id="about-card-picture" src="/assets/images/chelsea_logo.png" alt="저자 이미지">
+            <img id="about-card-picture" src="/assets/images/profile_github.jpeg" alt="저자 이미지">
         
             <h4 id="about-card-name">첼시팬개발자</h4>
         

@@ -18,7 +18,7 @@
             <link rel="alternate" type="application/rss+xml" title="RSS" href="/rss2.xml">
         
     
-    <script type="application/ld+json">{"@context":"http://schema.org","@type":"BlogPosting","author":{"@type":"Person","name":"첼시팬개발자","sameAs":[],"image":"chelsea_logo.png"},"articleBody":"이번엔 익숙해지면 정말 강력한 터미널 멀티플렉서인 tmux에 대해 소개해보려고 합니다.\n\n\n\n\n\ntmux란?tmux는 말그대로 멀티플렉서 이기때문에 하나의 터미널 화면에 여러 개의 터미널을 각각 독립적으로 관리할 수 있습니다. tmux를 사용하면 Ctrl + Tab을 누르면서 창을 옮겨 다닐 필요없이 한 눈에 여러 터미널을 볼 수 있고, 다양한 명령어를 통해서 좀 더 효율적으로 터미널 작업을 수행할 수 있습니다.\n\ntmux의 구조tmux에는 몇가지 논리적인 개념을 도입하여 멀티플렉싱 기능을 구조화하였습니다. tmux의 공식 매뉴얼을 참조하여 이 개념에 대해 알아보겠습니다.\ntmux를 실행하면 하나의 윈도우(window)를 갖는 새로운 세션(session)만들고 이 것을 화면에 출력합니다. 화면 하단에는 현재 세션 정보를 알 수 있는 상태 표시줄이 있으며 이는 상호 작용을 위한 커맨드를 입력하는데 사용됩니다.\n\nWhen tmux is started it creates a new session with a single window and displays it on screen. A status line at the bottom of the screen shows information on the current session and is used to enter interactive commands.\n\n세션(session)은 tmux가 관리하는 가상의 터미널 집합입니다. 각각의 세션은 그것과 연결된 하나 또는 2개 이상의 윈도우(window)를 갖고 있습니다. 모니터 화면 전체를 차지하고 있는 것이 윈도우(window)이고, 이 윈도우(window)는 몇 개의 사각 판(pane)으로 나누어져 있을 수 있습니다. 그리고 각각의 사각 판(pane)은 분리된 가상의 터미널입니다.\n\nA session is a single collection of pseudo terminals under the management of tmux. Each session has one or more windows linked to it. A window occupies the entire screen and may be split into rectangular panes, each of which is a separate pseudo terminal.\n\n위에서 설명한 개념들을 간략히 도식화해보면 아래와 같습니다. 세션(session) 내부에는 윈도우(window)라는 것이 1개 이상 존재할 수 있고, 윈도우(window)라는 것은 1개 이상의 판(pane)으로 이루어져 있습니다. 그리고 이 각각의 판(pane)이 터미널 하나라고 보시면됩니다. 그리고 세션(session) 또한 1개 이상 존재할 수 있습니다.\ntmux의 논리 구조 도식화\n\n\ntmux 구조별 명령어 정리tmux에서 제공하는 다양한 명령어들을 앞서 살펴봤던 tmux의 구조 별로 정리해보았습니다. 제가 자주 사용하는 명령어들만 나열해보았으니 더 많은 명령어 정보들은 tmux 공식 매뉴얼이나 구글링을 통해 찾아보시면 될 것 같습니다.😎\n기본적으로 tmux 명령어는 tmux 세션 내에 진입하였을 때 사용이 가능하며 ctrl + b는 tmux 명령어를 입력하고자 할 때 사용하는 입력 값입니다. 아래 명령어 리스트에 ctrl + b가 포함된 것들은 모두 tmux session 내에서 실행하는 것이라고 보면됩니다.\n\nSession\n\ntmux : 새로운 세션 생성\ntmux ls : 현재 생성되어 있는 tmux 세션 목록 확인\ntmux a -t 세션번호(또는 세션이름) : 해당 세션으로 이동\ntmux kill-session -t 세션번호(또는 세션이름) : 해당 세션 종료\n(ctrl + b) + $ : 현재 세션 명 변경\n(ctrl + b) + d : tmux 세션 빠져나오기(종료는 아님)\n\n\nWindow\n\n(ctrl + b) + c : 새로운 윈도우 생성\n(ctrl + b) + &amp; : 현재 윈도우 삭제\n(ctrl + b) + , : 현재 윈도우 명 변경\n(ctrl + b) + 윈도우번호 : 해당 윈도우로 이동\n(ctrl + b) + n : 다음(next) 윈도우로 이동\n(ctrl + b) + p : 이전(previous) 윈도우로 이동\n(ctrl + b) + w : 생성된 윈도우 리스트 정보\n\n\nPane\n\n(ctrl + b) + % : 열 분할\n(ctrl + b) + “ : 행 분할\n(ctrl + b) + 방향키 : 분할된 pane 간의 이동\n(ctrl + b) + z : 현재 pane만 전체 크기로 보기(전체 크기에서 동일한 커맨드를 다시 입력할 경우 원래 분할된 창으로 돌아간다)\n(ctrl + b) + x : 현재 pane 종료\n\n\n\n\n마치며지금까지 강력한 터미널 멀티플렉서 tmux의 구조와 몇가지 명령어에 대해 알아보았습니다. 앞으로는 tmux와 함께 터미널을 자유롭게 넘나들어 봅시다😁\n\n\n해당 게시글에서 발생한 오탈자나 잘못된 내용에 대한 정정 댓글 격하게 환영합니다😎\n\nReference\n\nhttp://man.openbsd.org/OpenBSD-current/man1/tmux.1\nhttps://github.com/tmux/tmux/wiki\n\n","dateCreated":"2021-07-22T18:05:50+09:00","dateModified":"2023-06-09T14:02:43+09:00","datePublished":"2021-07-22T18:05:50+09:00","description":"이번엔 익숙해지면 정말 강력한 터미널 멀티플렉서인 tmux에 대해 소개해보려고 합니다.","headline":"강력한 터미널 멀티플렉서 tmux를 활용해보자","image":[],"mainEntityOfPage":{"@type":"WebPage","@id":"https://chelseafandev.github.io/2021/07/22/tip-how-to-use-tmux-md/"},"publisher":{"@type":"Organization","name":"첼시팬개발자","sameAs":[],"image":"chelsea_logo.png","logo":{"@type":"ImageObject","url":"chelsea_logo.png"}},"url":"https://chelseafandev.github.io/2021/07/22/tip-how-to-use-tmux-md/","keywords":"tmux, terminal multiplexer"}</script>
+    <script type="application/ld+json">{"@context":"http://schema.org","@type":"BlogPosting","author":{"@type":"Person","name":"첼시팬개발자","sameAs":[],"image":"profile_github.jpeg"},"articleBody":"이번엔 익숙해지면 정말 강력한 터미널 멀티플렉서인 tmux에 대해 소개해보려고 합니다.\n\n\n\n\n\ntmux란?tmux는 말그대로 멀티플렉서 이기때문에 하나의 터미널 화면에 여러 개의 터미널을 각각 독립적으로 관리할 수 있습니다. tmux를 사용하면 Ctrl + Tab을 누르면서 창을 옮겨 다닐 필요없이 한 눈에 여러 터미널을 볼 수 있고, 다양한 명령어를 통해서 좀 더 효율적으로 터미널 작업을 수행할 수 있습니다.\n\ntmux의 구조tmux에는 몇가지 논리적인 개념을 도입하여 멀티플렉싱 기능을 구조화하였습니다. tmux의 공식 매뉴얼을 참조하여 이 개념에 대해 알아보겠습니다.\ntmux를 실행하면 하나의 윈도우(window)를 갖는 새로운 세션(session)만들고 이 것을 화면에 출력합니다. 화면 하단에는 현재 세션 정보를 알 수 있는 상태 표시줄이 있으며 이는 상호 작용을 위한 커맨드를 입력하는데 사용됩니다.\n\nWhen tmux is started it creates a new session with a single window and displays it on screen. A status line at the bottom of the screen shows information on the current session and is used to enter interactive commands.\n\n세션(session)은 tmux가 관리하는 가상의 터미널 집합입니다. 각각의 세션은 그것과 연결된 하나 또는 2개 이상의 윈도우(window)를 갖고 있습니다. 모니터 화면 전체를 차지하고 있는 것이 윈도우(window)이고, 이 윈도우(window)는 몇 개의 사각 판(pane)으로 나누어져 있을 수 있습니다. 그리고 각각의 사각 판(pane)은 분리된 가상의 터미널입니다.\n\nA session is a single collection of pseudo terminals under the management of tmux. Each session has one or more windows linked to it. A window occupies the entire screen and may be split into rectangular panes, each of which is a separate pseudo terminal.\n\n위에서 설명한 개념들을 간략히 도식화해보면 아래와 같습니다. 세션(session) 내부에는 윈도우(window)라는 것이 1개 이상 존재할 수 있고, 윈도우(window)라는 것은 1개 이상의 판(pane)으로 이루어져 있습니다. 그리고 이 각각의 판(pane)이 터미널 하나라고 보시면됩니다. 그리고 세션(session) 또한 1개 이상 존재할 수 있습니다.\ntmux의 논리 구조 도식화\n\n\ntmux 구조별 명령어 정리tmux에서 제공하는 다양한 명령어들을 앞서 살펴봤던 tmux의 구조 별로 정리해보았습니다. 제가 자주 사용하는 명령어들만 나열해보았으니 더 많은 명령어 정보들은 tmux 공식 매뉴얼이나 구글링을 통해 찾아보시면 될 것 같습니다.😎\n기본적으로 tmux 명령어는 tmux 세션 내에 진입하였을 때 사용이 가능하며 ctrl + b는 tmux 명령어를 입력하고자 할 때 사용하는 입력 값입니다. 아래 명령어 리스트에 ctrl + b가 포함된 것들은 모두 tmux session 내에서 실행하는 것이라고 보면됩니다.\n\nSession\n\ntmux : 새로운 세션 생성\ntmux ls : 현재 생성되어 있는 tmux 세션 목록 확인\ntmux a -t 세션번호(또는 세션이름) : 해당 세션으로 이동\ntmux kill-session -t 세션번호(또는 세션이름) : 해당 세션 종료\n(ctrl + b) + $ : 현재 세션 명 변경\n(ctrl + b) + d : tmux 세션 빠져나오기(종료는 아님)\n\n\nWindow\n\n(ctrl + b) + c : 새로운 윈도우 생성\n(ctrl + b) + &amp; : 현재 윈도우 삭제\n(ctrl + b) + , : 현재 윈도우 명 변경\n(ctrl + b) + 윈도우번호 : 해당 윈도우로 이동\n(ctrl + b) + n : 다음(next) 윈도우로 이동\n(ctrl + b) + p : 이전(previous) 윈도우로 이동\n(ctrl + b) + w : 생성된 윈도우 리스트 정보\n\n\nPane\n\n(ctrl + b) + % : 열 분할\n(ctrl + b) + “ : 행 분할\n(ctrl + b) + 방향키 : 분할된 pane 간의 이동\n(ctrl + b) + z : 현재 pane만 전체 크기로 보기(전체 크기에서 동일한 커맨드를 다시 입력할 경우 원래 분할된 창으로 돌아간다)\n(ctrl + b) + x : 현재 pane 종료\n\n\n\n\n마치며지금까지 강력한 터미널 멀티플렉서 tmux의 구조와 몇가지 명령어에 대해 알아보았습니다. 앞으로는 tmux와 함께 터미널을 자유롭게 넘나들어 봅시다😁\n\n\n해당 게시글에서 발생한 오탈자나 잘못된 내용에 대한 정정 댓글 격하게 환영합니다😎\n\nReference\n\nhttp://man.openbsd.org/OpenBSD-current/man1/tmux.1\nhttps://github.com/tmux/tmux/wiki\n\n","dateCreated":"2021-07-22T18:05:50+09:00","dateModified":"2023-06-09T14:02:43+09:00","datePublished":"2021-07-22T18:05:50+09:00","description":"이번엔 익숙해지면 정말 강력한 터미널 멀티플렉서인 tmux에 대해 소개해보려고 합니다.","headline":"강력한 터미널 멀티플렉서 tmux를 활용해보자","image":[],"mainEntityOfPage":{"@type":"WebPage","@id":"https://chelseafandev.github.io/2021/07/22/tip-how-to-use-tmux-md/"},"publisher":{"@type":"Organization","name":"첼시팬개발자","sameAs":[],"image":"profile_github.jpeg","logo":{"@type":"ImageObject","url":"profile_github.jpeg"}},"url":"https://chelseafandev.github.io/2021/07/22/tip-how-to-use-tmux-md/","keywords":"tmux, terminal multiplexer"}</script>
     <meta name="description" content="이번엔 익숙해지면 정말 강력한 터미널 멀티플렉서인 tmux에 대해 소개해보려고 합니다.">
 <meta property="og:type" content="blog">
 <meta property="og:title" content="강력한 터미널 멀티플렉서 tmux를 활용해보자">
@@ -39,7 +39,7 @@
         
     
     
-        <meta property="og:image" content="https://chelseafandev.github.io/assets/images/chelsea_logo.png">
+        <meta property="og:image" content="https://chelseafandev.github.io/assets/images/profile_github.jpeg">
     
     
     
@@ -91,7 +91,7 @@
             <a class="header-right-picture " href="#about" aria-label="링크 열기: /#about">
         
         
-            <img class="header-picture" src="/assets/images/chelsea_logo.png" alt="저자 이미지">
+            <img class="header-picture" src="/assets/images/profile_github.jpeg" alt="저자 이미지">
         
         </a>
     
@@ -109,7 +109,7 @@
         
             <div class="sidebar-profile">
                 <a href="/#about" aria-label="저자에 대해 더 알아보기">
-                    <img class="sidebar-profile-picture" src="/assets/images/chelsea_logo.png" alt="저자 이미지">
+                    <img class="sidebar-profile-picture" src="/assets/images/profile_github.jpeg" alt="저자 이미지">
                 </a>
                 <h4 class="sidebar-profile-name">첼시팬개발자</h4>
                 
@@ -509,7 +509,7 @@
             <i class="fa fa-times"></i>
         </div>
         
-            <img id="about-card-picture" src="/assets/images/chelsea_logo.png" alt="저자 이미지">
+            <img id="about-card-picture" src="/assets/images/profile_github.jpeg" alt="저자 이미지">
         
             <h4 id="about-card-name">첼시팬개발자</h4>
         

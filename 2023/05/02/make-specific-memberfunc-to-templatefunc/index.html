@@ -18,7 +18,7 @@
             <link rel="alternate" type="application/rss+xml" title="RSS" href="/rss2.xml">
         
     
-    <script type="application/ld+json">{"@context":"http://schema.org","@type":"BlogPosting","author":{"@type":"Person","name":"첼시팬개발자","sameAs":[],"image":"chelsea_logo.png"},"articleBody":"\n아래와 같이 클래스 템플릿에서 특정 멤버 함수만 특수화가 가능합니다.\nmytemplateclass.hcpp12345678910111213template&lt;typename T&gt;class mytemplateclass{public:  std::string get_name(); // 특수화 하려는 대상  int get_grade();private:  std::string name_;  int grade_;}#include \"mytemplateclass.impl.h\"\n\nmytemplateclass.impl.hcpp1234567891011121314151617template &lt;typename T&gt;std::string mytemplateclass&lt;T&gt;::get_name(){  return name_;}template&lt;&gt;std::string mytemplateclass&lt;int&gt;::get_name(){  return std::string(\"specific member function specialization\");}template &lt;typename T&gt;int mytemplateclass&lt;T&gt;::get_grade(){  return grade_;}\n\n\n\nC++17 부터는 if constexpr와 std::is_same_v를 조합하여 좀 더 깔끔하게 처리할 수 있습니다.\nmytemplateclass_v2.hcpp12345678910111213template&lt;typename T&gt;class mytemplateclass_v2{public:  std::string get_name(); // 특수화 하려는 대상  int get_grade();private:  std::string name_;  int grade_;}#include \"mytemplateclass_v2.impl.h\"\n\nmytemplateclass_v2.impl.hcpp123456789101112131415template &lt;typename T&gt;std::string mytemplateclass_v2&lt;T&gt;::get_name(){  if constexpr (std::is_same_v&lt;int, T&gt;)  {    return std::string(\"specific member function specialization\");  }  return name_;}template &lt;typename T&gt;int mytemplateclass_v2&lt;T&gt;::get_grade(){  return grade_;}\n\n\n\nReference\n\nhttps://stackoverflow.com/questions/5512910/explicit-specialization-of-template-class-member-function\nhttps://en.cppreference.com/w/cpp/types/is_same\n\n","dateCreated":"2023-05-02T11:24:04+09:00","dateModified":"2023-07-02T22:23:21+09:00","datePublished":"2023-05-02T11:24:04+09:00","description":"","headline":"클래스 템플릿의 특정 멤버 함수만 특수화하기","image":[],"mainEntityOfPage":{"@type":"WebPage","@id":"https://chelseafandev.github.io/2023/05/02/make-specific-memberfunc-to-templatefunc/"},"publisher":{"@type":"Organization","name":"첼시팬개발자","sameAs":[],"image":"chelsea_logo.png","logo":{"@type":"ImageObject","url":"chelsea_logo.png"}},"url":"https://chelseafandev.github.io/2023/05/02/make-specific-memberfunc-to-templatefunc/","keywords":"template, template function specialization, if constexpr, std::is_same_v"}</script>
+    <script type="application/ld+json">{"@context":"http://schema.org","@type":"BlogPosting","author":{"@type":"Person","name":"첼시팬개발자","sameAs":[],"image":"profile_github.jpeg"},"articleBody":"\n아래와 같이 클래스 템플릿에서 특정 멤버 함수만 특수화가 가능합니다.\nmytemplateclass.hcpp12345678910111213template&lt;typename T&gt;class mytemplateclass{public:  std::string get_name(); // 특수화 하려는 대상  int get_grade();private:  std::string name_;  int grade_;}#include \"mytemplateclass.impl.h\"\n\nmytemplateclass.impl.hcpp1234567891011121314151617template &lt;typename T&gt;std::string mytemplateclass&lt;T&gt;::get_name(){  return name_;}template&lt;&gt;std::string mytemplateclass&lt;int&gt;::get_name(){  return std::string(\"specific member function specialization\");}template &lt;typename T&gt;int mytemplateclass&lt;T&gt;::get_grade(){  return grade_;}\n\n\n\nC++17 부터는 if constexpr와 std::is_same_v를 조합하여 좀 더 깔끔하게 처리할 수 있습니다.\nmytemplateclass_v2.hcpp12345678910111213template&lt;typename T&gt;class mytemplateclass_v2{public:  std::string get_name(); // 특수화 하려는 대상  int get_grade();private:  std::string name_;  int grade_;}#include \"mytemplateclass_v2.impl.h\"\n\nmytemplateclass_v2.impl.hcpp123456789101112131415template &lt;typename T&gt;std::string mytemplateclass_v2&lt;T&gt;::get_name(){  if constexpr (std::is_same_v&lt;int, T&gt;)  {    return std::string(\"specific member function specialization\");  }  return name_;}template &lt;typename T&gt;int mytemplateclass_v2&lt;T&gt;::get_grade(){  return grade_;}\n\n\n\nReference\n\nhttps://stackoverflow.com/questions/5512910/explicit-specialization-of-template-class-member-function\nhttps://en.cppreference.com/w/cpp/types/is_same\n\n","dateCreated":"2023-05-02T11:24:04+09:00","dateModified":"2023-07-02T22:23:21+09:00","datePublished":"2023-05-02T11:24:04+09:00","description":"","headline":"클래스 템플릿의 특정 멤버 함수만 특수화하기","image":[],"mainEntityOfPage":{"@type":"WebPage","@id":"https://chelseafandev.github.io/2023/05/02/make-specific-memberfunc-to-templatefunc/"},"publisher":{"@type":"Organization","name":"첼시팬개발자","sameAs":[],"image":"profile_github.jpeg","logo":{"@type":"ImageObject","url":"profile_github.jpeg"}},"url":"https://chelseafandev.github.io/2023/05/02/make-specific-memberfunc-to-templatefunc/","keywords":"template, template function specialization, if constexpr, std::is_same_v"}</script>
     <meta property="og:type" content="blog">
 <meta property="og:title" content="클래스 템플릿의 특정 멤버 함수만 특수화하기">
 <meta property="og:url" content="https://chelseafandev.github.io/2023/05/02/make-specific-memberfunc-to-templatefunc/index.html">
@@ -37,7 +37,7 @@
         
     
     
-        <meta property="og:image" content="https://chelseafandev.github.io/assets/images/chelsea_logo.png">
+        <meta property="og:image" content="https://chelseafandev.github.io/assets/images/profile_github.jpeg">
     
     
     
@@ -89,7 +89,7 @@
             <a class="header-right-picture " href="#about" aria-label="링크 열기: /#about">
         
         
-            <img class="header-picture" src="/assets/images/chelsea_logo.png" alt="저자 이미지">
+            <img class="header-picture" src="/assets/images/profile_github.jpeg" alt="저자 이미지">
         
         </a>
     
@@ -107,7 +107,7 @@
         
             <div class="sidebar-profile">
                 <a href="/#about" aria-label="저자에 대해 더 알아보기">
-                    <img class="sidebar-profile-picture" src="/assets/images/chelsea_logo.png" alt="저자 이미지">
+                    <img class="sidebar-profile-picture" src="/assets/images/profile_github.jpeg" alt="저자 이미지">
                 </a>
                 <h4 class="sidebar-profile-name">첼시팬개발자</h4>
                 
@@ -461,7 +461,7 @@
             <i class="fa fa-times"></i>
         </div>
         
-            <img id="about-card-picture" src="/assets/images/chelsea_logo.png" alt="저자 이미지">
+            <img id="about-card-picture" src="/assets/images/profile_github.jpeg" alt="저자 이미지">
         
             <h4 id="about-card-name">첼시팬개발자</h4>
         

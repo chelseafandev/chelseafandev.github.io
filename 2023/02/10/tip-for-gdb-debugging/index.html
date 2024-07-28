@@ -18,7 +18,7 @@
             <link rel="alternate" type="application/rss+xml" title="RSS" href="/rss2.xml">
         
     
-    <script type="application/ld+json">{"@context":"http://schema.org","@type":"BlogPosting","author":{"@type":"Person","name":"첼시팬개발자","sameAs":[],"image":"chelsea_logo.png"},"articleBody":"\n\n\n\ngdb를 통해 프로그램 실행1gdb &#123;(경로포함)프로그램명&#125;\n\n\n\n브레이크 포인트 등록1(gdb) b 소스파일명:라인넘버\n\n\n\n프로그램 시작1(gdb) r &#123;인자를 추가해야한다면 입력&#125;\n\n\n\n브레이크 포인트에 걸린 후 이어서 진행1(gdb) c\n\n\n\n자주 사용하는 명령어123456bt(=backtrace)p(=print)set print pretty on(or off)f(=frame)updown\n\n\n\nprint 포맷 종류123456d decimalx hext binaryf floating pointi instructionc character\n\n\n\n쓰레드 정보 확인1(gdb) info threads\n\n\n\n(info threads 명령어를 통해 출력된 id값을 통한)쓰레드 진입1(gdb) thread &#123;id&#125;\n\n\n\n레지스터 정보 확인1(gdb) info registers\n\n\nrax (eax) : 누산기(accumulator) 레지스터. 산술연산(덧셈, 나눗셈, 곱셈)이나 논리연산을 수행한 반환값이 저장\nrbx (ebx) : 베이스 레지스터\nrcx (ecx) : 카운터 레지스터. 반복 명령어 사용 시 반복 카운터로 사용되는 값을 저장\nrdx (edx) : 데이터 레지스터. 산술연산과 I/O 명령에서 rax(eax)와 함께 사용\nrsi (esi) : source 인덱스 레지스터\nrdi (edi) : destination 인덱스 레지스터\nrbp (ebp) : 베이스 포인터 레지스터. 스택의 시작 지점 주소를 저장\nrsp (esp) : 스택 포인터 레지스터. 스택의 가장 마지막 지점 주소를 저장\nrip : 명령 포인터 레지스터이다. 현재 명령의 위치를 가리킴\n\n\n\n어셈블러 덤프1(gdb) disas\n\n\n\nlayout123(gdb) layout src(gdb) layout asm(gdb) layout reg\n\n\n\n특정 변수 값의 주소 출력1(gdb) p &amp;&#123;변수명&#125;\n\n\n\n특정 변수의 헥사값 출력1(gdb) x/&#123;출력할크기&#125;bx &#123;변수의 주소값&#125;\n\n\n\ngdb에서 긴 문자열을 줄이지 않고 그대로 출력1(gdb) set print elements 0\n\n\n\ngdb에서 중복된 문자열을 그대로 풀어서 출력1(gdb) set print repeats 0\n\n\n\npx pnBoost::shared_ptr을 사용한다면 gdb 디버깅 시 px와 pn정보를 출력할 수 있음\n12element_type* px;                   // contained pointerboost::detail::shared_count pn;     // reference count\n\n\n\n실행 중인 프로세스의 특정 쓰레드 진입프로세스가 실행 중인 상태에서 특정 쓰레드 id를 통해 gdb 진입이 가능하며, 이후 CTRL + C를 통해 해당 쓰레드의 흐름을 중단하여 backtrace 확인이 가능함(c 명령어를 통해 실행 재개)\n1gdb -p &#123;gdb로 확인할 쓰레드 id&#125;\n\n\n\nsysroot / solib-search-path / substitute-path아래 command들은 gdb 실행 시 -ex 옵션(execute a single GDB command)으로 추가해주면 유용함\n\nset sysroot {path}\nset solib-search-path {path}\nset substitute-path {original path} {substitute path}\n\n\n\nReference\n\nhttps://visualgdb.com/gdbreference/commands/\nhttps://visualgdb.com/gdbreference/commands/set_sysroot\nhttps://visualgdb.com/gdbreference/commands/set_solib-search-path\nhttps://www.irya.unam.mx/computo/sites/manuales/fce12/debugger/cl/commandref/gdb_mode/cmd_set_substitu.htm\n\n","dateCreated":"2023-02-10T13:18:57+09:00","dateModified":"2023-06-09T14:02:43+09:00","datePublished":"2023-02-10T13:18:57+09:00","description":"","headline":"자주 사용하는 GDB 명령어","image":[],"mainEntityOfPage":{"@type":"WebPage","@id":"https://chelseafandev.github.io/2023/02/10/tip-for-gdb-debugging/"},"publisher":{"@type":"Organization","name":"첼시팬개발자","sameAs":[],"image":"chelsea_logo.png","logo":{"@type":"ImageObject","url":"chelsea_logo.png"}},"url":"https://chelseafandev.github.io/2023/02/10/tip-for-gdb-debugging/","keywords":"gdb, gdb command, backtrace, bt"}</script>
+    <script type="application/ld+json">{"@context":"http://schema.org","@type":"BlogPosting","author":{"@type":"Person","name":"첼시팬개발자","sameAs":[],"image":"profile_github.jpeg"},"articleBody":"\n\n\n\ngdb를 통해 프로그램 실행1gdb &#123;(경로포함)프로그램명&#125;\n\n\n\n브레이크 포인트 등록1(gdb) b 소스파일명:라인넘버\n\n\n\n프로그램 시작1(gdb) r &#123;인자를 추가해야한다면 입력&#125;\n\n\n\n브레이크 포인트에 걸린 후 이어서 진행1(gdb) c\n\n\n\n자주 사용하는 명령어123456bt(=backtrace)p(=print)set print pretty on(or off)f(=frame)updown\n\n\n\nprint 포맷 종류123456d decimalx hext binaryf floating pointi instructionc character\n\n\n\n쓰레드 정보 확인1(gdb) info threads\n\n\n\n(info threads 명령어를 통해 출력된 id값을 통한)쓰레드 진입1(gdb) thread &#123;id&#125;\n\n\n\n레지스터 정보 확인1(gdb) info registers\n\n\nrax (eax) : 누산기(accumulator) 레지스터. 산술연산(덧셈, 나눗셈, 곱셈)이나 논리연산을 수행한 반환값이 저장\nrbx (ebx) : 베이스 레지스터\nrcx (ecx) : 카운터 레지스터. 반복 명령어 사용 시 반복 카운터로 사용되는 값을 저장\nrdx (edx) : 데이터 레지스터. 산술연산과 I/O 명령에서 rax(eax)와 함께 사용\nrsi (esi) : source 인덱스 레지스터\nrdi (edi) : destination 인덱스 레지스터\nrbp (ebp) : 베이스 포인터 레지스터. 스택의 시작 지점 주소를 저장\nrsp (esp) : 스택 포인터 레지스터. 스택의 가장 마지막 지점 주소를 저장\nrip : 명령 포인터 레지스터이다. 현재 명령의 위치를 가리킴\n\n\n\n어셈블러 덤프1(gdb) disas\n\n\n\nlayout123(gdb) layout src(gdb) layout asm(gdb) layout reg\n\n\n\n특정 변수 값의 주소 출력1(gdb) p &amp;&#123;변수명&#125;\n\n\n\n특정 변수의 헥사값 출력1(gdb) x/&#123;출력할크기&#125;bx &#123;변수의 주소값&#125;\n\n\n\ngdb에서 긴 문자열을 줄이지 않고 그대로 출력1(gdb) set print elements 0\n\n\n\ngdb에서 중복된 문자열을 그대로 풀어서 출력1(gdb) set print repeats 0\n\n\n\npx pnBoost::shared_ptr을 사용한다면 gdb 디버깅 시 px와 pn정보를 출력할 수 있음\n12element_type* px;                   // contained pointerboost::detail::shared_count pn;     // reference count\n\n\n\n실행 중인 프로세스의 특정 쓰레드 진입프로세스가 실행 중인 상태에서 특정 쓰레드 id를 통해 gdb 진입이 가능하며, 이후 CTRL + C를 통해 해당 쓰레드의 흐름을 중단하여 backtrace 확인이 가능함(c 명령어를 통해 실행 재개)\n1gdb -p &#123;gdb로 확인할 쓰레드 id&#125;\n\n\n\nsysroot / solib-search-path / substitute-path아래 command들은 gdb 실행 시 -ex 옵션(execute a single GDB command)으로 추가해주면 유용함\n\nset sysroot {path}\nset solib-search-path {path}\nset substitute-path {original path} {substitute path}\n\n\n\nReference\n\nhttps://visualgdb.com/gdbreference/commands/\nhttps://visualgdb.com/gdbreference/commands/set_sysroot\nhttps://visualgdb.com/gdbreference/commands/set_solib-search-path\nhttps://www.irya.unam.mx/computo/sites/manuales/fce12/debugger/cl/commandref/gdb_mode/cmd_set_substitu.htm\n\n","dateCreated":"2023-02-10T13:18:57+09:00","dateModified":"2023-06-09T14:02:43+09:00","datePublished":"2023-02-10T13:18:57+09:00","description":"","headline":"자주 사용하는 GDB 명령어","image":[],"mainEntityOfPage":{"@type":"WebPage","@id":"https://chelseafandev.github.io/2023/02/10/tip-for-gdb-debugging/"},"publisher":{"@type":"Organization","name":"첼시팬개발자","sameAs":[],"image":"profile_github.jpeg","logo":{"@type":"ImageObject","url":"profile_github.jpeg"}},"url":"https://chelseafandev.github.io/2023/02/10/tip-for-gdb-debugging/","keywords":"gdb, gdb command, backtrace, bt"}</script>
     <meta property="og:type" content="blog">
 <meta property="og:title" content="자주 사용하는 GDB 명령어">
 <meta property="og:url" content="https://chelseafandev.github.io/2023/02/10/tip-for-gdb-debugging/index.html">
@@ -37,7 +37,7 @@
         
     
     
-        <meta property="og:image" content="https://chelseafandev.github.io/assets/images/chelsea_logo.png">
+        <meta property="og:image" content="https://chelseafandev.github.io/assets/images/profile_github.jpeg">
     
     
     
@@ -89,7 +89,7 @@
             <a class="header-right-picture " href="#about" aria-label="링크 열기: /#about">
         
         
-            <img class="header-picture" src="/assets/images/chelsea_logo.png" alt="저자 이미지">
+            <img class="header-picture" src="/assets/images/profile_github.jpeg" alt="저자 이미지">
         
         </a>
     
@@ -107,7 +107,7 @@
         
             <div class="sidebar-profile">
                 <a href="/#about" aria-label="저자에 대해 더 알아보기">
-                    <img class="sidebar-profile-picture" src="/assets/images/chelsea_logo.png" alt="저자 이미지">
+                    <img class="sidebar-profile-picture" src="/assets/images/profile_github.jpeg" alt="저자 이미지">
                 </a>
                 <h4 class="sidebar-profile-name">첼시팬개발자</h4>
                 
@@ -541,7 +541,7 @@
             <i class="fa fa-times"></i>
         </div>
         
-            <img id="about-card-picture" src="/assets/images/chelsea_logo.png" alt="저자 이미지">
+            <img id="about-card-picture" src="/assets/images/profile_github.jpeg" alt="저자 이미지">
         
             <h4 id="about-card-name">첼시팬개발자</h4>
         

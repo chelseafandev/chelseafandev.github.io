@@ -18,7 +18,7 @@
             <link rel="alternate" type="application/rss+xml" title="RSS" href="/rss2.xml">
         
     
-    <script type="application/ld+json">{"@context":"http://schema.org","@type":"BlogPosting","author":{"@type":"Person","name":"첼시팬개발자","sameAs":[],"image":"chelsea_logo.png"},"articleBody":"\nSelectQueryResultType은 쿼리 조회 결과로 나온 칼럼 이름을 key값으로 하고 해당 칼럼의 타입에 관계 없이 그 값을 저장하기 위한 빈 인터페이스 타입의 value를 갖는 map 슬라이스이고 조회된 row 개수 만큼 해당 슬라이스에 append 작업을 수행합니다.\npointers라는 빈(empty) 인터페이스 슬라이스를 추가한 이유는 pq 라이브러리의 Scan() 함수는 조회된 칼럼 값을 저장하기 위한 변수의 주소 값을 인자로 받기 때문에 values 라는 빈(empty) 인터페이스 슬라이스(조회된 칼럼 값을 저장할 공간)의 요소 별 주소 값을 저장하기 위한 슬라이스를 추가적으로 생성합니다. \n\n\npostgres.go12345678910111213141516171819202122232425262728293031323334353637383940414243444546474849package postgresimport (\t&quot;database/sql&quot;\t&quot;fmt&quot;\t&quot;strings&quot;\t_ &quot;github.com/lib/pq&quot;)type SelectQueryResultType []map[string]interface&#123;&#125;func (db *DB) SelectQuery(query string) (SelectQueryResultType, error) &#123;\trows, err := db.db.Query(query)\tif err != nil &#123;\t\treturn nil, err\t&#125;\tcols, err := rows.Columns()\tif err != nil &#123;\t\tfmt.Printf(&quot;db columns fail: %s\\n&quot;, err)\t\treturn nil, err\t&#125;\tvar result SelectQueryResultType\tfor rows.Next() &#123;\t\tvalues := make([]interface&#123;&#125;, len(cols))\t\tpointers := make([]interface&#123;&#125;, len(cols))\t\tfor i := range values &#123;\t\t\tpointers[i] = &amp;values[i]\t\t&#125;\t\tif err = rows.Scan(pointers...); err != nil &#123;\t\t\tfmt.Printf(&quot;db scan fail: %s\\n&quot;, err)\t\t\treturn nil, err\t\t&#125;\t\trow := make(map[string]interface&#123;&#125;)\t\tfor i, val := range values &#123;\t\t\trow[strings.ToLower(cols[i])] = val\t\t&#125;\t\tresult = append(result, row)\t&#125;\treturn result, nil&#125;\n\n\n\nReference\n\nhttps://stackoverflow.com/questions/53435455/handling-dynamic-queries-cant-scan-into-struct\n\n","dateCreated":"2023-01-26T11:48:13+09:00","dateModified":"2023-07-02T22:23:21+09:00","datePublished":"2023-01-26T11:48:13+09:00","description":"","headline":"SELECT 쿼리 결과 동적으로 받아오는 방법","image":[],"mainEntityOfPage":{"@type":"WebPage","@id":"https://chelseafandev.github.io/2023/01/26/how-to-get-query-result-dynamically/"},"publisher":{"@type":"Organization","name":"첼시팬개발자","sameAs":[],"image":"chelsea_logo.png","logo":{"@type":"ImageObject","url":"chelsea_logo.png"}},"url":"https://chelseafandev.github.io/2023/01/26/how-to-get-query-result-dynamically/","keywords":"lib/pq, Scan(), Golang query"}</script>
+    <script type="application/ld+json">{"@context":"http://schema.org","@type":"BlogPosting","author":{"@type":"Person","name":"첼시팬개발자","sameAs":[],"image":"profile_github.jpeg"},"articleBody":"\nSelectQueryResultType은 쿼리 조회 결과로 나온 칼럼 이름을 key값으로 하고 해당 칼럼의 타입에 관계 없이 그 값을 저장하기 위한 빈 인터페이스 타입의 value를 갖는 map 슬라이스이고 조회된 row 개수 만큼 해당 슬라이스에 append 작업을 수행합니다.\npointers라는 빈(empty) 인터페이스 슬라이스를 추가한 이유는 pq 라이브러리의 Scan() 함수는 조회된 칼럼 값을 저장하기 위한 변수의 주소 값을 인자로 받기 때문에 values 라는 빈(empty) 인터페이스 슬라이스(조회된 칼럼 값을 저장할 공간)의 요소 별 주소 값을 저장하기 위한 슬라이스를 추가적으로 생성합니다. \n\n\npostgres.go12345678910111213141516171819202122232425262728293031323334353637383940414243444546474849package postgresimport (\t&quot;database/sql&quot;\t&quot;fmt&quot;\t&quot;strings&quot;\t_ &quot;github.com/lib/pq&quot;)type SelectQueryResultType []map[string]interface&#123;&#125;func (db *DB) SelectQuery(query string) (SelectQueryResultType, error) &#123;\trows, err := db.db.Query(query)\tif err != nil &#123;\t\treturn nil, err\t&#125;\tcols, err := rows.Columns()\tif err != nil &#123;\t\tfmt.Printf(&quot;db columns fail: %s\\n&quot;, err)\t\treturn nil, err\t&#125;\tvar result SelectQueryResultType\tfor rows.Next() &#123;\t\tvalues := make([]interface&#123;&#125;, len(cols))\t\tpointers := make([]interface&#123;&#125;, len(cols))\t\tfor i := range values &#123;\t\t\tpointers[i] = &amp;values[i]\t\t&#125;\t\tif err = rows.Scan(pointers...); err != nil &#123;\t\t\tfmt.Printf(&quot;db scan fail: %s\\n&quot;, err)\t\t\treturn nil, err\t\t&#125;\t\trow := make(map[string]interface&#123;&#125;)\t\tfor i, val := range values &#123;\t\t\trow[strings.ToLower(cols[i])] = val\t\t&#125;\t\tresult = append(result, row)\t&#125;\treturn result, nil&#125;\n\n\n\nReference\n\nhttps://stackoverflow.com/questions/53435455/handling-dynamic-queries-cant-scan-into-struct\n\n","dateCreated":"2023-01-26T11:48:13+09:00","dateModified":"2023-07-02T22:23:21+09:00","datePublished":"2023-01-26T11:48:13+09:00","description":"","headline":"SELECT 쿼리 결과 동적으로 받아오는 방법","image":[],"mainEntityOfPage":{"@type":"WebPage","@id":"https://chelseafandev.github.io/2023/01/26/how-to-get-query-result-dynamically/"},"publisher":{"@type":"Organization","name":"첼시팬개발자","sameAs":[],"image":"profile_github.jpeg","logo":{"@type":"ImageObject","url":"profile_github.jpeg"}},"url":"https://chelseafandev.github.io/2023/01/26/how-to-get-query-result-dynamically/","keywords":"lib/pq, Scan(), Golang query"}</script>
     <meta property="og:type" content="blog">
 <meta property="og:title" content="SELECT 쿼리 결과 동적으로 받아오는 방법">
 <meta property="og:url" content="https://chelseafandev.github.io/2023/01/26/how-to-get-query-result-dynamically/index.html">
@@ -38,7 +38,7 @@
         
     
     
-        <meta property="og:image" content="https://chelseafandev.github.io/assets/images/chelsea_logo.png">
+        <meta property="og:image" content="https://chelseafandev.github.io/assets/images/profile_github.jpeg">
     
     
     
@@ -90,7 +90,7 @@
             <a class="header-right-picture " href="#about" aria-label="링크 열기: /#about">
         
         
-            <img class="header-picture" src="/assets/images/chelsea_logo.png" alt="저자 이미지">
+            <img class="header-picture" src="/assets/images/profile_github.jpeg" alt="저자 이미지">
         
         </a>
     
@@ -108,7 +108,7 @@
         
             <div class="sidebar-profile">
                 <a href="/#about" aria-label="저자에 대해 더 알아보기">
-                    <img class="sidebar-profile-picture" src="/assets/images/chelsea_logo.png" alt="저자 이미지">
+                    <img class="sidebar-profile-picture" src="/assets/images/profile_github.jpeg" alt="저자 이미지">
                 </a>
                 <h4 class="sidebar-profile-name">첼시팬개발자</h4>
                 
@@ -455,7 +455,7 @@
             <i class="fa fa-times"></i>
         </div>
         
-            <img id="about-card-picture" src="/assets/images/chelsea_logo.png" alt="저자 이미지">
+            <img id="about-card-picture" src="/assets/images/profile_github.jpeg" alt="저자 이미지">
         
             <h4 id="about-card-name">첼시팬개발자</h4>
         

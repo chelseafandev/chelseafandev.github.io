@@ -18,7 +18,7 @@
             <link rel="alternate" type="application/rss+xml" title="RSS" href="/rss2.xml">
         
     
-    <script type="application/ld+json">{"@context":"http://schema.org","@type":"BlogPosting","author":{"@type":"Person","name":"첼시팬개발자","sameAs":[],"image":"chelsea_logo.png"},"articleBody":"\n헤더 파일의 맨 하단에 템플릿 클래스를 구현한 파일을 include 시켜주면 됩니다. (#include 는 대상이 되는 파일을 단순히 붙여 넣어주는 역할을 하므로)\nmytemplateclass.hcpp12345678910111213141516171819#ifndef MYTEMPLATECLASS_H#define MYTEMPLATECLASS_Hnamespace ggultip{\ttemplate &lt;typename T&gt;\tclass mytemplateclass\t{\tpublic:\t\tmytemplateclass();\t\t~mytemplateclass();\t\t\t\t...\t};}#endif#include \"mytemplateclass.impl.h\"\n\n\nmytemplateclass.impl.hcpp123456789101112131415161718#pragma oncenamespace ggultip{\ttemplate &lt;typename T&gt;\tmytemplateclass&lt;T&gt;::mytemplateclass()\t{\t\t...\t}\t\ttemplate &lt;typename T&gt;\tmytemplateclass&lt;T&gt;::~mytemplateclass()\t{\t\t...\t}\t\t...}\n\n\n\nReference\n\nMichael Main, Walter Savitch. (2010). Data Structures &amp; Other Objects Using C++, 4th Edition. Pearson\n\n","dateCreated":"2023-01-26T11:41:06+09:00","dateModified":"2023-07-02T22:23:21+09:00","datePublished":"2023-01-26T11:41:06+09:00","description":"","headline":"템플릿 클래스를 정의할 때 선언부와 구현부를 서로 다른 파일로 분리하는 방법","image":[],"mainEntityOfPage":{"@type":"WebPage","@id":"https://chelseafandev.github.io/2023/01/26/seperate-header-and-impl-in-template-class/"},"publisher":{"@type":"Organization","name":"첼시팬개발자","sameAs":[],"image":"chelsea_logo.png","logo":{"@type":"ImageObject","url":"chelsea_logo.png"}},"url":"https://chelseafandev.github.io/2023/01/26/seperate-header-and-impl-in-template-class/","keywords":"template class, 템플릿 클래스 구현부 분리"}</script>
+    <script type="application/ld+json">{"@context":"http://schema.org","@type":"BlogPosting","author":{"@type":"Person","name":"첼시팬개발자","sameAs":[],"image":"profile_github.jpeg"},"articleBody":"\n헤더 파일의 맨 하단에 템플릿 클래스를 구현한 파일을 include 시켜주면 됩니다. (#include 는 대상이 되는 파일을 단순히 붙여 넣어주는 역할을 하므로)\nmytemplateclass.hcpp12345678910111213141516171819#ifndef MYTEMPLATECLASS_H#define MYTEMPLATECLASS_Hnamespace ggultip{\ttemplate &lt;typename T&gt;\tclass mytemplateclass\t{\tpublic:\t\tmytemplateclass();\t\t~mytemplateclass();\t\t\t\t...\t};}#endif#include \"mytemplateclass.impl.h\"\n\n\nmytemplateclass.impl.hcpp123456789101112131415161718#pragma oncenamespace ggultip{\ttemplate &lt;typename T&gt;\tmytemplateclass&lt;T&gt;::mytemplateclass()\t{\t\t...\t}\t\ttemplate &lt;typename T&gt;\tmytemplateclass&lt;T&gt;::~mytemplateclass()\t{\t\t...\t}\t\t...}\n\n\n\nReference\n\nMichael Main, Walter Savitch. (2010). Data Structures &amp; Other Objects Using C++, 4th Edition. Pearson\n\n","dateCreated":"2023-01-26T11:41:06+09:00","dateModified":"2023-07-02T22:23:21+09:00","datePublished":"2023-01-26T11:41:06+09:00","description":"","headline":"템플릿 클래스를 정의할 때 선언부와 구현부를 서로 다른 파일로 분리하는 방법","image":[],"mainEntityOfPage":{"@type":"WebPage","@id":"https://chelseafandev.github.io/2023/01/26/seperate-header-and-impl-in-template-class/"},"publisher":{"@type":"Organization","name":"첼시팬개발자","sameAs":[],"image":"profile_github.jpeg","logo":{"@type":"ImageObject","url":"profile_github.jpeg"}},"url":"https://chelseafandev.github.io/2023/01/26/seperate-header-and-impl-in-template-class/","keywords":"template class, 템플릿 클래스 구현부 분리"}</script>
     <meta property="og:type" content="blog">
 <meta property="og:title" content="템플릿 클래스를 정의할 때 선언부와 구현부를 서로 다른 파일로 분리하는 방법">
 <meta property="og:url" content="https://chelseafandev.github.io/2023/01/26/seperate-header-and-impl-in-template-class/index.html">
@@ -35,7 +35,7 @@
         
     
     
-        <meta property="og:image" content="https://chelseafandev.github.io/assets/images/chelsea_logo.png">
+        <meta property="og:image" content="https://chelseafandev.github.io/assets/images/profile_github.jpeg">
     
     
     
@@ -87,7 +87,7 @@
             <a class="header-right-picture " href="#about" aria-label="링크 열기: /#about">
         
         
-            <img class="header-picture" src="/assets/images/chelsea_logo.png" alt="저자 이미지">
+            <img class="header-picture" src="/assets/images/profile_github.jpeg" alt="저자 이미지">
         
         </a>
     
@@ -105,7 +105,7 @@
         
             <div class="sidebar-profile">
                 <a href="/#about" aria-label="저자에 대해 더 알아보기">
-                    <img class="sidebar-profile-picture" src="/assets/images/chelsea_logo.png" alt="저자 이미지">
+                    <img class="sidebar-profile-picture" src="/assets/images/profile_github.jpeg" alt="저자 이미지">
                 </a>
                 <h4 class="sidebar-profile-name">첼시팬개발자</h4>
                 
@@ -452,7 +452,7 @@
             <i class="fa fa-times"></i>
         </div>
         
-            <img id="about-card-picture" src="/assets/images/chelsea_logo.png" alt="저자 이미지">
+            <img id="about-card-picture" src="/assets/images/profile_github.jpeg" alt="저자 이미지">
         
             <h4 id="about-card-name">첼시팬개발자</h4>
         
