@@ -2881,4 +2881,56 @@
         <tag>handler sync</tag>
       </tags>
   </entry>
+  <entry>
+    <title>자주 사용하진 않는데 필요할 때마다 매번 검색해서 찾아봐야하는 git 명령어</title>
+    <url>/2024/10/27/tip-for-git-command/</url>
+    <content><![CDATA[<p><escape><span id="more"></span></escape></p>
+<!-- toc -->
+<br>
+
+<h3 id="1-다른-브랜치에-있는-커밋-내용을-가져오기"><a href="#1-다른-브랜치에-있는-커밋-내용을-가져오기" class="headerlink" title="1. 다른 브랜치에 있는 커밋 내용을 가져오기"></a>1. 다른 브랜치에 있는 커밋 내용을 가져오기</h3><figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">$ git checkout &#123;커밋 내용을 추가할 브랜치&#125;</span><br><span class="line">$ git cherry-pick &#123;커밋번호&#125;</span><br></pre></td></tr></table></figure>
+
+<br>
+
+<h3 id="2-Git-원격-저장소-주소-변경"><a href="#2-Git-원격-저장소-주소-변경" class="headerlink" title="2. Git 원격 저장소 주소 변경"></a>2. Git 원격 저장소 주소 변경</h3><ul>
+<li><p>아래 커맨드를 통해 현재 remote 주소 정보를 확인할 수 있음</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">$ git remote -v</span><br></pre></td></tr></table></figure></li>
+<li><p>원격 저장소 주소를 변경하는 커맨드는 아래와 같음</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">$ git remote set-url origin &#123;변경할repo주소&#125;</span><br></pre></td></tr></table></figure></li>
+</ul>
+<br>
+
+<h3 id="3-코드-수정-내역-확인하기"><a href="#3-코드-수정-내역-확인하기" class="headerlink" title="3. 코드 수정 내역 확인하기"></a>3. 코드 수정 내역 확인하기</h3><figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">$ git blame &#123;파일명&#125;</span><br><span class="line">$ git blame -L 시작라인번호,종료라인번호 &#123;파일명&#125;</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>아래 커맨드를 통해 특정 커밋의 세부 변경 사항을 확인할 수 있음<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">$ git show &#123;커밋번호&#125;</span><br></pre></td></tr></table></figure></li>
+</ul>
+<br>
+
+<h3 id="4-commit없이-변경-사항-임시-저장하기"><a href="#4-commit없이-변경-사항-임시-저장하기" class="headerlink" title="4. commit없이 변경 사항 임시 저장하기"></a>4. commit없이 변경 사항 임시 저장하기</h3><ul>
+<li><p>아래 커맨드를 통해 현재 브랜치의 변경 사항을 임시 저장할 수 있음</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">$ git stash</span><br></pre></td></tr></table></figure></li>
+<li><p>아래 커맨드를 통해 현재 stash 목록을 확인할 수 있음</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">$ git stash list</span><br><span class="line">stash@&#123;0&#125;: WIP on feature/add_wkloggerimpl: 917106b1 Merge branch &#x27;fix/edlpinterface_segfault&#x27; into &#x27;dist&#x27;</span><br></pre></td></tr></table></figure></li>
+<li><p>아래 커맨드를 통해 임시 저장된 변경 사항을 브랜치에 다시 반영할 수 있음</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">$ git stash pop stash@&#123;0&#125;</span><br></pre></td></tr></table></figure></li>
+</ul>
+<br>
+
+<p><strong>Reference</strong></p>
+<ul>
+<li><a href="https://git-scm.com/docs">https://git-scm.com/docs</a></li>
+</ul>
+]]></content>
+      <categories>
+        <category>유용한 팁</category>
+      </categories>
+      <tags>
+        <tag>git command</tag>
+        <tag>git stash</tag>
+        <tag>git cherry-pick</tag>
+        <tag>git blame</tag>
+        <tag>git remote</tag>
+      </tags>
+  </entry>
 </search>
